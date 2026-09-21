@@ -1,0 +1,6 @@
+{
+  "name": "XEEROO",
+  "description": "Official XEEROO Store - Modern e-commerce platform with single admin control, product catalog, order management, and contacts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
