@@ -33,18 +33,6 @@ export const INITIAL_USERS: User[] = [
     createdAt: '2026-01-01T00:00:00Z',
     isBanned: false,
   },
-  {
-    id: 'usr-customer-demo',
-    email: 'customer@xeeroo.com',
-    role: 'customer',
-    fullName: 'Tanvir Hossain',
-    phone: '+8801711223344',
-    password: 'customer123',
-    approvalStatus: 'pending',
-    avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-    createdAt: '2026-03-12T10:15:00Z',
-    isBanned: false,
-  },
 ];
 
 export const INITIAL_BANNERS: BannerSlide[] = [

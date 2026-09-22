@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { XEEROO_CONTACT } from '../../data/mockData';
@@ -43,6 +43,11 @@ export const ProductDetail: React.FC = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // Always scroll to top when opening or switching product detail
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [product?.id]);
 
   if (!product) {
     return (

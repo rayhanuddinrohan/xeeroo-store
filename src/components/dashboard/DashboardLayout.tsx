@@ -38,6 +38,7 @@ export const DashboardLayout: React.FC = () => {
     switchUserRole,
     canAccessDashboard,
     canManageUsers,
+    canManageCategories,
     canViewAnalytics,
     resetDemoData,
     banners,
@@ -206,18 +207,19 @@ export const DashboardLayout: React.FC = () => {
               )}
             </button>
 
-            {/* Category Management (Admin Only) */}
+            {/* Category Management (Staff & Admin) */}
             <button
+              id="tab-btn-categories"
               onClick={() => {
-                if (currentUser?.role === 'admin') {
+                if (canManageCategories) {
                   setDashboardTab('categories');
                 }
               }}
-              disabled={currentUser?.role !== 'admin'}
+              disabled={!canManageCategories}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
                 dashboardTab === 'categories'
-                  ? 'bg-purple-50 text-purple-700 font-bold'
-                  : currentUser?.role === 'admin'
+                  ? 'bg-blue-50 text-blue-700 font-bold'
+                  : canManageCategories
                   ? 'text-gray-700 hover:bg-gray-50'
                   : 'text-gray-400 opacity-50 cursor-not-allowed'
               }`}
@@ -226,9 +228,9 @@ export const DashboardLayout: React.FC = () => {
                 <FolderTree className="w-4 h-4" />
                 <span>Categories</span>
               </div>
-              {currentUser?.role !== 'admin' && (
+              {!canManageCategories && (
                 <span className="text-[9px] px-1 py-0.2 rounded bg-gray-100 text-gray-500 font-mono">
-                  Admin
+                  Staff
                 </span>
               )}
             </button>

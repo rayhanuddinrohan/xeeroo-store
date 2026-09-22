@@ -20,10 +20,10 @@ export const CategoryManagementTab: React.FC = () => {
           <Lock className="w-6 h-6" />
         </div>
         <h3 className="text-base font-bold text-gray-900 mb-1">
-          Administrator Access Required
+          Staff & Administrator Access Required
         </h3>
         <p className="text-xs text-gray-600 mb-4 leading-relaxed">
-          Product department category configuration is restricted to Admins.
+          Product department category configuration is restricted to Admin & Staff members.
         </p>
       </div>
     );

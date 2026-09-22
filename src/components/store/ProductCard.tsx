@@ -46,6 +46,7 @@ Please confirm availability and delivery.`
   const handleCardClick = () => {
     setSelectedProductId(product.id);
     setViewMode('product-detail');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {

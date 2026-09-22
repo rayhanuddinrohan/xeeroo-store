@@ -31,7 +31,14 @@ interface StoreContextType {
   currentUser: User | null;
   users: User[];
   isLoggedIn: boolean;
-  login: (email: string, password?: string) => { success: boolean; message: string; user?: User };
+  login: (identifier: string, password?: string) => { success: boolean; message: string; user?: User };
+  loginWithGoogle: (googleData: {
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+    phone?: string;
+    uid?: string;
+  }) => { success: boolean; message: string; user?: User };
   register: (data: { fullName: string; email: string; phone: string; password: string }) => { success: boolean; message: string; user?: User };
   logout: () => void;
   switchUserRole: (role: UserRole) => void;
@@ -382,18 +389,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const canManageUsers = currentUser?.role === 'admin';
   const canDeleteProduct = currentUser?.role === 'admin';
   const canEditProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
-  const canManageCategories = currentUser?.role === 'admin';
+  const canManageCategories = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
   const canViewAnalytics = currentUser?.role === 'admin';
   const canUpdateOrderStatus = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
   // Auth Operations
-  const login = (email: string, password?: string) => {
-    const cleanEmail = email.trim().toLowerCase();
-    const user = users.find(u => u.email.toLowerCase() === cleanEmail);
+  const login = (identifier: string, password?: string) => {
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
+    const user = users.find(u => {
+      const emailMatch = u.email.toLowerCase() === clean;
+      const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
+      const phoneMatch =
+        cleanDigits.length >= 8 &&
+        (uPhoneDigits === cleanDigits ||
+          uPhoneDigits.endsWith(cleanDigits) ||
+          cleanDigits.endsWith(uPhoneDigits));
+      return emailMatch || phoneMatch;
+    });
 
     if (!user) {
-      addToast('No account found with this email address.', 'error');
-      return { success: false, message: 'Account not found' };
+      addToast('No account found with this email or phone number.', 'error');
+      return { success: false, message: 'Account not found with this email or phone number' };
     }
 
     if (password && user.password && user.password !== password) {
@@ -418,12 +436,64 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, message: 'Logged in successfully', user };
   };
 
+  const loginWithGoogle = (googleData: {
+    email: string;
+    fullName: string;
+    avatarUrl?: string;
+    phone?: string;
+    uid?: string;
+  }) => {
+    const cleanEmail = googleData.email.trim().toLowerCase();
+    const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
+
+    if (existing) {
+      if (existing.isBanned) {
+        addToast('This account has been suspended by administration.', 'error');
+        return { success: false, message: 'Account suspended' };
+      }
+      setCurrentUserId(existing.id);
+      setIsAuthModalOpen(false);
+      addToast(`Signed in with Google! Welcome, ${existing.fullName}.`, 'success');
+      return { success: true, message: 'Logged in successfully with Google', user: existing };
+    }
+
+    // Auto-register new Google user with pre-approved status
+    const newUser: User = {
+      id: googleData.uid ? `usr-g-${googleData.uid}` : `usr-g-${Date.now()}`,
+      email: googleData.email.trim(),
+      fullName: googleData.fullName.trim() || 'Google User',
+      phone: googleData.phone || '',
+      role: 'customer',
+      approvalStatus: 'approved',
+      avatarUrl:
+        googleData.avatarUrl ||
+        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      createdAt: new Date().toISOString(),
+      isBanned: false,
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    setCurrentUserId(newUser.id);
+    setIsAuthModalOpen(false);
+    addToast(`Account created and signed in with Google! Welcome, ${newUser.fullName}.`, 'success');
+    return { success: true, message: 'Signed in with Google', user: newUser };
+  };
+
   const register = (data: { fullName: string; email: string; phone: string; password: string }) => {
     const cleanEmail = data.email.trim().toLowerCase();
+    const cleanDigits = data.phone.replace(/[^0-9]/g, '');
 
     if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
       addToast('An account with this email already exists. Please login.', 'error');
       return { success: false, message: 'Email already registered' };
+    }
+
+    if (
+      cleanDigits.length >= 8 &&
+      users.some(u => (u.phone || '').replace(/[^0-9]/g, '') === cleanDigits)
+    ) {
+      addToast('An account with this phone number already exists. Please login.', 'error');
+      return { success: false, message: 'Phone number already registered' };
     }
 
     const newUser: User = {
@@ -444,7 +514,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsAuthModalOpen(false);
 
     addToast(
-      'Registration successful! Your account is pending XEEROO Admin approval before placing orders.',
+      'Registration successful! Your account is submitted for XEEROO Admin approval.',
       'info'
     );
 
@@ -756,10 +826,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  // Category CRUD (Admin Only)
+  // Category CRUD (Admin & Staff)
   const addCategory = (name: string, description?: string): boolean => {
     if (!canManageCategories) {
-      addToast('Access Denied: Only Admins can add categories.', 'error');
+      addToast('Access Denied: Only Admin and Staff can add categories.', 'error');
       return false;
     }
 
@@ -778,7 +848,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteCategory = (id: string): boolean => {
     if (!canManageCategories) {
-      addToast('Access Denied: Only Admins can delete categories.', 'error');
+      addToast('Access Denied: Only Admin and Staff can delete categories.', 'error');
       return false;
     }
 
@@ -993,6 +1063,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     users,
     isLoggedIn,
     login,
+    loginWithGoogle,
     register,
     logout,
     switchUserRole,
