@@ -20,6 +20,7 @@ export interface User {
   password?: string;
   approvalStatus?: UserApprovalStatus;
   isBanned?: boolean;
+  isVerified?: boolean;
   address?: ShippingAddress;
 }
 

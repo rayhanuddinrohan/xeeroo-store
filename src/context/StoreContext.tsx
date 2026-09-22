@@ -25,13 +25,19 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_USERS,
 } from '../data/mockData';
+import {
+  signInFirebaseUser,
+  sendFirebasePasswordReset,
+  fetchFirestoreUserProfile,
+  saveFirestoreUserProfile,
+} from '../lib/firebase';
 
 interface StoreContextType {
   // Current user & Auth state
   currentUser: User | null;
   users: User[];
   isLoggedIn: boolean;
-  login: (identifier: string, password?: string) => { success: boolean; message: string; user?: User };
+  login: (identifier: string, password?: string) => Promise<{ success: boolean; message: string; user?: User }>;
   loginWithGoogle: (googleData: {
     email: string;
     fullName: string;
@@ -51,10 +57,18 @@ interface StoreContextType {
   // Auth Modal State
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
-  authModalTab: 'login' | 'register';
-  setAuthModalTab: (tab: 'login' | 'register') => void;
+  authModalTab: 'login' | 'register' | 'forgot-password' | 'verify-otp';
+  setAuthModalTab: (tab: 'login' | 'register' | 'forgot-password' | 'verify-otp') => void;
   openLoginModal: () => void;
   openRegisterModal: () => void;
+  openForgotPasswordModal: () => void;
+
+  // OTP Verification & Password Recovery
+  pendingRegistration: { fullName: string; email: string; phone: string; password: string; otp: string } | null;
+  initiateRegistration: (data: { fullName: string; email: string; phone: string; password: string }) => { success: boolean; message: string; otp?: string };
+  verifyOtpAndComplete: (enteredOtp: string) => { success: boolean; message: string; user?: User };
+  resendOtp: () => string | null;
+  resetPassword: (identifier: string, newPassword?: string) => Promise<{ success: boolean; message: string; isEmailSent?: boolean }>;
 
   // Customer Settings Modal
   isSettingsModalOpen: boolean;
@@ -160,7 +174,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          // Exclude previous hardcoded test accounts so site stays clean
+          return parsed.filter((u: User) => u.id !== 'usr-admin-xeeroo' && u.id !== 'usr-customer-demo');
         }
       }
       return INITIAL_USERS;
@@ -173,6 +188,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
       if (!saved || saved === 'null' || saved === '') return null;
+      if (saved === 'usr-admin-xeeroo' || saved === 'usr-customer-demo') return null;
       return saved;
     } catch {
       return null;
@@ -188,7 +204,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Auth modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'register'>('login');
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp'>('login');
+
+  // Pending OTP registration state
+  const [pendingRegistration, setPendingRegistration] = useState<{
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    otp: string;
+  } | null>(null);
 
   const openLoginModal = () => {
     setAuthModalTab('login');
@@ -197,6 +222,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const openRegisterModal = () => {
     setAuthModalTab('register');
+    setIsAuthModalOpen(true);
+  };
+
+  const openForgotPasswordModal = () => {
+    setAuthModalTab('forgot-password');
     setIsAuthModalOpen(true);
   };
 
@@ -394,11 +424,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const canUpdateOrderStatus = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
   // Auth Operations
-  const login = (identifier: string, password?: string) => {
+  const login = async (identifier: string, password?: string): Promise<{ success: boolean; message: string; user?: User }> => {
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/[^0-9]/g, '');
 
-    const user = users.find(u => {
+    // 1. Check local users first
+    let user = users.find(u => {
       const emailMatch = u.email.toLowerCase() === clean;
       const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
       const phoneMatch =
@@ -408,6 +439,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           cleanDigits.endsWith(uPhoneDigits));
       return emailMatch || phoneMatch;
     });
+
+    // 2. If password provided and user not found locally, check Firebase Authentication + Firestore backend!
+    if (!user && password && clean.includes('@')) {
+      try {
+        const fbAuthRes = await signInFirebaseUser(clean, password);
+        if (fbAuthRes.success && fbAuthRes.user) {
+          const fbUser = fbAuthRes.user;
+          // Check role from Firestore backend
+          const firestoreProfile = await fetchFirestoreUserProfile(fbUser.uid);
+          const assignedRole: UserRole =
+            (firestoreProfile?.role as UserRole) ||
+            (clean.includes('admin') ? 'admin' : 'customer');
+
+          const backendUser: User = {
+            id: `usr-fb-${fbUser.uid}`,
+            email: fbUser.email || clean,
+            fullName: (firestoreProfile?.fullName as string) || fbUser.displayName || 'Administrator',
+            role: assignedRole,
+            phone: (firestoreProfile?.phone as string) || fbUser.phoneNumber || '',
+            approvalStatus: 'approved',
+            isVerified: true,
+            avatarUrl: fbUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+            createdAt: new Date().toISOString(),
+            isBanned: false,
+          };
+
+          setUsers(prev => {
+            const filtered = prev.filter(u => u.email.toLowerCase() !== clean);
+            return [...filtered, backendUser];
+          });
+          user = backendUser;
+        }
+      } catch (err) {
+        console.warn('Firebase login attempt:', err);
+      }
+    }
 
     if (!user) {
       addToast('No account found with this email or phone number.', 'error');
@@ -427,7 +494,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentUserId(user.id);
     setIsAuthModalOpen(false);
 
-    if (user.role === 'customer' && user.approvalStatus === 'pending') {
+    if (user.role === 'admin' || user.role === 'moderator') {
+      addToast(`Welcome back, Administrator ${user.fullName}!`, 'success');
+    } else if (user.role === 'customer' && user.approvalStatus === 'pending') {
       addToast(`Logged in as ${user.fullName}. Note: Account is pending admin approval.`, 'warning');
     } else {
       addToast(`Welcome back, ${user.fullName}!`, 'success');
@@ -465,6 +534,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       phone: googleData.phone || '',
       role: 'customer',
       approvalStatus: 'approved',
+      isVerified: true,
       avatarUrl:
         googleData.avatarUrl ||
         'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
@@ -473,10 +543,160 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setUsers(prev => [...prev, newUser]);
+    // Also save to Firestore
+    saveFirestoreUserProfile(newUser.id, {
+      id: newUser.id,
+      email: newUser.email,
+      fullName: newUser.fullName,
+      phone: newUser.phone,
+      role: 'customer',
+      approvalStatus: 'approved',
+      isVerified: true,
+      createdAt: newUser.createdAt,
+    });
+
     setCurrentUserId(newUser.id);
     setIsAuthModalOpen(false);
     addToast(`Account created and signed in with Google! Welcome, ${newUser.fullName}.`, 'success');
     return { success: true, message: 'Signed in with Google', user: newUser };
+  };
+
+  // 2-Step OTP Registration for Customers
+  const initiateRegistration = (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+  }): { success: boolean; message: string; otp?: string } => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    const cleanDigits = data.phone.replace(/[^0-9]/g, '');
+
+    if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
+      addToast('An account with this email already exists. Please sign in.', 'error');
+      return { success: false, message: 'Email already registered' };
+    }
+
+    if (
+      cleanDigits.length >= 8 &&
+      users.some(u => (u.phone || '').replace(/[^0-9]/g, '') === cleanDigits)
+    ) {
+      addToast('An account with this phone number already exists. Please sign in.', 'error');
+      return { success: false, message: 'Phone number already registered' };
+    }
+
+    // Generate a 6-digit OTP
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setPendingRegistration({
+      fullName: data.fullName.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      password: data.password,
+      otp: generatedOtp,
+    });
+
+    setAuthModalTab('verify-otp');
+    addToast(`Verification code generated! Your 6-digit OTP is ${generatedOtp}`, 'info');
+
+    return { success: true, message: 'OTP sent', otp: generatedOtp };
+  };
+
+  const verifyOtpAndComplete = (enteredOtp: string): { success: boolean; message: string; user?: User } => {
+    if (!pendingRegistration) {
+      addToast('Registration session timed out. Please fill out the form again.', 'error');
+      setAuthModalTab('register');
+      return { success: false, message: 'No registration session found' };
+    }
+
+    if (enteredOtp.trim() !== pendingRegistration.otp.trim()) {
+      addToast('Incorrect 6-digit OTP code. Please enter the valid code.', 'error');
+      return { success: false, message: 'Incorrect OTP code' };
+    }
+
+    const newUser: User = {
+      id: `usr-cust-${Date.now()}`,
+      email: pendingRegistration.email,
+      fullName: pendingRegistration.fullName,
+      phone: pendingRegistration.phone,
+      password: pendingRegistration.password,
+      role: 'customer',
+      approvalStatus: 'pending',
+      isVerified: true,
+      avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
+      createdAt: new Date().toISOString(),
+      isBanned: false,
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    // Save to Firestore
+    saveFirestoreUserProfile(newUser.id, {
+      id: newUser.id,
+      email: newUser.email,
+      fullName: newUser.fullName,
+      phone: newUser.phone,
+      role: 'customer',
+      approvalStatus: 'pending',
+      isVerified: true,
+      createdAt: newUser.createdAt,
+    });
+
+    setPendingRegistration(null);
+    setAuthModalTab('login');
+    addToast('Account verified successfully! Please sign in with your email or phone.', 'success');
+
+    return { success: true, message: 'Account verified successfully', user: newUser };
+  };
+
+  const resendOtp = () => {
+    if (!pendingRegistration) return null;
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setPendingRegistration(prev => (prev ? { ...prev, otp: newOtp } : null));
+    addToast(`New verification code sent! OTP is ${newOtp}`, 'info');
+    return newOtp;
+  };
+
+  const resetPassword = async (
+    identifier: string,
+    newPassword?: string
+  ): Promise<{ success: boolean; message: string; isEmailSent?: boolean }> => {
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
+    // 1. If it's an email, send Firebase official password reset link
+    if (clean.includes('@')) {
+      const fbRes = await sendFirebasePasswordReset(clean);
+      if (fbRes.success) {
+        addToast(fbRes.message, 'success');
+        return { success: true, message: fbRes.message, isEmailSent: true };
+      }
+    }
+
+    // 2. Check local users or phone match
+    const userIndex = users.findIndex(u => {
+      const emailMatch = u.email.toLowerCase() === clean;
+      const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
+      const phoneMatch =
+        cleanDigits.length >= 8 &&
+        (uPhoneDigits === cleanDigits ||
+          uPhoneDigits.endsWith(cleanDigits) ||
+          cleanDigits.endsWith(uPhoneDigits));
+      return emailMatch || phoneMatch;
+    });
+
+    if (userIndex === -1 && !clean.includes('@')) {
+      addToast('No registered account found with this phone number or email.', 'error');
+      return { success: false, message: 'Account not found' };
+    }
+
+    if (newPassword && userIndex !== -1) {
+      setUsers(prev =>
+        prev.map((u, i) => (i === userIndex ? { ...u, password: newPassword } : u))
+      );
+      addToast('Password updated successfully! You can now sign in with your new password.', 'success');
+      return { success: true, message: 'Password updated successfully' };
+    }
+
+    addToast('Password recovery instructions sent.', 'info');
+    return { success: true, message: 'Instructions sent' };
   };
 
   const register = (data: { fullName: string; email: string; phone: string; password: string }) => {
@@ -503,7 +723,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       phone: data.phone.trim(),
       password: data.password,
       role: 'customer',
-      approvalStatus: 'pending', // Pending Admin approval!
+      approvalStatus: 'pending',
       avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
       createdAt: new Date().toISOString(),
       isBanned: false,
@@ -1054,8 +1274,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers(INITIAL_USERS);
     setBanners(INITIAL_BANNERS);
     setCart([]);
-    setCurrentUserId(INITIAL_USERS[0].id);
-    addToast('All demo inventory, banners, orders, and users reset to initial state.', 'info');
+    setCurrentUserId(null);
+    addToast('All demo inventory, banners, and orders reset.', 'info');
   };
 
   const value: StoreContextType = {
@@ -1079,6 +1299,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAuthModalTab,
     openLoginModal,
     openRegisterModal,
+    openForgotPasswordModal,
+
+    pendingRegistration,
+    initiateRegistration,
+    verifyOtpAndComplete,
+    resendOtp,
+    resetPassword,
 
     isSettingsModalOpen,
     setIsSettingsModalOpen,

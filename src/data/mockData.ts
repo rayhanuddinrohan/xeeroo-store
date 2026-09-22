@@ -20,20 +20,7 @@ export const XEEROO_CONTACT = {
   tiktokDisplay: 'tiktok.com/xeeroo.0',
 };
 
-export const INITIAL_USERS: User[] = [
-  {
-    id: 'usr-admin-xeeroo',
-    email: 'xeeroo.0@outlook.com',
-    role: 'admin',
-    fullName: 'XEEROO Admin',
-    phone: '+8801570243005',
-    password: 'admin123',
-    approvalStatus: 'approved',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-    createdAt: '2026-01-01T00:00:00Z',
-    isBanned: false,
-  },
-];
+export const INITIAL_USERS: User[] = [];
 
 export const INITIAL_BANNERS: BannerSlide[] = [
   {
