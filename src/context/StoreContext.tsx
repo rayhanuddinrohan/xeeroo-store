@@ -165,10 +165,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
-      if (saved === 'null' || saved === '') return null;
-      return saved || INITIAL_USERS[0].id;
+      if (!saved || saved === 'null' || saved === '') return null;
+      return saved;
     } catch {
-      return INITIAL_USERS[0].id;
+      return null;
     }
   });
 
