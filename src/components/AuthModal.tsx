@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { auth, googleProvider } from '../lib/firebase';
+import { BrandLogo } from './common/BrandLogo';
 import { signInWithPopup } from 'firebase/auth';
 import {
   X,
@@ -304,9 +305,7 @@ export const AuthModal: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xl shadow-md">
-              X
-            </div>
+            <BrandLogo size="md" />
             <div>
               <span className="text-2xl font-black tracking-wider block leading-none">
                 XEEROO

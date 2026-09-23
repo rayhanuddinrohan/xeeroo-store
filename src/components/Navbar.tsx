@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../context/StoreContext';
 import { XEEROO_CONTACT } from '../data/mockData';
+import { BrandLogo } from './common/BrandLogo';
 import { ContactModal } from './ContactModal';
 import {
   ShoppingBag,
@@ -151,30 +152,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 href={XEEROO_CONTACT.facebook}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
                 title="Follow XEEROO on Facebook"
               >
-                <span className="w-3 h-3 rounded bg-blue-600 text-white flex items-center justify-center font-black text-[8px]">X</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
                 <span>Facebook</span>
               </a>
               <a
                 href={XEEROO_CONTACT.instagram}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-pink-600 text-slate-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-pink-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
                 title="Follow XEEROO on Instagram"
               >
-                <span className="w-3 h-3 rounded bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center font-black text-[8px]">X</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
                 <span>Instagram</span>
               </a>
               <a
                 href={XEEROO_CONTACT.tiktok}
                 target="_blank"
                 rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-black text-slate-300 hover:text-white flex items-center gap-1 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
+                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-cyan-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
                 title="Follow XEEROO on TikTok"
               >
-                <span className="w-3 h-3 rounded bg-black text-white flex items-center justify-center font-black text-[8px]">X</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
                 <span>TikTok</span>
               </a>
             </div>
@@ -195,16 +196,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Logo & Brand - Strictly XEEROO only (official store text removed per request) */}
+          {/* Logo & Brand - Strictly XEEROO only */}
           <div className="flex items-center gap-8 shrink-0">
             <button
               id="nav-brand-logo"
               onClick={() => setViewMode('store')}
               className="flex items-center gap-2.5 text-gray-900 group cursor-pointer"
             >
-              <div className="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center font-black text-xl tracking-tighter shadow-sm group-hover:bg-blue-600 transition-colors">
-                <span>X</span>
-              </div>
+              <BrandLogo size="md" />
               <div className="text-left">
                 <span className="text-2xl font-black tracking-widest text-gray-950 block leading-none">
                   XEEROO

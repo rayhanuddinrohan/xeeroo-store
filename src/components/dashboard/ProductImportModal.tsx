@@ -36,6 +36,7 @@ interface ExternalProductPreview {
   stock: number;
   brand: string;
   imageUrl: string;
+  images?: string[];
   selected: boolean;
 }
 
@@ -121,6 +122,8 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
           item.thumbnail ||
           'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
 
+        const rawImages = Array.isArray(item.images) && item.images.length > 0 ? item.images : [img];
+
         return {
           id: `ext-${item.id || idx}`,
           title: item.title || item.name || `Imported Tech Product #${idx + 1}`,
@@ -130,6 +133,7 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
           stock: Number(item.stock || item.stockQuantity || 20),
           brand: item.brand || 'XEEROO Global',
           imageUrl: img,
+          images: rawImages,
           selected: true,
         };
       });
@@ -216,7 +220,7 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
         stockQuantity: p.stock,
         sku,
         categoryId: targetCategory,
-        images: [p.imageUrl],
+        images: p.images && p.images.length > 0 ? p.images : [p.imageUrl],
         isPublished: true,
         rating: 4.8,
         reviewsCount: 12,

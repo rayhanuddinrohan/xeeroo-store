@@ -13,6 +13,7 @@ import { UserManagementTab } from './UserManagementTab';
 import { CategoryManagementTab } from './CategoryManagementTab';
 import { BannerManagementTab } from './BannerManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
+import { BrandLogo } from '../common/BrandLogo';
 import {
   BarChart3,
   Package,
@@ -91,10 +92,10 @@ export const DashboardLayout: React.FC = () => {
         <div className="space-y-6">
           {/* Header info */}
           <div className="pb-3 border-b border-gray-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Shield className="w-4 h-4 text-purple-600" />
-              <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wide">
-                XEEROO Admin Portal
+            <div className="flex items-center gap-2 mb-2">
+              <BrandLogo size="xs" />
+              <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider">
+                XEEROO Admin
               </h2>
             </div>
             <p className="text-[11px] text-gray-500 truncate">

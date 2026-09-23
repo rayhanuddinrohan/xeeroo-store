@@ -32,6 +32,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { XEEROO_CONTACT } from './data/mockData';
+import { BrandLogo } from './components/common/BrandLogo';
 
 const AppContent: React.FC = () => {
   const { viewMode, setViewMode, currentUser, canAccessDashboard, resetDemoData } = useStore();
@@ -131,9 +132,7 @@ const AppContent: React.FC = () => {
             {/* Col 1: Brand */}
             <div className="space-y-3 md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-lg">
-                  X
-                </div>
+                <BrandLogo size="sm" />
                 <span className="text-xl font-black text-white tracking-wider">XEEROO</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed">

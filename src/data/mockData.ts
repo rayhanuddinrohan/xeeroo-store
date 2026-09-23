@@ -18,6 +18,8 @@ export const XEEROO_CONTACT = {
   instagramDisplay: 'instagram.com/xeeroo.0',
   tiktok: 'https://www.tiktok.com/@xeeroo.0',
   tiktokDisplay: 'tiktok.com/xeeroo.0',
+  logoUrl: '/logo.svg',
+  faviconUrl: '/favicon.svg',
 };
 
 export const INITIAL_USERS: User[] = [];
@@ -105,9 +107,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'AUDIO-ANC-001',
     categoryId: 'cat-audio',
     images: [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1583394838336-acd977736f90?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-01-10T10:00:00Z',
@@ -132,8 +135,10 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'WEAR-CHR-002',
     categoryId: 'cat-wearables',
     images: [
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-01-14T11:30:00Z',
@@ -158,8 +163,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'COMP-KEY-003',
     categoryId: 'cat-computing',
     images: [
-      'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-01-20T14:00:00Z',
@@ -184,8 +190,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'HOME-LUM-004',
     categoryId: 'cat-smarthome',
     images: [
-      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1540932239986-30128078f3c5?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-01-22T08:00:00Z',
@@ -210,8 +217,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'COMP-MOU-005',
     categoryId: 'cat-computing',
     images: [
-      'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1605792657660-596af9009e82?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-01-25T16:00:00Z',
@@ -236,8 +244,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'OPT-LENS-006',
     categoryId: 'cat-optics',
     images: [
-      'https://images.unsplash.com/photo-1617005082133-548c4dd27f35?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1617005082133-548c4dd27f35?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1502982720700-bfff97f2ecac?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-02-01T10:00:00Z',
@@ -262,7 +271,9 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'AUDIO-MIC-007',
     categoryId: 'cat-audio',
     images: [
-      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1520523839898-5071282543e2?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: true,
     createdAt: '2026-02-05T12:00:00Z',
@@ -287,7 +298,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     sku: 'WEAR-PROTO-008',
     categoryId: 'cat-wearables',
     images: [
-      'https://images.unsplash.com/photo-1510017803434-a899398421b3?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1510017803434-a899398421b3?auto=format&fit=crop&w=1000&q=85',
+      'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=1000&q=85',
     ],
     isPublished: false, // Testing RBAC draft visibility! Customers cannot see this, Moderators & Admins can!
     createdAt: '2026-02-18T14:00:00Z',
