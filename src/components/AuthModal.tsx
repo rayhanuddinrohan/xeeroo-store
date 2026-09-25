@@ -39,6 +39,8 @@ export const AuthModal: React.FC = () => {
     resendOtp,
     resetPassword,
     pendingRegistration,
+    sendPasswordResetOtp,
+    verifyPasswordResetOtpAndSetPassword,
   } = useStore();
 
   // Login form state
@@ -59,9 +61,12 @@ export const AuthModal: React.FC = () => {
 
   // Password recovery form state
   const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
+  const [recoveryMethod, setRecoveryMethod] = useState<'otp' | 'link'>('otp');
+  const [recoveryOtpCode, setRecoveryOtpCode] = useState('');
+  const [recoveryEmailTarget, setRecoveryEmailTarget] = useState('');
   const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
   const [recoveryConfirmPassword, setRecoveryConfirmPassword] = useState('');
-  const [recoveryStep, setRecoveryStep] = useState<'request' | 'success'>('request');
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'verify-otp' | 'success'>('request');
   const [recoverySuccessMsg, setRecoverySuccessMsg] = useState('');
 
   const [showPassword, setShowPassword] = useState(false);
@@ -238,7 +243,7 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  // Password Recovery Submit
+  // Password Recovery Submit (Step 1)
   const handlePasswordRecoverySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -248,43 +253,62 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
-    if (recoveryIdentifier.includes('@')) {
-      // Email recovery via Firebase
-      setIsSubmitting(true);
-      try {
-        const res = await resetPassword(recoveryIdentifier);
+    setIsSubmitting(true);
+    try {
+      if (recoveryMethod === 'link') {
+        // Direct Firebase Password Reset Email Link
+        const res = await resetPassword(recoveryIdentifier.trim());
         if (res.success) {
           setRecoveryStep('success');
           setRecoverySuccessMsg(res.message);
         } else {
           setErrorMsg(res.message);
         }
-      } finally {
-        setIsSubmitting(false);
-      }
-    } else {
-      // Phone number password update
-      if (!recoveryNewPassword || recoveryNewPassword.length < 6) {
-        setErrorMsg('New password must be at least 6 characters long');
-        return;
-      }
-      if (recoveryNewPassword !== recoveryConfirmPassword) {
-        setErrorMsg('New passwords do not match');
-        return;
-      }
-
-      setIsSubmitting(true);
-      try {
-        const res = await resetPassword(recoveryIdentifier, recoveryNewPassword);
+      } else {
+        // Send 6-Digit Verification Code to Email
+        const res = await sendPasswordResetOtp(recoveryIdentifier.trim());
         if (res.success) {
-          setRecoveryStep('success');
-          setRecoverySuccessMsg('Your password has been successfully reset! You can now sign in with your new password.');
+          setRecoveryEmailTarget(res.email || recoveryIdentifier.trim());
+          setRecoveryStep('verify-otp');
         } else {
           setErrorMsg(res.message);
         }
-      } finally {
-        setIsSubmitting(false);
       }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Password Recovery Verification (Step 2: Enter OTP & Set New Password)
+  const handleVerifyResetOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+
+    const cleanOtp = recoveryOtpCode.trim();
+    if (cleanOtp.length < 6) {
+      setErrorMsg('Please enter the complete 6-digit OTP code received in your email.');
+      return;
+    }
+    if (recoveryNewPassword.length < 6) {
+      setErrorMsg('New password must be at least 6 characters long.');
+      return;
+    }
+    if (recoveryNewPassword !== recoveryConfirmPassword) {
+      setErrorMsg('New passwords do not match.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await verifyPasswordResetOtpAndSetPassword(cleanOtp, recoveryNewPassword);
+      if (res.success) {
+        setRecoveryStep('success');
+        setRecoverySuccessMsg('Your password has been successfully reset! You can now sign in with your new password.');
+      } else {
+        setErrorMsg(res.message);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -711,17 +735,15 @@ export const AuthModal: React.FC = () => {
                 </p>
               </div>
 
-              {/* OTP Demonstration / Helper Notification */}
-              {pendingRegistration?.otp && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                  <span className="text-xs text-emerald-800 font-medium block mb-1">
-                    🔐 Verification OTP Code:
-                  </span>
-                  <span className="text-2xl font-mono font-black text-emerald-700 tracking-widest">
-                    {pendingRegistration.otp}
-                  </span>
-                </div>
-              )}
+              {/* Secure Email Delivery Notice (No plain text OTP leak) */}
+              <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-2xl text-center">
+                <span className="text-xs text-blue-900 font-bold block mb-1">
+                  ✉️ Verification Code Dispatched
+                </span>
+                <p className="text-[11px] text-blue-700 leading-relaxed max-w-sm mx-auto">
+                  A secure 6-digit verification code has been dispatched to your email address. Please check your inbox (and spam/junk folder), then enter the code below.
+                </p>
+              </div>
 
               <form onSubmit={handleOtpSubmit} className="space-y-5">
                 {/* 6-digit OTP Inputs */}
@@ -790,7 +812,7 @@ export const AuthModal: React.FC = () => {
           {/* TAB 4: PASSWORD RECOVERY */}
           {authModalTab === 'forgot-password' && (
             <div>
-              {recoveryStep === 'request' ? (
+              {recoveryStep === 'request' && (
                 <form onSubmit={handlePasswordRecoverySubmit} className="space-y-4">
                   <div className="text-center mb-4">
                     <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2.5">
@@ -800,13 +822,39 @@ export const AuthModal: React.FC = () => {
                       Password Recovery
                     </h3>
                     <p className="text-xs text-gray-500 mt-1">
-                      Enter your registered email to receive a password reset link, or enter your registered phone number.
+                      Choose your preferred recovery method below.
                     </p>
+                  </div>
+
+                  {/* Recovery Mode Selector */}
+                  <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-xl text-xs font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setRecoveryMethod('otp')}
+                      className={`py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                        recoveryMethod === 'otp'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      <span>✉️ 6-Digit Email OTP</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecoveryMethod('link')}
+                      className={`py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                        recoveryMethod === 'link'
+                          ? 'bg-white text-blue-600 shadow-xs'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      <span>🔗 Email Reset Link</span>
+                    </button>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                      Registered Email or Phone Number
+                      Registered Email or Phone Number *
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
@@ -821,36 +869,12 @@ export const AuthModal: React.FC = () => {
                         className="w-full pl-10 pr-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-gray-900 bg-white"
                       />
                     </div>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      {recoveryMethod === 'otp'
+                        ? 'We will send a 6-digit recovery code directly to the associated email inbox.'
+                        : 'We will send an official Firebase password reset link to this email.'}
+                    </p>
                   </div>
-
-                  {/* If phone number entered (no @ symbol), show new password inputs */}
-                  {!recoveryIdentifier.includes('@') && recoveryIdentifier.trim().length > 3 && (
-                    <div className="space-y-3.5 p-4 bg-gray-50 rounded-2xl border border-gray-200 animate-in fade-in">
-                      <span className="text-xs font-bold text-gray-800 block">
-                        Set New Password:
-                      </span>
-                      <div>
-                        <input
-                          type="password"
-                          required
-                          value={recoveryNewPassword}
-                          onChange={e => setRecoveryNewPassword(e.target.value)}
-                          placeholder="New password (min 6 characters)"
-                          className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-blue-600 bg-white text-gray-900"
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="password"
-                          required
-                          value={recoveryConfirmPassword}
-                          onChange={e => setRecoveryConfirmPassword(e.target.value)}
-                          placeholder="Confirm new password"
-                          className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-blue-600 bg-white text-gray-900"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   <button
                     type="submit"
@@ -862,9 +886,9 @@ export const AuthModal: React.FC = () => {
                     ) : (
                       <>
                         <span>
-                          {recoveryIdentifier.includes('@')
-                            ? 'Send Password Reset Link'
-                            : 'Update Password'}
+                          {recoveryMethod === 'otp'
+                            ? 'Send 6-Digit Code to Email'
+                            : 'Send Reset Link to Email'}
                         </span>
                         <ArrowRight className="w-4 h-4" />
                       </>
@@ -885,8 +909,111 @@ export const AuthModal: React.FC = () => {
                     </button>
                   </div>
                 </form>
-              ) : (
-                /* Recovery Success State */
+              )}
+
+              {/* Step 2: Verify OTP & Enter New Password */}
+              {recoveryStep === 'verify-otp' && (
+                <form onSubmit={handleVerifyResetOtpSubmit} className="space-y-4">
+                  <div className="text-center mb-3">
+                    <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
+                      <KeyRound className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900">
+                      Enter Verification Code
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">
+                      A 6-digit recovery OTP code has been sent to{' '}
+                      <strong className="text-gray-800 font-mono">{recoveryEmailTarget}</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl text-center">
+                    <span className="text-[11px] text-blue-800 font-medium">
+                      📬 Please check your email inbox and spam folder for your 6-digit code.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                      6-Digit Recovery Code *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={recoveryOtpCode}
+                      onChange={e => setRecoveryOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="e.g. 583921"
+                      className="w-full text-center text-xl font-mono font-bold tracking-widest py-2.5 rounded-xl border border-gray-300 focus:outline-none focus:border-blue-600 bg-white text-gray-900"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        New Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={recoveryNewPassword}
+                        onChange={e => setRecoveryNewPassword(e.target.value)}
+                        placeholder="Min 6 characters"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-blue-600 bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                        Confirm New Password *
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={recoveryConfirmPassword}
+                        onChange={e => setRecoveryConfirmPassword(e.target.value)}
+                        placeholder="Repeat new password"
+                        className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-blue-600 bg-white text-gray-900"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Verify Code & Reset Password</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs pt-1 px-1">
+                    <button
+                      type="button"
+                      onClick={() => setRecoveryStep('request')}
+                      className="text-gray-500 hover:text-gray-700 cursor-pointer"
+                    >
+                      ← Change email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePasswordRecoverySubmit}
+                      disabled={isSubmitting}
+                      className="text-blue-600 hover:text-blue-800 font-semibold cursor-pointer"
+                    >
+                      Resend code
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Step 3: Recovery Success State */}
+              {recoveryStep === 'success' && (
                 <div className="text-center py-4 space-y-4">
                   <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                     <CheckCircle2 className="w-8 h-8" />
@@ -904,6 +1031,9 @@ export const AuthModal: React.FC = () => {
                       setAuthModalTab('login');
                       setErrorMsg('');
                       setRecoveryStep('request');
+                      setRecoveryOtpCode('');
+                      setRecoveryNewPassword('');
+                      setRecoveryConfirmPassword('');
                     }}
                     className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm"
                   >

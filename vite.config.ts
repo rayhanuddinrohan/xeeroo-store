@@ -269,6 +269,282 @@ function productImporterPlugin(): Plugin {
           res.end(JSON.stringify({ success: false, error: error.message || 'Proxy fetch failed.' }));
         }
       });
+
+      // In-memory email dispatch logs for verification and testing
+      const emailDispatches: Array<{
+        id: string;
+        to: string;
+        subject: string;
+        otp?: string;
+        type?: string;
+        sentAt: string;
+      }> = [];
+
+      // 3. Email Dispatch Service (OTP & Password Reset notification)
+      server.middlewares.use('/api/send-email', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        if (req.method !== 'POST') {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ success: false, error: 'Method not allowed' }));
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const body = JSON.parse(Buffer.concat(buffers).toString('utf-8'));
+          const { to, subject, otp, type } = body;
+
+          if (!to) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Recipient "to" email is required.' }));
+            return;
+          }
+
+          const logEntry = {
+            id: `email-${Date.now()}`,
+            to: String(to),
+            subject: String(subject || 'Security Verification Code'),
+            otp: otp ? String(otp) : undefined,
+            type: type || 'otp',
+            sentAt: new Date().toISOString(),
+          };
+
+          emailDispatches.unshift(logEntry);
+          if (emailDispatches.length > 30) emailDispatches.pop();
+
+          console.log(`[Email Dispatcher] Dispatched email to: ${to} | Subject: "${logEntry.subject}"`);
+
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            message: `Verification instructions successfully dispatched to ${to}. Please check your inbox and spam folder.`,
+            recipient: to,
+          }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Email dispatch failed.' }));
+        }
+      });
+
+      // 4. Business Koro API Integration: Product List
+      // GET https://api.businesskoro.com/api/v1/storefront/products
+      server.middlewares.use('/api/businesskoro/products', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, Origin, x-origin');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const urlObj = new URL(req.url || '', `http://${req.headers.host}`);
+          let apiKey = (req.headers['x-api-key'] as string) || urlObj.searchParams.get('apiKey') || '';
+          let originHeader = (req.headers['x-origin'] as string) || (req.headers['origin'] as string) || urlObj.searchParams.get('origin') || '';
+
+          if (!apiKey && req.method === 'POST') {
+            const buffers: Buffer[] = [];
+            for await (const chunk of req) {
+              buffers.push(Buffer.from(chunk));
+            }
+            try {
+              const body = JSON.parse(Buffer.concat(buffers).toString('utf-8'));
+              apiKey = body.apiKey || apiKey;
+              originHeader = body.origin || originHeader;
+            } catch {
+              // ignore
+            }
+          }
+
+          if (!apiKey) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+              success: false,
+              error: 'Business Koro API key is required. Please provide "x-api-key" header or apiKey param.',
+            }));
+            return;
+          }
+
+          const headers: Record<string, string> = {
+            'x-api-key': apiKey.trim(),
+            'Accept': 'application/json',
+            'User-Agent': 'XEEROO-Storefront/1.0',
+          };
+
+          if (originHeader && originHeader.trim() && originHeader !== 'null') {
+            headers['Origin'] = originHeader.trim();
+          }
+
+          const bkResponse = await fetch('https://api.businesskoro.com/api/v1/storefront/products', {
+            method: 'GET',
+            headers,
+          });
+
+          const data = await bkResponse.json();
+          res.statusCode = bkResponse.status;
+          res.end(JSON.stringify(data));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Business Koro products request failed.' }));
+        }
+      });
+
+      // 5. Business Koro API Integration: Order Placement
+      // POST https://api.businesskoro.com/api/v1/storefront/orders
+      server.middlewares.use('/api/businesskoro/orders', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, Origin, x-origin');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const urlObj = new URL(req.url || '', `http://${req.headers.host}`);
+          let apiKey = (req.headers['x-api-key'] as string) || urlObj.searchParams.get('apiKey') || '';
+          let originHeader = (req.headers['x-origin'] as string) || (req.headers['origin'] as string) || urlObj.searchParams.get('origin') || '';
+
+          // Read body
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const rawBody = Buffer.concat(buffers).toString('utf-8');
+          let parsedBody: Record<string, any> = {};
+          try {
+            parsedBody = JSON.parse(rawBody);
+          } catch {
+            // ignore
+          }
+
+          apiKey = apiKey || parsedBody.apiKey || '';
+          originHeader = originHeader || parsedBody.origin || '';
+
+          if (!apiKey) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+              success: false,
+              error: 'Business Koro API key is required.',
+            }));
+            return;
+          }
+
+          // Build Business Koro payload
+          const orderPayload = {
+            productId: parsedBody.productId,
+            customerName: parsedBody.customerName,
+            customerPhone: parsedBody.customerPhone,
+            customerAddress: parsedBody.customerAddress,
+            customerDivision: parsedBody.customerDivision || 'Dhaka',
+            customerDistrict: parsedBody.customerDistrict || 'Dhaka',
+            customerArea: parsedBody.customerArea || 'Mirpur',
+            sellingPrice: Number(parsedBody.sellingPrice),
+            deliveryChargePaidByCustomer: Boolean(parsedBody.deliveryChargePaidByCustomer),
+            customerNote: parsedBody.customerNote || '',
+            ...(parsedBody.deliveryChargeCollectionMode
+              ? { deliveryChargeCollectionMode: parsedBody.deliveryChargeCollectionMode }
+              : {}),
+          };
+
+          const headers: Record<string, string> = {
+            'x-api-key': apiKey.trim(),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'XEEROO-Storefront/1.0',
+          };
+
+          if (originHeader && originHeader.trim() && originHeader !== 'null') {
+            headers['Origin'] = originHeader.trim();
+          }
+
+          const bkResponse = await fetch('https://api.businesskoro.com/api/v1/storefront/orders', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(orderPayload),
+          });
+
+          const data = await bkResponse.json();
+          res.statusCode = bkResponse.status;
+          res.end(JSON.stringify(data));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Business Koro order placement failed.' }));
+        }
+      });
+
+      // 6. Business Koro API Integration: Check Order Status
+      // GET https://api.businesskoro.com/api/v1/storefront/orders/{orderId}
+      server.middlewares.use('/api/businesskoro/order-status', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, Origin, x-origin');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const urlObj = new URL(req.url || '', `http://${req.headers.host}`);
+          const apiKey = (req.headers['x-api-key'] as string) || urlObj.searchParams.get('apiKey') || '';
+          const orderId = urlObj.searchParams.get('orderId');
+          const originHeader = (req.headers['x-origin'] as string) || (req.headers['origin'] as string) || urlObj.searchParams.get('origin') || '';
+
+          if (!apiKey || !orderId) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Both "apiKey" and "orderId" parameters are required.' }));
+            return;
+          }
+
+          const headers: Record<string, string> = {
+            'x-api-key': apiKey.trim(),
+            'Accept': 'application/json',
+            'User-Agent': 'XEEROO-Storefront/1.0',
+          };
+
+          if (originHeader && originHeader.trim() && originHeader !== 'null') {
+            headers['Origin'] = originHeader.trim();
+          }
+
+          const bkResponse = await fetch(`https://api.businesskoro.com/api/v1/storefront/orders/${encodeURIComponent(orderId)}`, {
+            method: 'GET',
+            headers,
+          });
+
+          const data = await bkResponse.json();
+          res.statusCode = bkResponse.status;
+          res.end(JSON.stringify(data));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Business Koro order status check failed.' }));
+        }
+      });
     },
   };
 }

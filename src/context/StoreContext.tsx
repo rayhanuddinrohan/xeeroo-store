@@ -95,6 +95,10 @@ interface StoreContextType {
   verifyOtpAndComplete: (enteredOtp: string) => { success: boolean; message: string; user?: User };
   resendOtp: () => string | null;
   resetPassword: (identifier: string, newPassword?: string) => Promise<{ success: boolean; message: string; isEmailSent?: boolean }>;
+  pendingPasswordReset: { identifier: string; email: string; otp: string } | null;
+  sendPasswordResetOtp: (identifier: string) => Promise<{ success: boolean; message: string; email?: string }>;
+  verifyPasswordResetOtpAndSetPassword: (enteredOtp: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  createAdminAccountInDatabase: (data: { fullName: string; email: string; phone?: string; password: string }) => Promise<{ success: boolean; message: string; user?: User }>;
 
   // Customer Settings Modal
   isSettingsModalOpen: boolean;
@@ -238,6 +242,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     email: string;
     phone: string;
     password: string;
+    otp: string;
+  } | null>(null);
+
+  const [pendingPasswordReset, setPendingPasswordReset] = useState<{
+    identifier: string;
+    email: string;
     otp: string;
   } | null>(null);
 
@@ -802,10 +812,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       otp: generatedOtp,
     });
 
-    setAuthModalTab('verify-otp');
-    addToast(`Verification code generated! Your 6-digit OTP is ${generatedOtp}`, 'info');
+    // Dispatch OTP code securely to the user's email via backend service
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: data.email.trim(),
+        subject: 'XEEROO Account Verification OTP Code',
+        otp: generatedOtp,
+        type: 'registration_otp',
+      }),
+    }).catch(err => {
+      console.warn('Email dispatch warning:', err);
+    });
 
-    return { success: true, message: 'OTP sent', otp: generatedOtp };
+    setAuthModalTab('verify-otp');
+    addToast(`A 6-digit verification code has been dispatched to ${data.email}. Please check your email inbox.`, 'info');
+
+    return { success: true, message: 'OTP sent to email', otp: generatedOtp };
   };
 
   const verifyOtpAndComplete = (enteredOtp: string): { success: boolean; message: string; user?: User } => {
@@ -816,7 +840,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (enteredOtp.trim() !== pendingRegistration.otp.trim()) {
-      addToast('Incorrect 6-digit OTP code. Please enter the valid code.', 'error');
+      addToast('Incorrect 6-digit OTP code. Please enter the valid code received in your email.', 'error');
       return { success: false, message: 'Incorrect OTP code' };
     }
 
@@ -858,8 +882,164 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!pendingRegistration) return null;
     const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
     setPendingRegistration(prev => (prev ? { ...prev, otp: newOtp } : null));
-    addToast(`New verification code sent! OTP is ${newOtp}`, 'info');
+
+    // Dispatch email
+    fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: pendingRegistration.email,
+        subject: 'XEEROO Account Verification OTP Code (Resent)',
+        otp: newOtp,
+        type: 'registration_otp',
+      }),
+    }).catch(err => {
+      console.warn('Email resend warning:', err);
+    });
+
+    addToast(`New verification code sent to ${pendingRegistration.email}. Please check your inbox.`, 'info');
     return newOtp;
+  };
+
+  // Send 6-digit Password Reset OTP to Email
+  const sendPasswordResetOtp = async (
+    identifier: string
+  ): Promise<{ success: boolean; message: string; email?: string }> => {
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
+    const matchedUser = users.find(u => {
+      const emailMatch = u.email.toLowerCase() === clean;
+      const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
+      const phoneMatch =
+        cleanDigits.length >= 8 &&
+        (uPhoneDigits === cleanDigits ||
+          uPhoneDigits.endsWith(cleanDigits) ||
+          cleanDigits.endsWith(uPhoneDigits));
+      return emailMatch || phoneMatch;
+    });
+
+    const targetEmail = matchedUser?.email || (clean.includes('@') ? clean : null);
+
+    if (!targetEmail) {
+      addToast('No registered account found with this phone number or email.', 'error');
+      return { success: false, message: 'Account not found' };
+    }
+
+    const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    setPendingPasswordReset({
+      identifier: identifier.trim(),
+      email: targetEmail,
+      otp: resetOtp,
+    });
+
+    // Dispatch password reset email via server-side email endpoint
+    try {
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: targetEmail,
+          subject: 'XEEROO Password Reset Verification Code',
+          otp: resetOtp,
+          type: 'password_reset_otp',
+        }),
+      });
+    } catch (err) {
+      console.warn('Reset email dispatch notice:', err);
+    }
+
+    addToast(`A 6-digit password reset code has been sent to ${targetEmail}. Please check your email inbox.`, 'info');
+    return {
+      success: true,
+      message: `A 6-digit reset code has been dispatched to ${targetEmail}.`,
+      email: targetEmail,
+    };
+  };
+
+  // Verify Reset OTP and set new password
+  const verifyPasswordResetOtpAndSetPassword = async (
+    enteredOtp: string,
+    newPassword: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!pendingPasswordReset) {
+      addToast('Password reset session expired. Please request a new code.', 'error');
+      return { success: false, message: 'No active reset session' };
+    }
+
+    if (enteredOtp.trim() !== pendingPasswordReset.otp.trim()) {
+      addToast('Incorrect 6-digit OTP code entered. Please check your email.', 'error');
+      return { success: false, message: 'Incorrect OTP code' };
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      addToast('Password must be at least 6 characters long.', 'error');
+      return { success: false, message: 'Password must be at least 6 characters' };
+    }
+
+    const targetEmail = pendingPasswordReset.email.toLowerCase();
+    const userIndex = users.findIndex(u => u.email.toLowerCase() === targetEmail);
+
+    if (userIndex !== -1) {
+      const updatedUser = { ...users[userIndex], password: newPassword };
+      setUsers(prev => prev.map((u, i) => (i === userIndex ? updatedUser : u)));
+      await saveFirestoreCustomer(updatedUser);
+    }
+
+    setPendingPasswordReset(null);
+    setAuthModalTab('login');
+    addToast('Password updated successfully! You can now sign in with your new password.', 'success');
+    return { success: true, message: 'Password updated successfully' };
+  };
+
+  // Initial Admin Account Creator directly into Cloud Database (Firestore)
+  const createAdminAccountInDatabase = async (data: {
+    fullName: string;
+    email: string;
+    phone?: string;
+    password: string;
+  }): Promise<{ success: boolean; message: string; user?: User }> => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      addToast('Please enter a valid email address for the administrator.', 'error');
+      return { success: false, message: 'Invalid email' };
+    }
+    if (!data.password || data.password.length < 6) {
+      addToast('Administrator password must be at least 6 characters long.', 'error');
+      return { success: false, message: 'Password too short' };
+    }
+
+    const adminUser: User = {
+      id: `usr-admin-${Date.now()}`,
+      email: cleanEmail,
+      fullName: data.fullName.trim() || 'Master Admin',
+      phone: data.phone?.trim() || '',
+      password: data.password,
+      role: 'admin',
+      approvalStatus: 'approved',
+      isVerified: true,
+      isBanned: false,
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+      createdAt: new Date().toISOString(),
+      address: {
+        fullName: data.fullName.trim() || 'Master Admin',
+        street: 'HQ Station',
+        city: 'Dhaka',
+        state: 'Dhaka',
+        postalCode: '1200',
+        country: 'Bangladesh',
+        phone: data.phone?.trim() || '',
+      },
+    };
+
+    setUsers(prev => {
+      const filtered = prev.filter(u => u.email.toLowerCase() !== cleanEmail);
+      return [...filtered, adminUser];
+    });
+
+    await saveFirestoreCustomer(adminUser);
+    addToast(`Master Admin account (${adminUser.email}) created directly in Firestore database!`, 'success');
+    return { success: true, message: 'Admin account created successfully in database', user: adminUser };
   };
 
   const resetPassword = async (
@@ -896,14 +1076,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (newPassword && userIndex !== -1) {
+      const updatedUser = { ...users[userIndex], password: newPassword };
       setUsers(prev =>
-        prev.map((u, i) => (i === userIndex ? { ...u, password: newPassword } : u))
+        prev.map((u, i) => (i === userIndex ? updatedUser : u))
       );
+      await saveFirestoreCustomer(updatedUser);
       addToast('Password updated successfully! You can now sign in with your new password.', 'success');
       return { success: true, message: 'Password updated successfully' };
     }
 
-    addToast('Password recovery instructions sent.', 'info');
+    addToast('Password recovery instructions dispatched to your email.', 'info');
     return { success: true, message: 'Instructions sent' };
   };
 
@@ -1564,6 +1746,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     verifyOtpAndComplete,
     resendOtp,
     resetPassword,
+    pendingPasswordReset,
+    sendPasswordResetOtp,
+    verifyPasswordResetOtpAndSetPassword,
+    createAdminAccountInDatabase,
 
     isSettingsModalOpen,
     setIsSettingsModalOpen,

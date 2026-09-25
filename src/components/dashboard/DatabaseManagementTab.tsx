@@ -23,6 +23,10 @@ import {
   ExternalLink,
   ShieldCheck,
   Zap,
+  Key,
+  Shield,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export const DatabaseManagementTab: React.FC = () => {
@@ -36,11 +40,22 @@ export const DatabaseManagementTab: React.FC = () => {
     syncCatalogToDatabase,
     pullCatalogFromDatabase,
     setDashboardTab,
+    createAdminAccountInDatabase,
+    addToast,
   } = useStore();
 
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'customers' | 'products' | 'sql'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'customers' | 'products' | 'admin-setup' | 'sql'>('overview');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latency?: number } | null>(null);
+
+  // Admin Account Creation States
+  const [adminName, setAdminName] = useState('Master Administrator');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPhone, setAdminPhone] = useState('+880 1700-000000');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
+  const [createdAdminResult, setCreatedAdminResult] = useState<{ email: string; pass: string } | null>(null);
+  const [copiedText, setCopiedText] = useState(false);
 
   const handleTestPing = async () => {
     setIsTesting(true);
@@ -49,7 +64,40 @@ export const DatabaseManagementTab: React.FC = () => {
     setIsTesting(false);
   };
 
+  const handleCreateAdminSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminEmail.trim() || !adminPassword.trim()) {
+      addToast('Please enter both email and password for the admin account.', 'error');
+      return;
+    }
+    if (adminPassword.length < 6) {
+      addToast('Password must be at least 6 characters long.', 'error');
+      return;
+    }
+
+    setIsCreatingAdmin(true);
+    const res = await createAdminAccountInDatabase({
+      fullName: adminName.trim(),
+      email: adminEmail.trim(),
+      phone: adminPhone.trim(),
+      password: adminPassword,
+    });
+    setIsCreatingAdmin(false);
+
+    if (res.success) {
+      setCreatedAdminResult({ email: adminEmail.trim(), pass: adminPassword });
+    }
+  };
+
+  const handleCopyCredentials = () => {
+    if (!createdAdminResult) return;
+    navigator.clipboard.writeText(`Email: ${createdAdminResult.email}\nPassword: ${createdAdminResult.pass}`);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 2000);
+  };
+
   const customerList = users.filter(u => u.role === 'customer');
+  const adminList = users.filter(u => u.role === 'admin' || u.role === 'moderator');
 
   return (
     <div className="space-y-6">
@@ -157,6 +205,20 @@ export const DatabaseManagementTab: React.FC = () => {
           <span>Products Table</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-800 font-mono">
             {products.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('admin-setup')}
+          className={`pb-3 px-1 border-b-2 cursor-pointer transition-colors flex items-center gap-1.5 ${
+            activeSubTab === 'admin-setup'
+              ? 'border-purple-600 text-purple-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Shield className="w-3.5 h-3.5 text-purple-600" />
+          <span>অ্যাডমিন অ্যাকাউন্ট তৈরি ও গাইড (Admin Setup)</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-800 font-mono font-bold">
+            {adminList.length}
           </span>
         </button>
         <button
@@ -402,6 +464,239 @@ export const DatabaseManagementTab: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: Admin Setup & First-Time Database Admin Creation */}
+      {activeSubTab === 'admin-setup' && (
+        <div className="space-y-6">
+          {/* Top Info Banner */}
+          <div className="bg-gradient-to-r from-purple-900 to-indigo-900 text-white p-6 rounded-2xl border border-purple-800 shadow-md">
+            <div className="flex items-start gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-400/30 flex items-center justify-center shrink-0">
+                <Shield className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">
+                  প্রথমবার ডাটাবেজ থেকে অ্যাডমিন অ্যাকাউন্ট তৈরির নির্দেশিকা ও টুল
+                </h3>
+                <p className="text-xs text-purple-200 mt-1 max-w-2xl leading-relaxed">
+                  ফায়ারবেস/ফায়ারস্টোর ডাটাবেজে <code className="bg-purple-950 px-1.5 py-0.5 rounded font-mono text-purple-300 font-bold">role: 'admin'</code> থাকা যেকোনো অ্যাকাউন্ট সম্পূর্ণ অ্যাডমিন অধিকার পায়। আপনি এখান থেকে সরাসরি ১-ক্লিকে ডাটাবেজে নতুন অ্যাডমিন তৈরি করতে পারেন অথবা ফায়ারবেস কনসোল থেকে ম্যানুয়ালি যুক্ত করতে পারেন।
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Form: One-Click Admin Account Creator */}
+            <div className="bg-white p-6 rounded-2xl border border-purple-200 shadow-xs space-y-4">
+              <div className="pb-3 border-b border-gray-100">
+                <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  পদ্ধতি ১: ডিরেক্ট ডাটাবেজ ক্রিয়েটর
+                </span>
+                <h4 className="text-sm font-bold text-gray-900 mt-2">
+                  ডাটাবেজে নতুন অ্যাডমিন অ্যাকাউন্ট ইনসার্ট করুন
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  নিচের ফর্মে তথ্য পূরণ করে সাবমিট করলেই ফায়ারবেস ফায়ারস্টোর ডাটাবেজের <code className="text-gray-700 font-mono">users</code> কালেকশনে পার্মানেন্টলি অ্যাডমিন তৈরি হবে।
+                </p>
+              </div>
+
+              {createdAdminResult && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>অ্যাডমিন অ্যাকাউন্ট ডাটাবেজে সফলভাবে তৈরি হয়েছে!</span>
+                  </div>
+                  <p className="text-xs text-emerald-700 font-mono bg-emerald-100/60 p-2.5 rounded-lg">
+                    ইমেইল: <strong>{createdAdminResult.email}</strong><br />
+                    পাসওয়ার্ড: <strong>{createdAdminResult.pass}</strong>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyCredentials}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    {copiedText ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedText ? 'Copied!' : 'Copy Login Details'}</span>
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleCreateAdminSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    অ্যাডমিনের পুরো নাম *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminName}
+                    onChange={e => setAdminName(e.target.value)}
+                    placeholder="e.g. Master Administrator"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-purple-600 bg-white text-gray-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    অ্যাডমিন ইমেইল ঠিকানা *
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={adminEmail}
+                    onChange={e => setAdminEmail(e.target.value)}
+                    placeholder="admin@yourdomain.com"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-purple-600 bg-white text-gray-900 font-mono"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      মোবাইল নম্বর (ঐচ্ছিক)
+                    </label>
+                    <input
+                      type="tel"
+                      value={adminPhone}
+                      onChange={e => setAdminPhone(e.target.value)}
+                      placeholder="+880 17XXXXXXXX"
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-purple-600 bg-white text-gray-900 font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">
+                      লগইন পাসওয়ার্ড (মিনিমাম ৬ ডিজিট) *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={adminPassword}
+                      onChange={e => setAdminPassword(e.target.value)}
+                      placeholder="মজবুত পাসওয়ার্ড দিন..."
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-purple-600 bg-white text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isCreatingAdmin}
+                  className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
+                >
+                  {isCreatingAdmin ? (
+                    <span>ডাটাবেজে সেভ হচ্ছে...</span>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>ডাটাবেজে সরাসরি অ্যাডমিন তৈরি করুন</span>
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
+            {/* Guide: Step-by-Step Manual Guide for Firebase Console */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
+              <div className="pb-3 border-b border-gray-100">
+                <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  পদ্ধতি ২: Firebase Console থেকে ম্যানুয়াল তৈরি
+                </span>
+                <h4 className="text-sm font-bold text-gray-900 mt-2">
+                  ফায়ারবেস কনসোল থেকে সরাসরি অ্যাডমিন সেটআপ
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  আপনি যদি সরাসরি Google Firebase ওয়েবসাইটে গিয়ে অ্যাডমিন ডকুমেন্ট তৈরি করতে চান, তবে এই ধাপগুলো অনুসরণ করুন:
+                </p>
+              </div>
+
+              <div className="space-y-3 text-xs text-gray-700 leading-relaxed">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <strong className="text-gray-900 block mb-1">ধাপ ১: ফায়ারবেস কনসোলে যান</strong>
+                  <span><a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-600 font-semibold underline">console.firebase.google.com</a> ওপেন করে আপনার প্রজেক্ট সিলেক্ট করুন এবং বামপাশের মেনু থেকে <strong>Firestore Database</strong>-এ ক্লিক করুন।</span>
+                </div>
+
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <strong className="text-gray-900 block mb-1">ধাপ ২: users কালেকশনে ডকুমেন্ট যোগ করুন</strong>
+                  <span><strong>Start collection</strong> বা বিদ্যমান <code className="bg-white px-1.5 py-0.5 border rounded font-mono font-bold text-blue-600">users</code> কালেকশনে ক্লিক করে <strong>Add document</strong> বাটনে চাপ দিন (Document ID ফাঁকা রাখতে পারেন বা <code className="font-mono text-purple-700">admin-master</code> দিন)।</span>
+                </div>
+
+                <div className="p-3 bg-slate-950 text-slate-200 rounded-xl font-mono text-[11px] space-y-1">
+                  <p className="text-amber-400 font-bold mb-1">// এই ফিল্ডগুলো হুবহু টাইপ করুন:</p>
+                  <p><span className="text-blue-400">role:</span> <span className="text-emerald-400">"admin"</span> (string) <span className="text-amber-300 font-sans text-[10px]">← সবচেয়ে গুরুত্বপূর্ণ!</span></p>
+                  <p><span className="text-blue-400">email:</span> <span className="text-emerald-400">"admin@yourstore.com"</span> (string)</p>
+                  <p><span className="text-blue-400">fullName:</span> <span className="text-emerald-400">"Master Administrator"</span> (string)</p>
+                  <p><span className="text-blue-400">password:</span> <span className="text-emerald-400">"আপনার_পাসওয়ার্ড"</span> (string)</p>
+                  <p><span className="text-blue-400">approvalStatus:</span> <span className="text-emerald-400">"approved"</span> (string)</p>
+                  <p><span className="text-blue-400">isVerified:</span> <span className="text-cyan-400">true</span> (boolean)</p>
+                  <p><span className="text-blue-400">isBanned:</span> <span className="text-rose-400">false</span> (boolean)</p>
+                </div>
+
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800">
+                  <strong className="block mb-0.5 font-bold">ধাপ ৩: সাইন-ইন করুন</strong>
+                  <span>ডকুমেন্ট সেভ করার পর এই ওয়েবসাইটের <strong>Sign In</strong> উইন্ডোতে গিয়ে ওই ইমেইল ও পাসওয়ার্ড দিলে আপনি সাথে সাথে <strong>Master Admin</strong> হিসেবে লগইন হয়ে যাবেন!</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Admins List */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-gray-900">
+                  বর্তমান অ্যাডমিনিস্ট্রেটর ও মডারেটরদের তালিকা
+                </h4>
+                <p className="text-xs text-gray-500">
+                  ডাটাবেজে নিবন্ধিত সকল অ্যাডমিন অ্যাকাউন্ট
+                </p>
+              </div>
+              <span className="text-xs font-mono font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-lg">
+                মোট স্টাফ: {adminList.length} জন
+              </span>
+            </div>
+
+            {adminList.length === 0 ? (
+              <p className="text-xs text-gray-500 py-4 text-center">
+                এখনো কোনো অ্যাডমিন অ্যাকাউন্ট তৈরি করা হয়নি। উপরের ফর্ম থেকে প্রথম অ্যাডমিন তৈরি করুন।
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                    <tr>
+                      <th className="py-2.5 px-3 font-semibold">User</th>
+                      <th className="py-2.5 px-3 font-semibold">Email</th>
+                      <th className="py-2.5 px-3 font-semibold">Role</th>
+                      <th className="py-2.5 px-3 font-semibold">Phone</th>
+                      <th className="py-2.5 px-3 font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {adminList.map(u => (
+                      <tr key={u.id} className="hover:bg-gray-50/50">
+                        <td className="py-2.5 px-3 font-bold text-gray-900">{u.fullName}</td>
+                        <td className="py-2.5 px-3 font-mono text-gray-600">{u.email}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800">
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-gray-500">{u.phone || '—'}</td>
+                        <td className="py-2.5 px-3">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Active
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
