@@ -12,6 +12,8 @@ import { OrderManagementTab } from './OrderManagementTab';
 import { UserManagementTab } from './UserManagementTab';
 import { CategoryManagementTab } from './CategoryManagementTab';
 import { BannerManagementTab } from './BannerManagementTab';
+import { ProductImportTab } from './ProductImportTab';
+import { DatabaseManagementTab } from './DatabaseManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
 import { BrandLogo } from '../common/BrandLogo';
 import {
@@ -28,6 +30,8 @@ import {
   ExternalLink,
   RotateCcw,
   Image as ImageIcon,
+  DownloadCloud,
+  Database,
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -236,6 +240,42 @@ export const DashboardLayout: React.FC = () => {
               )}
             </button>
 
+            {/* API Product Importer (New System!) */}
+            <button
+              id="tab-btn-importer"
+              onClick={() => setDashboardTab('importer')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                dashboardTab === 'importer'
+                  ? 'bg-cyan-50 text-cyan-700 font-bold'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <DownloadCloud className="w-4 h-4 text-cyan-600" />
+                <span>API Product Importer</span>
+              </div>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 font-mono font-bold">
+                API
+              </span>
+            </button>
+
+            {/* Cloud Database & Tables */}
+            <button
+              id="tab-btn-database"
+              onClick={() => setDashboardTab('database')}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                dashboardTab === 'database'
+                  ? 'bg-emerald-50 text-emerald-700 font-bold'
+                  : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Database className="w-4 h-4 text-emerald-600" />
+                <span>Cloud Database & Tables</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            </button>
+
             {/* Schema & SQL Docs */}
             <button
               onClick={() => setDashboardTab('docs')}
@@ -285,6 +325,10 @@ export const DashboardLayout: React.FC = () => {
                 ? 'User Directory & Customer Approvals'
                 : dashboardTab === 'categories'
                 ? 'Department Categories'
+                : dashboardTab === 'importer'
+                ? 'API & External Website Product Importer'
+                : dashboardTab === 'database'
+                ? 'Cloud Database Collections & Customer Tables'
                 : 'PostgreSQL DDL & RLS Policies'}
             </span>
           </div>
@@ -310,6 +354,8 @@ export const DashboardLayout: React.FC = () => {
         {dashboardTab === 'banners' && <BannerManagementTab />}
         {dashboardTab === 'users' && <UserManagementTab />}
         {dashboardTab === 'categories' && <CategoryManagementTab />}
+        {dashboardTab === 'importer' && <ProductImportTab />}
+        {dashboardTab === 'database' && <DatabaseManagementTab />}
         {dashboardTab === 'docs' && <SchemaDocsModal />}
       </main>
     </div>

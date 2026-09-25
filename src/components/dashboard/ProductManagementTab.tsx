@@ -33,6 +33,7 @@ export const ProductManagementTab: React.FC = () => {
     toggleProductPublish,
     deleteProduct,
     canDeleteProduct,
+    setDashboardTab,
     addToast,
   } = useStore();
 
@@ -123,12 +124,12 @@ export const ProductManagementTab: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             id="btn-import-api-products"
-            onClick={() => setIsImportModalOpen(true)}
+            onClick={() => setDashboardTab('importer')}
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-slate-950 hover:bg-slate-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 border border-slate-800"
-            title="Import Products via External API"
+            title="Import Products via External API & Web Scraper"
           >
             <DownloadCloud className="w-4 h-4 text-cyan-400" />
-            <span>Import via API</span>
+            <span>API & Web Importer</span>
           </button>
 
           <button

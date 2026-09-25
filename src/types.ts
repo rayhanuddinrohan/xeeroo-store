@@ -127,4 +127,6 @@ export type DashboardTab =
   | 'users' 
   | 'categories' 
   | 'banners'
+  | 'importer'
+  | 'database'
   | 'docs';

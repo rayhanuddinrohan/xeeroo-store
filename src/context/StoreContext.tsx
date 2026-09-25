@@ -30,6 +30,17 @@ import {
   sendFirebasePasswordReset,
   fetchFirestoreUserProfile,
   saveFirestoreUserProfile,
+  saveFirestoreCustomer,
+  fetchFirestoreUsers,
+  saveFirestoreProduct,
+  deleteFirestoreProduct,
+  fetchFirestoreProducts,
+  saveFirestoreCategory,
+  fetchFirestoreCategories,
+  saveFirestoreOrder,
+  fetchFirestoreOrders,
+  syncAllDataToFirestore,
+  testFirestoreConnection,
 } from '../lib/firebase';
 
 interface StoreContextType {
@@ -53,6 +64,21 @@ interface StoreContextType {
   toggleUserBan: (userId: string) => boolean;
   approveUser: (userId: string) => boolean;
   rejectUser: (userId: string) => boolean;
+
+  // Cloud Database Synchronization & Status
+  dbStatus: {
+    isConnected: boolean;
+    isSyncing: boolean;
+    lastSyncedAt: string | null;
+    error: string | null;
+    projectId: string;
+    productCount: number;
+    userCount: number;
+    orderCount: number;
+  };
+  testDbConnection: () => Promise<{ success: boolean; message: string; latency?: number }>;
+  syncCatalogToDatabase: () => Promise<{ success: boolean; message: string }>;
+  pullCatalogFromDatabase: () => Promise<{ success: boolean; message: string }>;
 
   // Auth Modal State
   isAuthModalOpen: boolean;
@@ -214,6 +240,188 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     password: string;
     otp: string;
   } | null>(null);
+
+  // Cloud Database state (Firestore)
+  const [dbStatus, setDbStatus] = useState<{
+    isConnected: boolean;
+    isSyncing: boolean;
+    lastSyncedAt: string | null;
+    error: string | null;
+    projectId: string;
+    productCount: number;
+    userCount: number;
+    orderCount: number;
+  }>({
+    isConnected: false,
+    isSyncing: false,
+    lastSyncedAt: null,
+    error: null,
+    projectId: 'xeeroo-store',
+    productCount: 0,
+    userCount: 0,
+    orderCount: 0,
+  });
+
+  // Test Database Connection
+  const testDbConnection = async () => {
+    setDbStatus(prev => ({ ...prev, isSyncing: true }));
+    const result = await testFirestoreConnection();
+    setDbStatus(prev => ({
+      ...prev,
+      isSyncing: false,
+      isConnected: result.success,
+      error: result.success ? null : result.message,
+      lastSyncedAt: result.success ? new Date().toLocaleTimeString() : prev.lastSyncedAt,
+    }));
+    if (result.success) {
+      addToast(result.message, 'success');
+    } else {
+      addToast(`Database Warning: ${result.message}`, 'warning');
+    }
+    return result;
+  };
+
+  // One-click Push / Seed all catalog data to Firestore collections
+  const syncCatalogToDatabase = async () => {
+    setDbStatus(prev => ({ ...prev, isSyncing: true }));
+    addToast('Pushing all products, categories, users & orders to Cloud Database...', 'info');
+    const res = await syncAllDataToFirestore(products, categories, users, orders);
+    setDbStatus(prev => ({
+      ...prev,
+      isSyncing: false,
+      isConnected: res.success,
+      error: res.success ? null : res.message,
+      lastSyncedAt: res.success ? new Date().toLocaleTimeString() : prev.lastSyncedAt,
+      productCount: res.counts.products,
+      userCount: res.counts.users,
+      orderCount: res.counts.orders,
+    }));
+    if (res.success) {
+      addToast(res.message, 'success');
+    } else {
+      addToast(`Sync failed: ${res.message}`, 'error');
+    }
+    return { success: res.success, message: res.message };
+  };
+
+  // One-click Pull latest products, users & categories from Firestore
+  const pullCatalogFromDatabase = async () => {
+    setDbStatus(prev => ({ ...prev, isSyncing: true }));
+    addToast('Pulling latest data from Cloud Database...', 'info');
+    try {
+      const [dbProds, dbCats, dbUsers, dbOrders] = await Promise.all([
+        fetchFirestoreProducts(),
+        fetchFirestoreCategories(),
+        fetchFirestoreUsers(),
+        fetchFirestoreOrders(),
+      ]);
+
+      let pulledCount = 0;
+      if (dbProds.length > 0) {
+        setProducts(dbProds);
+        pulledCount += dbProds.length;
+      }
+      if (dbCats.length > 0) {
+        setCategories(dbCats);
+      }
+      if (dbUsers.length > 0) {
+        setUsers(prev => {
+          const map = new Map<string, User>();
+          prev.forEach(u => map.set(u.id, u));
+          dbUsers.forEach(u => map.set(u.id, u));
+          return Array.from(map.values());
+        });
+      }
+      if (dbOrders.length > 0) {
+        setOrders(dbOrders);
+      }
+
+      setDbStatus(prev => ({
+        ...prev,
+        isSyncing: false,
+        isConnected: true,
+        lastSyncedAt: new Date().toLocaleTimeString(),
+        productCount: dbProds.length,
+        userCount: dbUsers.length,
+        orderCount: dbOrders.length,
+      }));
+
+      addToast(`Pulled ${pulledCount} items from Cloud Database!`, 'success');
+      return { success: true, message: `Successfully fetched ${dbProds.length} products.` };
+    } catch (err: any) {
+      setDbStatus(prev => ({ ...prev, isSyncing: false, error: err.message }));
+      addToast(`Pull failed: ${err.message}`, 'error');
+      return { success: false, message: err.message || 'Failed to pull data' };
+    }
+  };
+
+  // Automatic connection test & initial sync on boot
+  useEffect(() => {
+    let isMounted = true;
+    const initDatabase = async () => {
+      try {
+        const ping = await testFirestoreConnection();
+        if (!isMounted) return;
+        if (ping.success) {
+          setDbStatus(prev => ({
+            ...prev,
+            isConnected: true,
+            error: null,
+            projectId: ping.projectId,
+          }));
+
+          const [dbProds, dbCats, dbUsers, dbOrders] = await Promise.all([
+            fetchFirestoreProducts(),
+            fetchFirestoreCategories(),
+            fetchFirestoreUsers(),
+            fetchFirestoreOrders(),
+          ]);
+
+          if (!isMounted) return;
+
+          if (dbProds.length > 0) {
+            setProducts(dbProds);
+          }
+          if (dbCats.length > 0) {
+            setCategories(dbCats);
+          }
+          if (dbUsers.length > 0) {
+            setUsers(prev => {
+              const map = new Map<string, User>();
+              prev.forEach(u => map.set(u.id, u));
+              dbUsers.forEach(u => map.set(u.id, u));
+              return Array.from(map.values());
+            });
+          }
+          if (dbOrders.length > 0) {
+            setOrders(dbOrders);
+          }
+
+          setDbStatus(prev => ({
+            ...prev,
+            isConnected: true,
+            lastSyncedAt: new Date().toLocaleTimeString(),
+            productCount: dbProds.length,
+            userCount: dbUsers.length,
+            orderCount: dbOrders.length,
+          }));
+        } else {
+          setDbStatus(prev => ({
+            ...prev,
+            isConnected: false,
+            error: ping.message,
+          }));
+        }
+      } catch (err: any) {
+        console.warn('Database initialization notice:', err);
+      }
+    };
+
+    initDatabase();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const openLoginModal = () => {
     setAuthModalTab('login');
@@ -540,20 +748,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
       createdAt: new Date().toISOString(),
       isBanned: false,
+      address: {
+        fullName: googleData.fullName.trim() || 'Google User',
+        street: '',
+        city: 'Dhaka',
+        state: 'Dhaka',
+        postalCode: '1200',
+        country: 'Bangladesh',
+        phone: googleData.phone || '',
+      },
     };
 
     setUsers(prev => [...prev, newUser]);
-    // Also save to Firestore
-    saveFirestoreUserProfile(newUser.id, {
-      id: newUser.id,
-      email: newUser.email,
-      fullName: newUser.fullName,
-      phone: newUser.phone,
-      role: 'customer',
-      approvalStatus: 'approved',
-      isVerified: true,
-      createdAt: newUser.createdAt,
-    });
+    // Save to Firestore collections
+    saveFirestoreCustomer(newUser);
 
     setCurrentUserId(newUser.id);
     setIsAuthModalOpen(false);
@@ -619,25 +827,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       phone: pendingRegistration.phone,
       password: pendingRegistration.password,
       role: 'customer',
-      approvalStatus: 'pending',
+      approvalStatus: 'approved',
       isVerified: true,
       avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
       createdAt: new Date().toISOString(),
       isBanned: false,
+      address: {
+        fullName: pendingRegistration.fullName,
+        street: '',
+        city: 'Dhaka',
+        state: 'Dhaka',
+        postalCode: '1200',
+        country: 'Bangladesh',
+        phone: pendingRegistration.phone,
+      },
     };
 
     setUsers(prev => [...prev, newUser]);
-    // Save to Firestore
-    saveFirestoreUserProfile(newUser.id, {
-      id: newUser.id,
-      email: newUser.email,
-      fullName: newUser.fullName,
-      phone: newUser.phone,
-      role: 'customer',
-      approvalStatus: 'pending',
-      isVerified: true,
-      createdAt: newUser.createdAt,
-    });
+    // Save to Firestore collections: both 'users' and 'customers'
+    saveFirestoreCustomer(newUser);
 
     setPendingRegistration(null);
     setAuthModalTab('login');
@@ -723,21 +931,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       phone: data.phone.trim(),
       password: data.password,
       role: 'customer',
-      approvalStatus: 'pending',
+      approvalStatus: 'approved',
       avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
       createdAt: new Date().toISOString(),
       isBanned: false,
+      address: {
+        fullName: data.fullName.trim(),
+        street: '',
+        city: 'Dhaka',
+        state: 'Dhaka',
+        postalCode: '1200',
+        country: 'Bangladesh',
+        phone: data.phone.trim(),
+      },
     };
 
     setUsers(prev => [...prev, newUser]);
+    // Save to Firestore collections
+    saveFirestoreCustomer(newUser);
+
     setCurrentUserId(newUser.id);
     setIsAuthModalOpen(false);
 
-    addToast(
-      'Registration successful! Your account is submitted for XEEROO Admin approval.',
-      'info'
-    );
-
+    addToast('Registration successful! Welcome to XEEROO Store.', 'success');
     return { success: true, message: 'Registered successfully', user: newUser };
   };
 
@@ -838,10 +1054,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
+    let updatedUserProfile: User | null = null;
+
     setUsers(prev =>
       prev.map(u => {
         if (u.id === currentUser.id) {
-          return {
+          const updated: User = {
             ...u,
             ...(updates.fullName !== undefined && { fullName: updates.fullName.trim() }),
             ...(updates.email !== undefined && { email: updates.email.trim() }),
@@ -849,12 +1067,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...(updates.password !== undefined && updates.password.trim() !== '' && { password: updates.password }),
             ...(updates.address !== undefined && { address: updates.address }),
           };
+          updatedUserProfile = updated;
+          return updated;
         }
         return u;
       })
     );
 
-    addToast('Profile & settings updated successfully!', 'success');
+    // Persist full customer profile with address to Firestore
+    if (updatedUserProfile) {
+      saveFirestoreCustomer(updatedUserProfile);
+    }
+
+    addToast('Profile & shipping address updated and saved to Database!', 'success');
     return true;
   };
 
@@ -864,7 +1089,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
     setUsers(prev =>
-      prev.map(u => (u.id === userId ? { ...u, isBanned: !u.isBanned } : u))
+      prev.map(u => {
+        if (u.id === userId) {
+          const updated = { ...u, isBanned: !u.isBanned };
+          saveFirestoreCustomer(updated);
+          return updated;
+        }
+        return u;
+      })
     );
     addToast(`User status updated`, 'info');
     return true;
@@ -954,7 +1186,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  // Product CRUD (RBAC Protected)
+  // Product CRUD (RBAC Protected & Cloud Database Sync)
   const addProduct = (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): boolean => {
     if (!canEditProduct) {
       addToast('Access Denied: You must be an Admin or Moderator to create products.', 'error');
@@ -972,7 +1204,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setProducts(prev => [newProduct, ...prev]);
-    addToast(`Product "${newProduct.title}" created successfully`, 'success');
+    // Save directly to Firestore database!
+    saveFirestoreProduct(newProduct);
+
+    addToast(`Product "${newProduct.title}" added to store & database!`, 'success');
     return true;
   };
 
@@ -983,18 +1218,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setProducts(prev =>
-      prev.map(p =>
-        p.id === id
-          ? {
-              ...p,
-              ...updates,
-              updatedAt: new Date().toISOString(),
-              updatedBy: currentUser?.id || 'admin',
-            }
-          : p
-      )
+      prev.map(p => {
+        if (p.id === id) {
+          const updated = {
+            ...p,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser?.id || 'admin',
+          };
+          // Save directly to Firestore database!
+          saveFirestoreProduct(updated);
+          return updated;
+        }
+        return p;
+      })
     );
-    addToast('Product details updated successfully', 'success');
+    addToast('Product details updated and saved to database', 'success');
     return true;
   };
 
@@ -1005,13 +1244,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const safeStock = Math.max(0, Math.floor(newStock));
     setProducts(prev =>
-      prev.map(p =>
-        p.id === id
-          ? { ...p, stockQuantity: safeStock, updatedAt: new Date().toISOString(), updatedBy: currentUser?.id || 'admin' }
-          : p
-      )
+      prev.map(p => {
+        if (p.id === id) {
+          const updated = {
+            ...p,
+            stockQuantity: safeStock,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser?.id || 'admin',
+          };
+          saveFirestoreProduct(updated);
+          return updated;
+        }
+        return p;
+      })
     );
-    addToast(`Stock level adjusted to ${safeStock} units`, 'info');
+    addToast(`Stock level adjusted to ${safeStock} units in database`, 'info');
     return true;
   };
 
@@ -1023,7 +1270,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setProducts(prev => prev.filter(p => p.id !== id));
     setCart(prev => prev.filter(item => item.product.id !== id));
-    addToast('Product removed from catalog', 'info');
+    // Remove from Firestore database
+    deleteFirestoreProduct(id);
+    addToast('Product permanently deleted from database & catalog', 'info');
     return true;
   };
 
@@ -1037,8 +1286,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map(p => {
         if (p.id === id) {
           const nextState = !p.isPublished;
-          addToast(`Product "${p.title}" ${nextState ? 'published to store' : 'hidden (draft)'}`, 'info');
-          return { ...p, isPublished: nextState, updatedAt: new Date().toISOString() };
+          const updated = { ...p, isPublished: nextState, updatedAt: new Date().toISOString() };
+          saveFirestoreProduct(updated);
+          addToast(`Product "${p.title}" ${nextState ? 'published to store & database' : 'hidden (draft)'}`, 'info');
+          return updated;
         }
         return p;
       })
@@ -1062,7 +1313,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setCategories(prev => [...prev, newCategory]);
-    addToast(`Category "${name}" created`, 'success');
+    saveFirestoreCategory(newCategory);
+    addToast(`Category "${name}" saved to database`, 'success');
     return true;
   };
 
@@ -1236,7 +1488,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
-    addToast(`Order #${orderId} confirmed successfully!`, 'success');
+    // Save order directly to Firestore database!
+    saveFirestoreOrder(newOrder);
+
+    addToast(`Order #${orderId} confirmed successfully and saved to Database!`, 'success');
     return newOrder;
   };
 
@@ -1247,11 +1502,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setOrders(prev =>
-      prev.map(o =>
-        o.id === orderId
-          ? { ...o, status, updatedAt: new Date().toISOString() }
-          : o
-      )
+      prev.map(o => {
+        if (o.id === orderId) {
+          const updated = { ...o, status, updatedAt: new Date().toISOString() };
+          saveFirestoreOrder(updated);
+          return updated;
+        }
+        return o;
+      })
     );
     addToast(`Order #${orderId} marked as ${status.toUpperCase()}`, 'success');
     return true;
@@ -1370,6 +1628,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     canManageCategories,
     canViewAnalytics,
     canUpdateOrderStatus,
+
+    // Database Status & Sync Operations
+    dbStatus,
+    testDbConnection,
+    syncCatalogToDatabase,
+    pullCatalogFromDatabase,
 
     toasts,
     addToast,
