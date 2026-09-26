@@ -12,17 +12,37 @@ export const XEEROO_CONTACT = {
   email: 'xeeroo.0@outlook.com',
   whatsapp: 'https://wa.me/8801570243005',
   whatsappDisplay: '+880 1570-243005',
+  whatsappPng: '/whatsapp.png',
   facebook: 'https://facebook.com/xeeroo.0',
   facebookDisplay: 'facebook.com/xeeroo.0',
+  facebookPng: '/facebook.png',
+  messenger: 'https://m.me/xeeroo.0',
+  messengerDisplay: 'm.me/xeeroo.0',
+  messengerPng: '/messenger.png',
   instagram: 'https://instagram.com/xeeroo.0',
   instagramDisplay: 'instagram.com/xeeroo.0',
+  instagramPng: '/instagram.png',
   tiktok: 'https://www.tiktok.com/@xeeroo.0',
   tiktokDisplay: 'tiktok.com/xeeroo.0',
-  logoUrl: '/logo.svg',
-  faviconUrl: '/favicon.svg',
+  logoUrl: '/xeeroo.jpg',
+  faviconUrl: '/favicon.png',
 };
 
-export const INITIAL_USERS: User[] = [];
+export const DEFAULT_ADMIN_USER: User = {
+  id: 'usr-admin-master',
+  email: 'admin@xeeroo.com',
+  fullName: 'Master Administrator',
+  role: 'admin',
+  phone: '+880 1570-243005',
+  password: 'admin',
+  approvalStatus: 'approved',
+  isVerified: true,
+  isBanned: false,
+  createdAt: '2026-01-01T00:00:00Z',
+  avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
+};
+
+export const INITIAL_USERS: User[] = [DEFAULT_ADMIN_USER];
 
 export const INITIAL_BANNERS: BannerSlide[] = [
   {

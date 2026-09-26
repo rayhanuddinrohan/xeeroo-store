@@ -118,10 +118,10 @@ const AppContent: React.FC = () => {
         href="https://wa.me/8801570243005?text=Hello%20XEEROO%2C%20I%20want%20to%20place%20an%20order"
         target="_blank"
         rel="noreferrer"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-full shadow-lg hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs rounded-full shadow-lg shadow-[#25D366]/30 hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
         title="Direct WhatsApp Order"
       >
-        <MessageCircle className="w-5 h-5 animate-pulse" />
+        <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
         <span className="hidden sm:inline">Order on WhatsApp</span>
       </a>
 
@@ -191,34 +191,37 @@ const AppContent: React.FC = () => {
                   href={XEEROO_CONTACT.facebook}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-blue-600 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
+                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
                 >
-                  <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-white text-white group-hover:text-blue-600 font-black text-xs flex items-center justify-center transition-colors">
-                    X
-                  </div>
+                  <img src="/facebook.png" alt="Facebook" className="w-5 h-5 object-contain shrink-0" />
                   <span className="text-xs font-semibold">Facebook</span>
                 </a>
                 <a
                   href={XEEROO_CONTACT.instagram}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-pink-600 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
+                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
                 >
-                  <div className="w-5 h-5 rounded bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-black text-xs flex items-center justify-center transition-colors">
-                    X
-                  </div>
+                  <img src="/instagram.png" alt="Instagram" className="w-5 h-5 object-contain shrink-0" />
                   <span className="text-xs font-semibold">Instagram</span>
                 </a>
                 <a
-                  href={XEEROO_CONTACT.tiktok}
+                  href={XEEROO_CONTACT.messenger || 'https://m.me/xeeroo.0'}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-black text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
+                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
                 >
-                  <div className="w-5 h-5 rounded bg-black text-white font-black text-xs flex items-center justify-center transition-colors border border-slate-700">
-                    X
-                  </div>
-                  <span className="text-xs font-semibold">TikTok</span>
+                  <img src="/messenger.png" alt="Messenger" className="w-5 h-5 object-contain shrink-0" />
+                  <span className="text-xs font-semibold">Messenger</span>
+                </a>
+                <a
+                  href={XEEROO_CONTACT.whatsapp}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800 transition-colors group cursor-pointer"
+                >
+                  <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain shrink-0" />
+                  <span className="text-xs font-semibold">WhatsApp Order</span>
                 </a>
               </div>
             </div>

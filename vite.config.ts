@@ -545,6 +545,204 @@ function productImporterPlugin(): Plugin {
           res.end(JSON.stringify({ success: false, error: error.message || 'Business Koro order status check failed.' }));
         }
       });
+
+      // 6. MongoDB Atlas Integration Endpoints
+      server.middlewares.use('/api/mongodb/test', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const bodyStr = Buffer.concat(buffers).toString('utf-8');
+          const { connectionUri } = JSON.parse(bodyStr || '{}');
+
+          if (!connectionUri || typeof connectionUri !== 'string' || !connectionUri.trim()) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'MongoDB Connection URI প্রদান করা হয়নি (যেমন: mongodb+srv://...)' }));
+            return;
+          }
+
+          const { MongoClient } = await import('mongodb');
+          const client = new MongoClient(connectionUri.trim(), {
+            serverSelectionTimeoutMS: 6000,
+            connectTimeoutMS: 6000,
+          });
+
+          await client.connect();
+          await client.db().admin().ping();
+          const dbName = client.db().databaseName || 'xeeroo_store';
+          const collections = await client.db(dbName).listCollections().toArray();
+          await client.close();
+
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            message: 'MongoDB Atlas ক্লাস্টারের সাথে সফলভাবে সংযোগ স্থাপিত হয়েছে!',
+            database: dbName,
+            collections: collections.map((c) => c.name),
+          }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          let msg = error.message || 'MongoDB connection failed';
+          if (msg.includes('bad auth') || msg.includes('Authentication failed')) {
+            msg = 'অথেনটিকেশন ব্যর্থ হয়েছে: ইউজারনেম বা পাসওয়ার্ড সঠিক কিনা চেক করুন।';
+          } else if (msg.includes('ETIMEDOUT') || msg.includes('timed out') || msg.includes('whitelist') || msg.includes('queryTxt ETIMEOUT')) {
+            msg = 'কানেকশন টাইমআউট: MongoDB Atlas Network Access মেন্যুতে 0.0.0.0/0 আইপি এলাউ করা আছে কি না যাচাই করুন।';
+          }
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: msg }));
+        }
+      });
+
+      server.middlewares.use('/api/mongodb/sync', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const bodyStr = Buffer.concat(buffers).toString('utf-8');
+          const { connectionUri, data } = JSON.parse(bodyStr || '{}');
+
+          if (!connectionUri) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Connection URI missing' }));
+            return;
+          }
+
+          const { MongoClient } = await import('mongodb');
+          const client = new MongoClient(connectionUri.trim(), {
+            serverSelectionTimeoutMS: 8000,
+          });
+          await client.connect();
+          const db = client.db('xeeroo_store');
+
+          let syncedItems = 0;
+          if (data?.products && Array.isArray(data.products) && data.products.length > 0) {
+            const col = db.collection('products');
+            for (const p of data.products) {
+              const { _id, ...rest } = p;
+              await col.updateOne({ id: p.id }, { $set: rest }, { upsert: true });
+            }
+            syncedItems += data.products.length;
+          }
+
+          if (data?.categories && Array.isArray(data.categories) && data.categories.length > 0) {
+            const col = db.collection('categories');
+            for (const c of data.categories) {
+              const { _id, ...rest } = c;
+              await col.updateOne({ id: c.id }, { $set: rest }, { upsert: true });
+            }
+            syncedItems += data.categories.length;
+          }
+
+          if (data?.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+            const col = db.collection('orders');
+            for (const o of data.orders) {
+              const { _id, ...rest } = o;
+              await col.updateOne({ id: o.id }, { $set: rest }, { upsert: true });
+            }
+            syncedItems += data.orders.length;
+          }
+
+          if (data?.users && Array.isArray(data.users) && data.users.length > 0) {
+            const col = db.collection('users');
+            for (const u of data.users) {
+              const { _id, ...rest } = u;
+              await col.updateOne({ id: u.id }, { $set: rest }, { upsert: true });
+            }
+            syncedItems += data.users.length;
+          }
+
+          await client.close();
+
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            message: `MongoDB Atlas-এ ${syncedItems} টি আইটেম সফলভাবে সিঙ্ক করা হয়েছে!`,
+          }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'MongoDB sync failed' }));
+        }
+      });
+
+      server.middlewares.use('/api/mongodb/pull', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const bodyStr = Buffer.concat(buffers).toString('utf-8');
+          const { connectionUri } = JSON.parse(bodyStr || '{}');
+
+          if (!connectionUri) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Connection URI missing' }));
+            return;
+          }
+
+          const { MongoClient } = await import('mongodb');
+          const client = new MongoClient(connectionUri.trim(), {
+            serverSelectionTimeoutMS: 8000,
+          });
+          await client.connect();
+          const db = client.db('xeeroo_store');
+
+          const products = await db.collection('products').find({}).toArray();
+          const categories = await db.collection('categories').find({}).toArray();
+          const orders = await db.collection('orders').find({}).toArray();
+          const users = await db.collection('users').find({}).toArray();
+
+          await client.close();
+
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            products: products.map(({ _id, ...rest }) => rest),
+            categories: categories.map(({ _id, ...rest }) => rest),
+            orders: orders.map(({ _id, ...rest }) => rest),
+            users: users.map(({ _id, ...rest }) => rest),
+          }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'MongoDB pull failed' }));
+        }
+      });
     },
   };
 }

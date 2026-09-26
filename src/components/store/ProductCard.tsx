@@ -7,7 +7,8 @@ import React from 'react';
 import { Product } from '../../types';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
-import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, MessageCircle } from 'lucide-react';
+import { WhatsAppIcon } from '../common/WhatsAppIcon';
+import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -34,13 +35,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       : `https://xeeroo.com/?product=${product.id}`;
 
   const whatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
-    `Hello XEEROO! I want to order this product:
-*Product:* ${product.title}
-*Price:* ${formatBDT(product.price)}
-*SKU:* ${product.sku}
-*Product Link:* ${productUrl}
+    `আসসালামু আলাইকুম! আমি এই প্রোডাক্টটি অর্ডার করতে চাই:
+📦 পণ্য: ${product.title}
+💰 দাম: ${formatBDT(product.price)}
+🏷️ SKU: ${product.sku}
+🔗 লিংক: ${productUrl}
 
-Please confirm availability and delivery.`
+আমার নাম ও ডেলিভারি ঠিকানা:`
   )}`;
 
   const handleCardClick = () => {
@@ -156,33 +157,19 @@ Please confirm availability and delivery.`
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div>
             <a
               id={`whatsapp-order-btn-${product.id}`}
               href={whatsappUrl}
               target="_blank"
               rel="noreferrer"
               onClick={e => e.stopPropagation()}
-              className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 transition-colors cursor-pointer"
-              title="Order on WhatsApp with Product Link"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
+              title="হোয়াটসঅ্যাপে অর্ডার করুন"
             >
-              <MessageCircle className="w-3.5 h-3.5" />
+              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+              <span>হোয়াটসঅ্যাপ অর্ডার</span>
             </a>
-
-            <button
-              id={`add-to-cart-btn-${product.id}`}
-              type="button"
-              disabled={isOutOfStock}
-              onClick={handleAddToCart}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                isOutOfStock
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs hover:shadow active:scale-95'
-              }`}
-            >
-              <ShoppingBag className="w-3.5 h-3.5" />
-              <span>{isOutOfStock ? 'Sold Out' : 'Add to Cart'}</span>
-            </button>
           </div>
         </div>
       </div>

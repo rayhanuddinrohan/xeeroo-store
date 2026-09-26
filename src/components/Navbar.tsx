@@ -305,42 +305,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               </button>
             )}
 
-            {/* Cart Button */}
-            <button
-              id="nav-cart-btn"
-              onClick={onOpenCart}
-              className="relative p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-              aria-label="View shopping cart"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              {cartTotalCount > 0 && (
-                <span
-                  id="nav-cart-badge"
-                  className="absolute -top-1 -right-1 bg-blue-600 text-white text-[11px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-xs"
-                >
-                  {cartTotalCount > 99 ? '99+' : cartTotalCount}
-                </span>
-              )}
-            </button>
-
-            {/* Auth Buttons or User Dropdown with Logout */}
+            {/* Admin Login Button for Store Owner (No Customer Login) */}
             {!isLoggedIn ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center">
                 <button
-                  id="nav-login-btn"
+                  id="nav-admin-access-btn"
                   onClick={openLoginModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors cursor-pointer border border-slate-700"
+                  title="Store Administrator Panel Access"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </button>
-                <button
-                  id="nav-register-btn"
-                  onClick={openRegisterModal}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 text-gray-700 transition-colors cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Register</span>
+                  <Shield className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Admin Login</span>
                 </button>
               </div>
             ) : (

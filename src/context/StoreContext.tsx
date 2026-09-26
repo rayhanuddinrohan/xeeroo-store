@@ -24,6 +24,7 @@ import {
   INITIAL_ORDERS,
   INITIAL_PRODUCTS,
   INITIAL_USERS,
+  DEFAULT_ADMIN_USER,
 } from '../data/mockData';
 import {
   signInFirebaseUser,
@@ -49,6 +50,7 @@ interface StoreContextType {
   users: User[];
   isLoggedIn: boolean;
   login: (identifier: string, password?: string) => Promise<{ success: boolean; message: string; user?: User }>;
+  loginAsAdmin: () => void;
   loginWithGoogle: (googleData: {
     email: string;
     fullName: string;
@@ -204,13 +206,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Exclude previous hardcoded test accounts so site stays clean
-          return parsed.filter((u: User) => u.id !== 'usr-admin-xeeroo' && u.id !== 'usr-customer-demo');
+          const hasAdmin = parsed.some((u: User) => u.role === 'admin');
+          if (!hasAdmin) {
+            return [DEFAULT_ADMIN_USER, ...parsed];
+          }
+          return parsed;
         }
       }
-      return INITIAL_USERS;
+      return [DEFAULT_ADMIN_USER];
     } catch {
-      return INITIAL_USERS;
+      return [DEFAULT_ADMIN_USER];
     }
   });
 
@@ -694,6 +699,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
+    // Fallback for default master admin
+    if (!user && (clean === 'admin' || clean === 'admin@xeeroo.com')) {
+      user = DEFAULT_ADMIN_USER;
+      setUsers(prev => [DEFAULT_ADMIN_USER, ...prev.filter(u => u.id !== DEFAULT_ADMIN_USER.id)]);
+    }
+
     if (!user) {
       addToast('No account found with this email or phone number.', 'error');
       return { success: false, message: 'Account not found with this email or phone number' };
@@ -721,6 +732,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     return { success: true, message: 'Logged in successfully', user };
+  };
+
+  const loginAsAdmin = () => {
+    let admin = users.find(u => u.role === 'admin');
+    if (!admin) {
+      admin = DEFAULT_ADMIN_USER;
+      setUsers(prev => [DEFAULT_ADMIN_USER, ...prev.filter(u => u.id !== DEFAULT_ADMIN_USER.id)]);
+    }
+    setCurrentUserId(admin.id);
+    localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, admin.id);
+    setIsAuthModalOpen(false);
+    setViewMode('dashboard');
+    addToast('স্বাগতম! আপনি Master Admin হিসেবে সফলভাবে প্রবেশ করেছেন।', 'success');
   };
 
   const loginWithGoogle = (googleData: {
@@ -1723,6 +1747,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     users,
     isLoggedIn,
     login,
+    loginAsAdmin,
     loginWithGoogle,
     register,
     logout,

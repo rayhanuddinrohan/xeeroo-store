@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { ShippingAddress, Order } from '../../types';
 import { formatBDT } from '../../utils/currency';
+import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import {
   X,
   CheckCircle2,
@@ -79,9 +80,41 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     }
   };
 
+  const handlePlaceOrderViaWhatsApp = () => {
+    const order = createOrder(address, paymentMethod);
+    const cartItemsText = cart
+      .map(
+        (item, idx) =>
+          `${idx + 1}. ${item.product.title} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`
+      )
+      .join('\n');
+
+    const orderMsg = `আসসালামু আলাইকুম! আমি একটি অর্ডার কনফার্ম করতে চাই:
+
+📦 পণ্যের তালিকা:
+${cartItemsText}
+
+💵 মোট মূল্য: ${formatBDT(cartTotal)}
+💳 পেমেন্ট পদ্ধতি: ${paymentMethod === 'cod' ? 'Cash on Delivery (ক্যাশ অন ডেলিভারি)' : paymentMethod === 'card' ? 'Card Payment' : 'bKash/Nagad'}
+
+📍 ডেলিভারি ঠিকানা:
+নাম: ${address.fullName}
+ফোন: ${address.phone}
+ঠিকানা: ${address.street}, ${address.city} - ${address.postalCode}
+
+দয়া করে অর্ডারটি দ্রুত পাঠিয়ে দিন।`;
+
+    const waUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(orderMsg)}`;
+    window.open(waUrl, '_blank');
+    if (order) {
+      setCreatedOrder(order);
+      setStep('success');
+    }
+  };
+
   const handleFinish = () => {
     onClose();
-    setViewMode('orders');
+    setViewMode('store');
   };
 
   return (
@@ -115,60 +148,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
           </button>
         </div>
 
-        {/* Auth Gate: Must be logged in */}
-        {!isLoggedIn && (
-          <div className="p-8 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto">
-              <LogIn className="w-6 h-6" />
-            </div>
-            <h4 className="text-sm font-bold text-gray-900">Sign In Required for Checkout</h4>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
-              Please sign in to your registered customer account or administrator profile to complete your order with XEEROO.
-            </p>
-            <button
-              onClick={() => {
-                onClose();
-                openLoginModal();
-              }}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Sign In / Register</span>
-            </button>
-          </div>
-        )}
-
-        {/* Customer Pending Approval Gate */}
-        {isLoggedIn && isPendingCustomer && (
-          <div className="p-8 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
-              <Clock className="w-6 h-6" />
-            </div>
-            <h4 className="text-sm font-bold text-amber-900">Customer Account Pending Admin Approval</h4>
-            <p className="text-xs text-gray-600 max-w-md mx-auto leading-relaxed">
-              Your registration as <strong>{currentUser?.fullName}</strong> has been received and is currently in the <strong>Admin Approval Queue</strong>. Per XEEROO policy, orders cannot be completed until the administrator authorizes your customer profile.
-            </p>
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-left text-xs text-amber-800 space-y-1 max-w-md mx-auto">
-              <div className="flex justify-between">
-                <span>Account Email:</span>
-                <span className="font-mono font-medium">{currentUser?.email}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Account Status:</span>
-                <span className="font-bold uppercase tracking-wider text-amber-700">Pending Review</span>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="px-5 py-2 bg-gray-900 hover:bg-gray-800 text-white font-semibold text-xs rounded-xl transition-colors cursor-pointer"
-            >
-              Back to Storefront
-            </button>
-          </div>
-        )}
-
-        {/* Step 1: Shipping Form (when authorized) */}
-        {isLoggedIn && !isPendingCustomer && step === 'shipping' && (
+        {/* Step 1: Shipping Form (Open for all customers without login requirement) */}
+        {step === 'shipping' && (
           <form onSubmit={handleShippingSubmit} className="p-6 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -274,8 +255,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
           </form>
         )}
 
-        {/* Step 2: Payment (when authorized) */}
-        {isLoggedIn && !isPendingCustomer && step === 'payment' && (
+        {/* Step 2: Payment & Final Confirmation */}
+        {step === 'payment' && (
           <div className="p-6 space-y-5">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-2">
@@ -379,23 +360,23 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setStep('shipping')}
-                className="text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
+                className="text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer self-start sm:self-auto"
               >
                 Back to Address
               </button>
 
               <button
-                id="btn-confirm-order"
+                id="btn-confirm-order-whatsapp"
                 type="button"
-                onClick={handlePlaceOrder}
-                className="px-6 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                onClick={handlePlaceOrderViaWhatsApp}
+                className="w-full sm:w-auto px-6 py-2.5 text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm & Place Order ({formatBDT(cartTotal)})</span>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>হোয়াটসঅ্যাপে অর্ডার কনফার্ম করুন ({formatBDT(cartTotal)})</span>
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@
 import React from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
+import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 
 interface CartDrawerProps {
@@ -30,6 +31,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     cartTotal,
     setViewMode,
   } = useStore();
+
+  const cartItemsText = cart
+    .map(
+      (item, idx) =>
+        `${idx + 1}. ${item.product.title} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`
+    )
+    .join('\n');
+
+  const cartWhatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
+    `আসসালামু আলাইকুম! আমি কার্টের নিচের পণ্যগুলো অর্ডার করতে চাই:
+
+🛒 পণ্যের তালিকা:
+${cartItemsText}
+
+💵 সর্বমোট মূল্য: ${formatBDT(cartTotal)}
+
+আমার নাম ও ডেলিভারি ঠিকানা:`
+  )}`;
 
   if (!isOpen) return null;
 
@@ -176,14 +195,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              <button
-                id="btn-proceed-checkout"
-                onClick={onProceedToCheckout}
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-sm transition-all cursor-pointer"
+              {/* WhatsApp Cart Order Button (Clean, no phone number displayed) */}
+              <a
+                id="btn-whatsapp-cart-checkout"
+                href={cartWhatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
               >
-                <span>Proceed to Checkout</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>হোয়াটসঅ্যাপে অর্ডার করুন (Order via WhatsApp)</span>
+              </a>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 pt-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

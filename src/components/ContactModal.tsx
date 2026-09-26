@@ -60,8 +60,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
             className="flex items-center justify-between p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50/60 hover:bg-emerald-100/70 transition-all group cursor-pointer shadow-xs"
           >
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
-                <MessageCircle className="w-6 h-6" />
+              <div className="w-11 h-11 rounded-xl bg-white border border-emerald-200 flex items-center justify-center p-1.5 shadow-sm group-hover:scale-105 transition-transform">
+                <img src="/whatsapp.png" alt="WhatsApp" className="w-full h-full object-contain" />
               </div>
               <div>
                 <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block">
@@ -75,8 +75,8 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
                 </span>
               </div>
             </div>
-            <span className="text-xs font-bold text-white bg-emerald-600 px-3 py-1.5 rounded-lg group-hover:bg-emerald-700 transition-colors shadow-xs shrink-0">
-              Chat & Order
+            <span className="text-xs font-bold text-white bg-[#25D366] hover:bg-[#20ba59] px-3.5 py-2 rounded-lg transition-colors shadow-xs shrink-0 flex items-center gap-1.5">
+              <span>Chat & Order</span>
             </span>
           </a>
 
@@ -129,10 +129,10 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
             </a>
           </div>
 
-          {/* Social Profiles as sleek buttons */}
+          {/* Social Profiles as sleek professional buttons */}
           <div>
             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-              Follow XEEROO
+              Official Social Channels
             </h4>
             <div className="grid grid-cols-3 gap-2">
               {/* Facebook Button */}
@@ -140,12 +140,10 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
                 href={XEEROO_CONTACT.facebook}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-blue-600 hover:bg-blue-50/60 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white"
+                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-blue-600 hover:bg-blue-50/60 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white shadow-xs"
                 title="Follow on Facebook"
               >
-                <div className="w-6 h-6 rounded-md bg-blue-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  X
-                </div>
+                <img src="/facebook.png" alt="Facebook" className="w-5 h-5 object-contain shrink-0" />
                 <span className="text-xs font-bold text-gray-800 group-hover:text-blue-600">
                   Facebook
                 </span>
@@ -156,30 +154,26 @@ export const ContactModal: React.FC<ContactModalProps> = ({ isOpen, onClose }) =
                 href={XEEROO_CONTACT.instagram}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-pink-600 hover:bg-pink-50/60 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white"
+                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-pink-600 hover:bg-pink-50/60 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white shadow-xs"
                 title="Follow on Instagram"
               >
-                <div className="w-6 h-6 rounded-md bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-black text-xs flex items-center justify-center shrink-0">
-                  X
-                </div>
+                <img src="/instagram.png" alt="Instagram" className="w-5 h-5 object-contain shrink-0" />
                 <span className="text-xs font-bold text-gray-800 group-hover:text-pink-600">
                   Instagram
                 </span>
               </a>
 
-              {/* TikTok Button */}
+              {/* Messenger Button */}
               <a
-                href={XEEROO_CONTACT.tiktok}
+                href={XEEROO_CONTACT.messenger || 'https://m.me/xeeroo.0'}
                 target="_blank"
                 rel="noreferrer"
-                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-black hover:bg-gray-100 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white"
-                title="Follow on TikTok"
+                className="py-2.5 px-3 rounded-xl border border-gray-200 hover:border-blue-500 hover:bg-blue-50/60 transition-all flex items-center justify-center gap-2 group cursor-pointer bg-white shadow-xs"
+                title="Chat on Messenger"
               >
-                <div className="w-6 h-6 rounded-md bg-black text-white font-black text-xs flex items-center justify-center shrink-0">
-                  X
-                </div>
-                <span className="text-xs font-bold text-gray-800 group-hover:text-black">
-                  TikTok
+                <img src="/messenger.png" alt="Messenger" className="w-5 h-5 object-contain shrink-0" />
+                <span className="text-xs font-bold text-gray-800 group-hover:text-blue-500">
+                  Messenger
                 </span>
               </a>
             </div>

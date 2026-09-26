@@ -20,6 +20,9 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Globe,
+  Link,
+  Loader2,
 } from 'lucide-react';
 
 interface ProductFormModalProps {
@@ -91,6 +94,46 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [showBulkAdd, setShowBulkAdd] = useState(false);
   const [bulkUrlsInput, setBulkUrlsInput] = useState('');
   const [showPresets, setShowPresets] = useState(false);
+
+  // Auto-fill from external URL state
+  const [urlScrapeInput, setUrlScrapeInput] = useState('');
+  const [isScrapingUrl, setIsScrapingUrl] = useState(false);
+
+  const handleExtractFromUrl = async () => {
+    if (!urlScrapeInput.trim()) {
+      addToast('অনুগ্রহ করে একটি প্রোডাক্টের লিংক দিন!', 'error');
+      return;
+    }
+    setIsScrapingUrl(true);
+    try {
+      const res = await fetch(`/api/scrape-product?url=${encodeURIComponent(urlScrapeInput.trim())}`);
+      const data = await res.json();
+      if (res.ok && data.success && data.product) {
+        const p = data.product;
+        if (p.title) {
+          setTitle(p.title);
+          setSlug(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `prod-${Date.now()}`);
+        }
+        if (p.description) setDescription(p.description);
+        if (p.price) setPrice(p.price);
+        if (p.brand) setBrand(p.brand);
+        if (p.sku) setSku(p.sku);
+        if (Array.isArray(p.images) && p.images.length > 0) {
+          setThumbnailUrl(p.images[0]);
+          setGalleryUrls(p.images.slice(1));
+        }
+        addToast('লিংক থেকে ছবি, বিবরণ ও দাম স্বয়ংক্রিয়ভাবে বসানো হয়েছে!', 'success');
+        setUrlScrapeInput('');
+      } else {
+        addToast(data.error || 'এই লিংক থেকে তথ্য এক্সট্রাক্ট করা যায়নি।', 'error');
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      addToast(error.message || 'লিংক এক্সট্রাক্ট ব্যর্থ হয়েছে!', 'error');
+    } finally {
+      setIsScrapingUrl(false);
+    }
+  };
 
   useEffect(() => {
     if (productToEdit) {
@@ -336,6 +379,41 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[82vh] overflow-y-auto">
+          {/* Quick Auto-Fill from Product URL */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+              <Globe className="w-4 h-4 text-blue-600" />
+              <span>URL থেকে স্বয়ংক্রিয়ভাবে তথ্য ও ছবি পূরণ করুন (Auto-Fill from Link)</span>
+            </div>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Link className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="url"
+                  value={urlScrapeInput}
+                  onChange={(e) => setUrlScrapeInput(e.target.value)}
+                  placeholder="যেকোনো প্রোডাক্টের লিঙ্ক পেস্ট করুন (যেমন Daraz, Amazon, ইত্যাদি)..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleExtractFromUrl}
+                disabled={isScrapingUrl || !urlScrapeInput.trim()}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+              >
+                {isScrapingUrl ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>আনছে...</span>
+                  </>
+                ) : (
+                  <span>Auto-Fill</span>
+                )}
+              </button>
+            </div>
+          </div>
+
           {/* General Information */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Title */}

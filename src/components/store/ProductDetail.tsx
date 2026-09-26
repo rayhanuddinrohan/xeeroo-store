@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { XEEROO_CONTACT } from '../../data/mockData';
+import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -104,14 +105,14 @@ export const ProductDetail: React.FC = () => {
       : `https://xeeroo.com/?product=${product.id}`;
 
   const whatsappOrderUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
-    `Hello XEEROO! I would like to place an order:
-*Product:* ${product.title}
-*Price:* ${formatBDT(product.price * selectedQuantity)}
-*Quantity:* ${selectedQuantity}
-*SKU:* ${product.sku}
-*Product Link:* ${productUrl}
+    `আসসালামু আলাইকুম! আমি এই প্রোডাক্টটি অর্ডার করতে চাই:
+📦 পণ্য: ${product.title}
+💰 দাম: ${formatBDT(product.price * selectedQuantity)}
+🔢 পরিমাণ: ${selectedQuantity}
+🏷️ SKU: ${product.sku}
+🔗 লিংক: ${productUrl}
 
-Please confirm stock availability and proceed with my delivery.`
+আমার নাম ও ডেলিভারি ঠিকানা:`
   )}`;
 
   return (
@@ -291,59 +292,42 @@ Please confirm stock availability and proceed with my delivery.`
               )}
             </div>
 
-            {/* Purchase & Quantity Actions */}
+            {/* Purchase & Quantity Actions (Direct WhatsApp Ordering Only) */}
             <div className="pt-6 border-t border-gray-100 space-y-3">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 {/* Quantity Counter */}
-                <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden shrink-0 self-start sm:self-auto bg-gray-50">
+                <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden shrink-0 self-start sm:self-auto bg-gray-50">
                   <button
                     onClick={() => handleQuantityChange(-1)}
                     disabled={isOutOfStock || selectedQuantity <= 1}
-                    className="px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors cursor-pointer"
+                    className="px-3.5 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     -
                   </button>
-                  <span className="px-4 py-2 text-sm font-semibold text-gray-900 min-w-10 text-center">
+                  <span className="px-4 py-3 text-sm font-semibold text-gray-900 min-w-10 text-center font-mono">
                     {selectedQuantity}
                   </span>
                   <button
                     onClick={() => handleQuantityChange(1)}
                     disabled={isOutOfStock || selectedQuantity >= product.stockQuantity}
-                    className="px-3 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors cursor-pointer"
+                    className="px-3.5 py-3 text-sm font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40 transition-colors cursor-pointer"
                   >
                     +
                   </button>
                 </div>
 
-                {/* Add to Cart Button */}
-                <button
-                  id="detail-add-to-cart-btn"
-                  onClick={handleAddToCart}
-                  disabled={isOutOfStock}
-                  className={`flex-1 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-all shadow-xs cursor-pointer ${
-                    isOutOfStock
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 active:scale-98'
-                  }`}
+                {/* Direct WhatsApp Ordering Button (Clean icon, no phone number displayed) */}
+                <a
+                  id="btn-whatsapp-order-product"
+                  href={whatsappOrderUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
                 >
-                  <ShoppingBag className="w-4 h-4" />
-                  <span>
-                    {isOutOfStock ? 'Sold Out' : `Add to Cart - ${formatBDT(product.price * selectedQuantity)}`}
-                  </span>
-                </button>
+                  <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
+                  <span>হোয়াটসঅ্যাপে অর্ডার করুন ({formatBDT(product.price * selectedQuantity)})</span>
+                </a>
               </div>
-
-              {/* Direct WhatsApp Ordering Button */}
-              <a
-                id="btn-whatsapp-order-product"
-                href={whatsappOrderUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20 shadow-xs transition-all cursor-pointer"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>Direct Order via WhatsApp (+880 1570-243005)</span>
-              </a>
 
               {/* Assurances */}
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 text-xs text-gray-500">

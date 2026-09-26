@@ -27,6 +27,12 @@ import {
   Shield,
   Copy,
   Check,
+  Eye,
+  EyeOff,
+  Download,
+  Terminal,
+  Layers,
+  ArrowRight,
 } from 'lucide-react';
 
 export const DatabaseManagementTab: React.FC = () => {
@@ -44,7 +50,7 @@ export const DatabaseManagementTab: React.FC = () => {
     addToast,
   } = useStore();
 
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'customers' | 'products' | 'admin-setup' | 'sql'>('overview');
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'assets' | 'customers' | 'products' | 'admin-setup' | 'mongodb' | 'sql'>('overview');
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latency?: number } | null>(null);
 
@@ -56,6 +62,136 @@ export const DatabaseManagementTab: React.FC = () => {
   const [isCreatingAdmin, setIsCreatingAdmin] = useState(false);
   const [createdAdminResult, setCreatedAdminResult] = useState<{ email: string; pass: string } | null>(null);
   const [copiedText, setCopiedText] = useState(false);
+
+  // MongoDB Atlas Integration States
+  const [mongoUri, setMongoUri] = useState(() => localStorage.getItem('xeeroo_mongodb_uri') || '');
+  const [showMongoUri, setShowMongoUri] = useState(false);
+  const [isMongoTesting, setIsMongoTesting] = useState(false);
+  const [isMongoSyncing, setIsMongoSyncing] = useState(false);
+  const [isMongoPulling, setIsMongoPulling] = useState(false);
+  const [mongoTestResult, setMongoTestResult] = useState<{
+    success: boolean;
+    message: string;
+    database?: string;
+    collections?: string[];
+  } | null>(null);
+  const [activeMongoSchema, setActiveMongoSchema] = useState<'product' | 'order' | 'user' | 'server'>('product');
+
+  const handleSaveMongoUri = (uri: string) => {
+    setMongoUri(uri);
+    localStorage.setItem('xeeroo_mongodb_uri', uri.trim());
+  };
+
+  const handleTestMongo = async () => {
+    if (!mongoUri.trim()) {
+      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      return;
+    }
+    setIsMongoTesting(true);
+    setMongoTestResult(null);
+    try {
+      const res = await fetch('/api/mongodb/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionUri: mongoUri.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMongoTestResult({
+          success: true,
+          message: data.message,
+          database: data.database,
+          collections: data.collections,
+        });
+        addToast(data.message, 'success');
+        localStorage.setItem('xeeroo_mongodb_uri', mongoUri.trim());
+      } else {
+        setMongoTestResult({
+          success: false,
+          message: data.error || 'MongoDB Atlas-এর সাথে সংযোগ স্থাপন সম্ভব হয়নি।',
+        });
+        addToast(data.error || 'MongoDB সংযোগ ব্যর্থ হয়েছে!', 'error');
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setMongoTestResult({
+        success: false,
+        message: error.message || 'নেটওয়ার্ক এরর। ব্যাকএন্ড রেসপন্স করেনি।',
+      });
+      addToast('MongoDB টেস্ট এরর!', 'error');
+    } finally {
+      setIsMongoTesting(false);
+    }
+  };
+
+  const handleSyncToMongo = async () => {
+    if (!mongoUri.trim()) {
+      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      return;
+    }
+    setIsMongoSyncing(true);
+    try {
+      const res = await fetch('/api/mongodb/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectionUri: mongoUri.trim(),
+          data: { products, categories, orders, users },
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addToast(data.message, 'success');
+      } else {
+        addToast(data.error || 'MongoDB তে সিঙ্ক ব্যর্থ হয়েছে!', 'error');
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      addToast(error.message || 'সিঙ্ক রিকোয়েস্ট ব্যর্থ হয়েছে!', 'error');
+    } finally {
+      setIsMongoSyncing(false);
+    }
+  };
+
+  const handlePullFromMongo = async () => {
+    if (!mongoUri.trim()) {
+      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      return;
+    }
+    setIsMongoPulling(true);
+    try {
+      const res = await fetch('/api/mongodb/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionUri: mongoUri.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        addToast(`সফলভাবে ডেটা আনা হয়েছে! (প্রোডাক্ট: ${data.products?.length || 0}, অর্ডার: ${data.orders?.length || 0})`, 'success');
+      } else {
+        addToast(data.error || 'MongoDB থেকে ডেটা ফেচ ব্যর্থ হয়েছে!', 'error');
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      addToast(error.message || 'MongoDB ফেচ ব্যর্থ হয়েছে!', 'error');
+    } finally {
+      setIsMongoPulling(false);
+    }
+  };
+
+  const handleExportJson = (filename: string, data: any) => {
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addToast(`${filename} ডাউনলোড শুরু হয়েছে!`, 'success');
+  };
 
   const handleTestPing = async () => {
     setIsTesting(true);
@@ -219,6 +355,34 @@ export const DatabaseManagementTab: React.FC = () => {
           <span>অ্যাডমিন অ্যাকাউন্ট তৈরি ও গাইড (Admin Setup)</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-800 font-mono font-bold">
             {adminList.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('mongodb')}
+          className={`pb-3 px-1 border-b-2 cursor-pointer transition-colors flex items-center gap-1.5 ${
+            activeSubTab === 'mongodb'
+              ? 'border-emerald-600 text-emerald-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Database className="w-3.5 h-3.5 text-emerald-600" />
+          <span>MongoDB Atlas (ফ্রি ডাটাবেজ গাইড ও কানেকশন)</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono font-bold">
+            Free M0
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab('assets')}
+          className={`pb-3 px-1 border-b-2 cursor-pointer transition-colors flex items-center gap-1.5 ${
+            activeSubTab === 'assets'
+              ? 'border-indigo-600 text-indigo-600 font-bold'
+              : 'border-transparent text-gray-500 hover:text-gray-900'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5 text-indigo-600" />
+          <span>লোগো ও বাটন এসেটস গাইড (PNG & Logo Assets)</span>
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 font-mono font-bold">
+            Live Assets
           </span>
         </button>
         <button
@@ -394,6 +558,141 @@ export const DatabaseManagementTab: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: Assets & Button Logos Guide */}
+      {activeSubTab === 'assets' && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Info Card */}
+          <div className="bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 text-white p-6 rounded-2xl border border-indigo-800 shadow-lg space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">লোগো ও বাটন এসেটস গাইড (Button Logos & Brand Assets)</h3>
+                <p className="text-xs text-indigo-200 mt-1 leading-relaxed">
+                  ওয়েবসাইটে যেকোনো বাটন লোগো, সোশ্যাল আইকন বা ব্র্যান্ড ছবি যুক্ত করতে সেগুলো সরাসরি প্রজেক্টের <strong className="text-amber-300 font-mono">public/</strong> ফোল্ডারে রাখতে হয়।
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 bg-white/10 rounded-xl border border-white/10 text-xs text-slate-200 space-y-2">
+              <p className="flex items-center gap-2 text-emerald-400 font-semibold">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>আপনার আপলোড করা ৬টি ফাইল সফলভাবে <code className="bg-black/40 px-1.5 py-0.5 rounded font-mono text-white">public/</code> ফোল্ডারে যুক্ত করা হয়েছে!</span>
+              </p>
+              <p className="text-slate-300">
+                ভবিষ্যতে যেকোনো নতুন আইকন বা লোগো পরিবর্তন করতে চাইলে ফাইলের একই নাম দিয়ে <code className="font-mono text-amber-300">public/</code> ফোল্ডারে প্রতিস্থাপন করলেই ওয়েবসাইটে স্বয়ংক্রিয়ভাবে আপডেট হয়ে যাবে।
+              </p>
+            </div>
+          </div>
+
+          {/* Active Assets Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* WhatsApp */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/whatsapp.png</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/whatsapp.png" alt="WhatsApp Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">হোয়াটসঅ্যাপ বাটন লোগো</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">সব প্রোডাক্ট পেজ ও অর্ডারের বাটনে ব্যবহৃত হচ্ছে</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Facebook */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/facebook.png</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/facebook.png" alt="Facebook Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">ফেসবুক বাটন লোগো</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">ফুটার ও কন্ট্যাক্ট প্যানেলে প্রদর্শিত হচ্ছে</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Instagram */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/instagram.png</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-pink-100 text-pink-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/instagram.png" alt="Instagram Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">ইনস্টাগ্রাম বাটন লোগো</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">অফিশিয়াল ইনস্টাগ্রাম পেজ লিঙ্ক</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messenger */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/messenger.png</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/messenger.png" alt="Messenger Logo" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">মেসেঞ্জার বাটন লোগো</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">ডাইরেক্ট কাস্টমার চ্যাটের জন্য ব্যবহৃত হচ্ছে</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Favicon */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/favicon.png</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/favicon.png" alt="Favicon" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">ওয়েবসাইট ফেভিকন (Tab Icon)</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">ব্রাউজারের ট্যাবে লোগো হিসেবে দেখাচ্ছে</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Brand Logo */}
+            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-gray-400 uppercase font-mono">File: public/xeeroo.jpg</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono">Active</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center p-2">
+                  <img src="/xeeroo.jpg" alt="Brand Logo" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900">XEEROO ব্র্যান্ড লোগো</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">হেডার এবং ব্র্যান্ডিং আইকনে ব্যবহৃত হচ্ছে</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -697,6 +996,415 @@ export const DatabaseManagementTab: React.FC = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content: MongoDB Atlas (Free Cloud Database) */}
+      {activeSubTab === 'mongodb' && (
+        <div className="space-y-6">
+          {/* Welcome & Clarification Hero Banner */}
+          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-950 rounded-2xl p-6 border border-emerald-800/40 text-white shadow-lg space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                  <Database className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>MongoDB Atlas ক্লাউড ডাটাবেজ গাইড ও লাইভ কানেকশন</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold uppercase tracking-wider">
+                      100% Free M0
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Firebase কনসোল জটিল মনে হলে MongoDB হলো সবচেয়ে জনপ্রিয়, নির্ভরযোগ্য ও সহজে ব্যবহারযোগ্য NoSQL ডাটাবেজ।
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://www.mongodb.com/cloud/atlas/register"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  <span>MongoDB Atlas-এ ফ্রি অ্যাকাউন্ট খুলুন</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-emerald-900/30 border border-emerald-700/40 text-xs text-emerald-200 leading-relaxed">
+              💡 <strong>চিন্তার কিছু নেই:</strong> Firebase না বুঝলেও আপনার এই স্টোর বন্ধ হবে না! স্টোরে অলরেডি একটি ব্রাউজার ডাটাবেজ (LocalStorage & Memory) সক্রিয় আছে, ফলে পণ্য যোগ করা, অর্ডার নেওয়া, গ্রাহক রেজিস্ট্রেশন সবই কাজ করছে। আর আপনি যদি পার্মানেন্ট ক্লাউড ডাটাবেজ হিসেবে MongoDB ব্যবহার করতে চান, নিচের ৪টি সহজ ধাপ অনুসরণ করুন:
+            </div>
+          </div>
+
+          {/* Interactive Live MongoDB Connection Box */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 pb-4">
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Key className="w-4 h-4 text-emerald-600" />
+                  <span>MongoDB Atlas কানেকশন স্ট্রিং (URI) কনফিগারেশন</span>
+                </h4>
+                <p className="text-xs text-gray-500">
+                  আপনার ক্লাস্টারের Connection String এখানে দিন এবং সাথে সাথে কানেকশন ও ডাটা সিঙ্ক পরীক্ষা করুন
+                </p>
+              </div>
+              <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                Driver: Node.js (v4.0+)
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-gray-700">
+                MongoDB Connection URI (mongodb+srv://...):
+              </label>
+              <div className="relative">
+                <input
+                  type={showMongoUri ? 'text' : 'password'}
+                  value={mongoUri}
+                  onChange={(e) => handleSaveMongoUri(e.target.value)}
+                  placeholder="mongodb+srv://<username>:<password>@cluster0.abcde.mongodb.net/xeeroo_store?retryWrites=true&w=majority"
+                  className="w-full text-xs font-mono px-3.5 py-2.5 pr-20 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-gray-50/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowMongoUri(!showMongoUri)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1 text-xs cursor-pointer flex items-center gap-1"
+                >
+                  {showMongoUri ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span className="text-[10px]">{showMongoUri ? 'Hide' : 'Show'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-500 leading-normal">
+                পাসওয়ার্ডে বিশেষ অক্ষর (যেমন @, #, %) থাকলে URL encode করতে হয়। সহজ পাসওয়ার্ড (যেমন: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-800">XeerooPass2026</code>) ব্যবহার করা সবচেয়ে নিরাপদ।
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                onClick={handleTestMongo}
+                disabled={isMongoTesting || !mongoUri.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                <Zap className={`w-3.5 h-3.5 text-amber-400 ${isMongoTesting ? 'animate-spin' : ''}`} />
+                <span>{isMongoTesting ? 'পরীক্ষা করা হচ্ছে...' : 'কানেকশন টেস্ট করুন (Test Ping)'}</span>
+              </button>
+
+              <button
+                onClick={handleSyncToMongo}
+                disabled={isMongoSyncing || !mongoUri.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
+              >
+                <UploadCloud className={`w-3.5 h-3.5 ${isMongoSyncing ? 'animate-bounce' : ''}`} />
+                <span>{isMongoSyncing ? 'সিঙ্ক হচ্ছে...' : 'বর্তমান সব ডাটা MongoDB তে আপলোড করুন'}</span>
+              </button>
+
+              <button
+                onClick={handlePullFromMongo}
+                disabled={isMongoPulling || !mongoUri.trim()}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              >
+                <DownloadCloud className="w-3.5 h-3.5 text-blue-600" />
+                <span>MongoDB থেকে ডাটা আনুন (Pull)</span>
+              </button>
+            </div>
+
+            {/* Test Result Box */}
+            {mongoTestResult && (
+              <div
+                className={`p-4 rounded-xl text-xs space-y-2 border ${
+                  mongoTestResult.success
+                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                    : 'bg-rose-50 text-rose-900 border-rose-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 font-bold">
+                  {mongoTestResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{mongoTestResult.message}</span>
+                </div>
+
+                {mongoTestResult.success && mongoTestResult.collections && (
+                  <div className="text-[11px] pt-1">
+                    ডাটাবেজ নাম: <strong className="font-mono text-emerald-800">{mongoTestResult.database}</strong> | 
+                    পাওয়া কালেকশনসমূহ: <span className="font-mono">{mongoTestResult.collections.length > 0 ? mongoTestResult.collections.join(', ') : 'এখনো কোনো কালেকশন নেই (সিঙ্ক বাটনে চাপ দিলে তৈরি হবে)'}</span>
+                  </div>
+                )}
+
+                {!mongoTestResult.success && (
+                  <ul className="list-disc list-inside text-[11px] space-y-1 text-rose-800 pt-1">
+                    <li>MongoDB Atlas-এর <strong>Network Access</strong> এ গিয়ে <strong>0.0.0.0/0</strong> আইপি এলাউ করেছেন কি না চেক করুন।</li>
+                    <li>ইউজারনেম এবং পাসওয়ার্ডে কোনো ভুল বানান বা অতিরিক্ত স্পেস আছে কি না দেখুন।</li>
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 4-Step Visual Beginner Guide (Bengali) */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-sm">
+            <div>
+              <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>MongoDB Atlas ফ্রি ক্লাউড ক্লাস্টার খোলার ৪টি সহজ ধাপ</span>
+              </h4>
+              <p className="text-xs text-gray-500">
+                কোনো ক্রেডিট কার্ড লাগবে না। এই ডাটাবেজ সারাজীবন ১০০% ফ্রিতে ব্যবহার করা যায়।
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Step 1 */}
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-gray-900">
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">১</span>
+                  <span>MongoDB Atlas-এ সাইন-আপ করুন</span>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  <a href="https://www.mongodb.com/cloud/atlas" target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold underline">
+                    mongodb.com/cloud/atlas
+                  </a> ওয়েবসাইটে যান। আপনার Google অ্যাকাউন্ট দিয়ে মাত্র ১ ক্লিকে ফ্রি অ্যাকাউন্ট খুলে ফেলুন।
+                </p>
+              </div>
+
+              {/* Step 2 */}
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-gray-900">
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">২</span>
+                  <span>M0 Free ক্লাস্টার সিলেক্ট করুন</span>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  <strong>Create a Deployment</strong> স্ক্রিনে এসে <strong className="text-emerald-700">M0 (Free)</strong> অপশনটি পছন্দ করুন। ক্লাউড হিসেবে AWS এবং রিজিয়ন হিসেবে <strong>Singapore</strong> বা <strong>Mumbai</strong> নির্বাচন করে <strong>Create Deployment</strong> বাটনে চাপ দিন।
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-gray-900">
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">৩</span>
+                  <span>ইউজার ও আইপি পারমিশন দিন</span>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  <strong>Database Access</strong> এ গিয়ে একটি ইউজারনেম (যেমন: <code className="bg-white px-1 py-0.5 border rounded">xeeroo_admin</code>) ও পাসওয়ার্ড দিন। এরপর <strong>Network Access</strong> মেন্যুতে গিয়ে <code className="bg-white px-1 py-0.5 border rounded font-bold text-emerald-700">0.0.0.0/0</code> (Allow Access from Anywhere) দিন।
+                </p>
+              </div>
+
+              {/* Step 4 */}
+              <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-gray-900">
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">৪</span>
+                  <span>Connection URI কপি করে পেস্ট করুন</span>
+                </div>
+                <p className="text-gray-600 leading-relaxed">
+                  <strong>Database</strong> ট্যাবে গিয়ে <strong>Connect</strong> এ চাপ দিয়ে <strong>Drivers (Node.js)</strong> নির্বাচন করুন। যে <code className="bg-white px-1 py-0.5 border rounded text-[11px]">mongodb+srv://...</code> লিংকটি পাবেন, সেখানে আপনার পাসওয়ার্ড বসিয়ে উপরের ঘরে পেস্ট করে দিন!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 1-Click JSON Export for MongoDB Compass or MongoImport */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>১-ক্লিকে MongoDB JSON এক্সপোর্ট (Direct Compass Import)</span>
+                </h4>
+                <p className="text-xs text-gray-500">
+                  আপনি চাইলে যেকোনো সময় আপনার স্টোরের ডাটা JSON ফাইল হিসেবে ডাউনলোড করে MongoDB Compass এ সরাসরি ইমপোর্ট করতে পারবেন
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              <button
+                onClick={() => handleExportJson('products.json', products)}
+                className="p-3 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 border border-gray-200 rounded-xl text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Products</span>
+                  <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
+                </div>
+                <span className="text-[11px] text-gray-500 block">{products.length} টি পণ্য (.json)</span>
+              </button>
+
+              <button
+                onClick={() => handleExportJson('orders.json', orders)}
+                className="p-3 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 border border-gray-200 rounded-xl text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Orders</span>
+                  <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
+                </div>
+                <span className="text-[11px] text-gray-500 block">{orders.length} টি অর্ডার (.json)</span>
+              </button>
+
+              <button
+                onClick={() => handleExportJson('users.json', users)}
+                className="p-3 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 border border-gray-200 rounded-xl text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Users</span>
+                  <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
+                </div>
+                <span className="text-[11px] text-gray-500 block">{users.length} জন গ্রাহক (.json)</span>
+              </button>
+
+              <button
+                onClick={() => handleExportJson('categories.json', categories)}
+                className="p-3 bg-gray-50 hover:bg-emerald-50 hover:border-emerald-300 border border-gray-200 rounded-xl text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Categories</span>
+                  <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
+                </div>
+                <span className="text-[11px] text-gray-500 block">{categories.length} টি ক্যাটাগরি (.json)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Copyable Mongoose Schemas & Standalone Express Code */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-emerald-600" />
+                  <span>রেডিমেড Mongoose Schemas ও Node.js কোড</span>
+                </h4>
+                <p className="text-xs text-gray-500">
+                  ভবিষ্যতে নিজস্ব কাস্টম Node.js / Express ব্যাকএন্ড সার্ভার চালাতে চাইলে এই স্কিমা কোডগুলো কপি করে সরাসরি ব্যবহার করতে পারবেন
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl text-xs font-semibold">
+                {(['product', 'order', 'user', 'server'] as const).map((schemaTab) => (
+                  <button
+                    key={schemaTab}
+                    onClick={() => setActiveMongoSchema(schemaTab)}
+                    className={`px-3 py-1 rounded-lg cursor-pointer transition-colors capitalize ${
+                      activeMongoSchema === schemaTab
+                        ? 'bg-white text-emerald-800 font-bold shadow-xs'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {schemaTab === 'server' ? 'server.js' : `${schemaTab}.model`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-slate-950 text-slate-200 p-4 rounded-xl text-xs font-mono overflow-x-auto max-h-72 border border-slate-800">
+              {activeMongoSchema === 'product' && (
+                <pre>{`// models/Product.js (Mongoose Schema)
+import mongoose from 'mongoose';
+
+const ProductSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  title: { type: String, required: true },
+  description: { type: String },
+  price: { type: Number, required: true },
+  originalPrice: { type: Number },
+  rating: { type: Number, default: 5 },
+  reviewsCount: { type: Number, default: 0 },
+  images: [{ type: String }],
+  category: { type: String, required: true },
+  inStock: { type: Boolean, default: true },
+  stockQuantity: { type: Number, default: 50 },
+  suggestedPrice: { type: Number },
+  isFeatured: { type: Boolean, default: false }
+}, { timestamps: true });
+
+export default mongoose.models.Product || mongoose.model('Product', ProductSchema);`}</pre>
+              )}
+
+              {activeMongoSchema === 'order' && (
+                <pre>{`// models/Order.js (Mongoose Schema)
+import mongoose from 'mongoose';
+
+const OrderSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  userId: { type: String, required: true },
+  items: [{
+    productId: { type: String, required: true },
+    title: { type: String },
+    price: { type: Number, required: true },
+    quantity: { type: Number, required: true },
+    image: { type: String }
+  }],
+  totalAmount: { type: Number, required: true },
+  status: { 
+    type: String, 
+    enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'], 
+    default: 'pending' 
+  },
+  shippingAddress: {
+    fullName: { type: String, required: true },
+    phone: { type: String, required: true },
+    address: { type: String, required: true },
+    division: { type: String },
+    district: { type: String },
+    area: { type: String },
+    postalCode: { type: String }
+  },
+  paymentMethod: { type: String, default: 'cod' },
+  businessKoroOrderId: { type: String }
+}, { timestamps: true });
+
+export default mongoose.models.Order || mongoose.model('Order', OrderSchema);`}</pre>
+              )}
+
+              {activeMongoSchema === 'user' && (
+                <pre>{`// models/User.js (Mongoose Schema)
+import mongoose from 'mongoose';
+
+const UserSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true },
+  fullName: { type: String, required: true },
+  phone: { type: String },
+  role: { 
+    type: String, 
+    enum: ['customer', 'moderator', 'admin'], 
+    default: 'customer' 
+  },
+  password: { type: String }, // Hashed password
+  approvalStatus: { type: String, default: 'approved' },
+  isVerified: { type: Boolean, default: true },
+  isBanned: { type: Boolean, default: false }
+}, { timestamps: true });
+
+export default mongoose.models.User || mongoose.model('User', UserSchema);`}</pre>
+              )}
+
+              {activeMongoSchema === 'server' && (
+                <pre>{`// server.js (Express + Mongoose Minimal Server)
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const MONGO_URI = process.env.MONGODB_URI || 'mongodb+srv://...';
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('🍃 MongoDB Atlas Connected!'))
+  .catch(err => console.error('Connection Error:', err));
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'MongoDB' }));
+
+app.listen(5000, () => console.log('Server running on port 5000'));`}</pre>
+              )}
+            </div>
           </div>
         </div>
       )}
