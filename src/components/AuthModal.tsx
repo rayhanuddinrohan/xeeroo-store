@@ -113,7 +113,7 @@ export const AuthModal: React.FC = () => {
                   type="text"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="admin@xeeroo.com"
+                  placeholder="এডমিন ইমেইল দিন"
                   autoComplete="username"
                   className="w-full pl-9 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
                   required

@@ -126,39 +126,111 @@ function productImporterPlugin(): Plugin {
             description = description.slice(0, 500) + '...';
           }
 
-          // Extract Images
+          // Extract Images with specialized Amazon, AliExpress, Alibaba, and generic e-commerce support
           const images: string[] = [];
+          const sanitizeImageUrl = (rawUrl: string): string => {
+            if (!rawUrl) return '';
+            let cleaned = rawUrl.replace(/\\"/g, '"').replace(/\\\//g, '/').trim();
+            if (cleaned.startsWith('//')) {
+              cleaned = 'https:' + cleaned;
+            }
+            // If Amazon image with thumbnail crop like ._SX500_ or ._AC_US40_, remove it for full high-res
+            if (cleaned.includes('media-amazon.com')) {
+              cleaned = cleaned.replace(/\._[A-Z0-9_,]+_\./i, '.');
+            }
+            // If AliExpress image with small crop like _50x50.jpg, strip it
+            if (cleaned.includes('alicdn.com')) {
+              cleaned = cleaned.replace(/_[0-9]+x[0-9]+[a-z]*\.(?:jpg|png|webp)/i, '.jpg');
+            }
+            return cleaned;
+          };
+
+          const addImage = (u: string) => {
+            const sanitized = sanitizeImageUrl(u);
+            if (
+              sanitized &&
+              sanitized.startsWith('http') &&
+              !sanitized.includes('sprite') &&
+              !sanitized.includes('placeholder') &&
+              !sanitized.includes('icon') &&
+              !images.includes(sanitized) &&
+              images.length < 10
+            ) {
+              images.push(sanitized);
+            }
+          };
+
+          // A. Amazon colorImages & dynamic images
+          const amazonHiResMatches = html.matchAll(/"(?:hiRes|large)"\s*:\s*"(https?:[^"]+)"/gi);
+          for (const m of amazonHiResMatches) {
+            addImage(m[1]);
+          }
+
+          const amazonDynImgMatches = html.matchAll(/data-a-dynamic-image=["'](\{.*?\})["']/gi);
+          for (const m of amazonDynImgMatches) {
+            try {
+              const dynObj = JSON.parse(m[1].replace(/&quot;/g, '"'));
+              Object.keys(dynObj).forEach(k => addImage(k));
+            } catch {
+              // ignore
+            }
+          }
+
+          const amazonOldHiRes = html.matchAll(/data-old-hires=["'](https?:[^"']+)["']/gi);
+          for (const m of amazonOldHiRes) {
+            addImage(m[1]);
+          }
+
+          // B. AliExpress & Alibaba CDN images (ae01.alicdn.com, sc04.alicdn.com)
+          const aliMatches = html.matchAll(/(?:https?:)?\/\/([a-z0-9\-_]+\.alicdn\.com\/kf\/[a-zA-Z0-9_\-\.]+\.(?:jpg|jpeg|png|webp))/gi);
+          for (const m of aliMatches) {
+            addImage('https://' + m[1]);
+          }
+
+          const aliImageModuleMatches = html.matchAll(/imagePathList\s*:\s*\[([\s\S]*?)\]/gi);
+          for (const m of aliImageModuleMatches) {
+            const innerUrls = m[1].matchAll(/"([^"]+)"/g);
+            for (const iu of innerUrls) {
+              addImage(iu[1]);
+            }
+          }
+
+          // C. JSON-LD schema images
           if (jsonLdProduct?.image) {
             if (Array.isArray(jsonLdProduct.image)) {
               jsonLdProduct.image.forEach((img: any) => {
                 const src = typeof img === 'string' ? img : img?.url;
-                if (src && !images.includes(src)) images.push(src);
+                if (src) addImage(src);
               });
             } else if (typeof jsonLdProduct.image === 'string') {
-              images.push(jsonLdProduct.image);
+              addImage(jsonLdProduct.image);
             } else if (jsonLdProduct.image?.url) {
-              images.push(jsonLdProduct.image.url);
+              addImage(jsonLdProduct.image.url);
             }
           }
 
+          // D. OpenGraph / Twitter meta images
           const ogImage = getMeta('image');
-          if (ogImage && !images.includes(ogImage)) {
-            images.unshift(ogImage);
+          if (ogImage) {
+            addImage(ogImage);
           }
 
-          // Also look for prominent product images if needed
-          const imgMatches = html.matchAll(/<img[^>]+src=["'](https?:\/\/[^"']+\.(?:jpg|jpeg|png|webp|avif)[^"']*)["']/gi);
+          // E. General HTML image search fallback
+          const imgMatches = html.matchAll(/<img[^>]+(?:src|data-src|data-lazy-src)=["']((?:https?:)?\/\/[^"']+\.(?:jpg|jpeg|png|webp)[^"']*)["']/gi);
           for (const m of imgMatches) {
-            const url = m[1];
-            if (
-              !url.includes('icon') &&
-              !url.includes('logo') &&
-              !url.includes('avatar') &&
-              !url.includes('banner') &&
-              images.length < 5 &&
-              !images.includes(url)
-            ) {
-              images.push(url);
+            addImage(m[1]);
+          }
+
+          // Extract Features & Bullet Points (e.g. from Amazon feature-bullets or specs)
+          const extractedFeatures: string[] = [];
+          const featureBulletsMatch = html.match(/<div\s+id=["']feature-bullets["'][^>]*>([\s\S]*?)<\/div>/i);
+          if (featureBulletsMatch) {
+            const bulletMatches = featureBulletsMatch[1].matchAll(/<li[^>]*><span[^>]*>(.*?)<\/span><\/li>/gi);
+            for (const bm of bulletMatches) {
+              const text = bm[1].replace(/<[^>]+>/g, '').trim();
+              if (text && text.length > 5 && !extractedFeatures.includes(text) && extractedFeatures.length < 6) {
+                extractedFeatures.push(text);
+              }
             }
           }
 
@@ -193,9 +265,16 @@ function productImporterPlugin(): Plugin {
               price = parseFloat(bdtMatch[1].replace(/,/g, ''));
               currency = 'BDT';
             } else if (usdMatch) {
-              price = parseFloat(usdMatch[1].replace(/,/g, ''));
-              currency = 'USD';
+              const usdVal = parseFloat(usdMatch[1].replace(/,/g, ''));
+              price = Math.round(usdVal * 122);
+              currency = 'BDT';
             }
+          }
+
+          // If price is in USD from JSON-LD/meta, convert to BDT
+          if (currency === 'USD' && price > 0) {
+            price = Math.round(price * 122);
+            currency = 'BDT';
           }
 
           // Extract Brand
@@ -213,11 +292,12 @@ function productImporterPlugin(): Plugin {
               title: title || 'Imported Tech Product',
               description: description || 'High quality tech hardware imported directly from external catalog.',
               price: price || 999,
-              currency,
+              currency: 'BDT',
               brand,
               sku,
               stockQuantity: 25,
               images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+              features: extractedFeatures.length > 0 ? extractedFeatures : undefined,
             },
           };
 
