@@ -306,7 +306,8 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     });
     clearTimeout(timeoutId);
 
-    if (localResponse.ok) {
+    const contentType = localResponse.headers.get('content-type') || '';
+    if (localResponse.ok && contentType.includes('application/json')) {
       const data = await localResponse.json();
       if (data.success && data.product && data.product.images?.length > 0) {
         return data.product;
@@ -316,33 +317,70 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     // Server route unavailable (e.g., deployed to GitHub Pages or static host)
   }
 
-  // Strategy B: CORS Proxies for Client-Side GitHub Deployments
-  const corsProxies = [
-    (u: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-    (u: string) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-    (u: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  // Strategy B: Client-Side Proxies (for GitHub Pages / static hosting)
+  const proxyFetchers = [
+    // 1. AllOrigins JSON wrapper (safest, encodes HTML inside .contents)
+    async (target: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return typeof data.contents === 'string' ? data.contents : null;
+    },
+    // 2. AllOrigins raw endpoint
+    async (target: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      return await res.text();
+    },
+    // 3. CorsProxy.io
+    async (target: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(target)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      return await res.text();
+    },
+    // 4. CodeTabs
+    async (target: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) return null;
+      return await res.text();
+    },
   ];
 
   let lastError: Error | null = null;
 
-  for (const getProxyUrl of corsProxies) {
+  for (const fetcher of proxyFetchers) {
     try {
-      const proxyUrl = getProxyUrl(cleanUrl);
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const html = await fetcher(cleanUrl);
+      if (html && html.length > 300) {
+        // Verify it didn't return an error page like "The page could not be found"
+        if (
+          html.includes('The page could not be found') ||
+          html.includes('404: NOT_FOUND') ||
+          html.includes('403 Forbidden')
+        ) {
+          continue;
+        }
 
-      const res = await fetch(proxyUrl, {
-        headers: {
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!res.ok) continue;
-
-      const html = await res.text();
-      if (html && html.length > 500) {
         const parsed = parseProductFromHtml(html, cleanUrl);
         if (parsed.title) {
           return parsed;

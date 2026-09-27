@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Product } from '../../types';
+import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import {
   X,
   Save,
@@ -106,30 +107,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
     setIsScrapingUrl(true);
     try {
-      const res = await fetch(`/api/scrape-product?url=${encodeURIComponent(urlScrapeInput.trim())}`);
-      const data = await res.json();
-      if (res.ok && data.success && data.product) {
-        const p = data.product;
-        if (p.title) {
-          setTitle(p.title);
-          setSlug(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `prod-${Date.now()}`);
-        }
-        if (p.description) setDescription(p.description);
-        if (p.price) setPrice(p.price);
-        if (p.brand) setBrand(p.brand);
-        if (p.sku) setSku(p.sku);
-        if (Array.isArray(p.images) && p.images.length > 0) {
-          setThumbnailUrl(p.images[0]);
-          setGalleryUrls(p.images.slice(1));
-        }
-        addToast('লিংক থেকে ছবি, বিবরণ ও দাম স্বয়ংক্রিয়ভাবে বসানো হয়েছে!', 'success');
-        setUrlScrapeInput('');
-      } else {
-        addToast(data.error || 'এই লিংক থেকে তথ্য এক্সট্রাক্ট করা যায়নি।', 'error');
+      const p = await scrapeProductFromAnyUrl(urlScrapeInput.trim());
+      if (p.title) {
+        setTitle(p.title);
+        setSlug(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `prod-${Date.now()}`);
       }
+      if (p.description) setDescription(p.description);
+      if (p.price) setPrice(p.price);
+      if (p.brand) setBrand(p.brand);
+      if (p.sku) setSku(p.sku);
+      if (Array.isArray(p.images) && p.images.length > 0) {
+        setThumbnailUrl(p.images[0]);
+        setGalleryUrls(p.images.slice(1));
+      }
+      addToast('লিংক থেকে ছবি, বিবরণ ও দাম স্বয়ংক্রিয়ভাবে বসানো হয়েছে!', 'success');
+      setUrlScrapeInput('');
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'লিংক এক্সট্রাক্ট ব্যর্থ হয়েছে!', 'error');
+      addToast(error.message || 'লিংক থেকে তথ্য সংগ্রহ করা যায়নি।', 'error');
     } finally {
       setIsScrapingUrl(false);
     }

@@ -9,6 +9,7 @@ import { Product } from '../../types';
 import { formatBDT } from '../../utils/currency';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductImportModal } from './ProductImportModal';
+import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import {
   Plus,
   Search,
@@ -76,28 +77,23 @@ export const ProductManagementTab: React.FC = () => {
     setIsScraping(true);
     setScrapedProduct(null);
     try {
-      const res = await fetch(`/api/scrape-product?url=${encodeURIComponent(scrapeUrl.trim())}`);
-      const data = await res.json();
-      if (res.ok && data.success && data.product) {
-        setScrapedProduct({
-          title: data.product.title || '',
-          description: data.product.description || '',
-          price: data.product.price || 990,
-          currency: data.product.currency || 'BDT',
-          brand: data.product.brand || 'Imported Brand',
-          sku: data.product.sku || `PROD-${Date.now().toString().slice(-5)}`,
-          images: Array.isArray(data.product.images) && data.product.images.length > 0 
-            ? data.product.images 
-            : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
-          categoryId: categories[0]?.id || 'cat-general',
-        });
-        addToast('প্রোডাক্টের ছবি ও তথ্য সফলভাবে এক্সট্রাক্ট করা হয়েছে!', 'success');
-      } else {
-        addToast(data.error || 'এই URL থেকে তথ্য সংগ্রহ করা যায়নি। লিংকটি সঠিক কিনা দেখুন।', 'error');
-      }
+      const prod = await scrapeProductFromAnyUrl(scrapeUrl.trim());
+      setScrapedProduct({
+        title: prod.title || '',
+        description: prod.description || '',
+        price: prod.price || 990,
+        currency: prod.currency || 'BDT',
+        brand: prod.brand || 'Imported Brand',
+        sku: prod.sku || `PROD-${Date.now().toString().slice(-5)}`,
+        images: Array.isArray(prod.images) && prod.images.length > 0 
+          ? prod.images 
+          : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+        categoryId: categories[0]?.id || 'cat-general',
+      });
+      addToast('প্রোডাক্টের ছবি ও তথ্য সফলভাবে এক্সট্রাক্ট করা হয়েছে!', 'success');
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'স্ক্র্যাপার রিকোয়েস্ট ব্যর্থ হয়েছে!', 'error');
+      addToast(error.message || 'এই URL থেকে তথ্য সংগ্রহ করা যায়নি। লিংকটি সঠিক কিনা দেখুন।', 'error');
     } finally {
       setIsScraping(false);
     }

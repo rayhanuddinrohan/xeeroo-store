@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Category, Product } from '../../types';
 import { formatBDT } from '../../utils/currency';
+import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import {
   X,
   DownloadCloud,
@@ -90,27 +91,42 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
     setImportedPreviews([]);
 
     try {
-      const response = await fetch(urlToFetch);
-      if (!response.ok) {
-        throw new Error(`API responded with status: ${response.status} ${response.statusText}`);
-      }
-      const data = await response.json();
-
       let items: any[] = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (Array.isArray(data.products)) {
-        items = data.products;
-      } else if (Array.isArray(data.items)) {
-        items = data.items;
-      } else if (Array.isArray(data.data)) {
-        items = data.data;
-      } else {
-        throw new Error('Could not find product array in API response. Expected array or { products: [...] }');
+
+      // 1. First attempt: fetch JSON from endpoint
+      try {
+        const response = await fetch(urlToFetch);
+        const contentType = response.headers.get('content-type') || '';
+
+        if (response.ok && contentType.includes('application/json')) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            items = data;
+          } else if (Array.isArray(data.products)) {
+            items = data.products;
+          } else if (Array.isArray(data.items)) {
+            items = data.items;
+          } else if (Array.isArray(data.data)) {
+            items = data.data;
+          }
+        }
+      } catch {
+        // Not a direct JSON endpoint, fall through to product HTML scraper
       }
 
+      // 2. If no JSON product array found, treat as an e-commerce Product Page URL
       if (items.length === 0) {
-        throw new Error('API returned 0 products.');
+        const singleScraped = await scrapeProductFromAnyUrl(urlToFetch);
+        items = [{
+          id: singleScraped.sku,
+          title: singleScraped.title,
+          description: singleScraped.description,
+          price: singleScraped.price,
+          brand: singleScraped.brand,
+          stock: 25,
+          images: singleScraped.images,
+          image: singleScraped.images[0],
+        }];
       }
 
       const previews: ExternalProductPreview[] = items.map((item, idx) => {
