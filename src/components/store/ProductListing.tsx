@@ -96,7 +96,12 @@ export const ProductListing: React.FC = () => {
           {/* Categories Tab Pill Strip - Horizontally scrollable */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 touch-pan-x">
             <button
-              onClick={() => setSelectedCategory('all')}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedCategory('all');
+                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              }}
               className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 selectedCategory === 'all'
                   ? 'bg-blue-600 text-white shadow-xs'
@@ -112,7 +117,12 @@ export const ProductListing: React.FC = () => {
               return (
                 <button
                   key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSelectedCategory(cat.id);
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                  }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                     selectedCategory === cat.id
                       ? 'bg-blue-600 text-white shadow-xs'

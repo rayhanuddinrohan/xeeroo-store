@@ -24,6 +24,12 @@ import {
   ChevronLeft,
   ChevronRight,
   MessageCircle,
+  FileText,
+  ShieldCheck,
+  Zap,
+  RotateCcw,
+  Clock,
+  Award,
 } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
@@ -44,6 +50,7 @@ export const ProductDetail: React.FC = () => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'specs' | 'warranty'>('overview');
 
   // Always scroll to top when opening or switching product detail
   useEffect(() => {
@@ -317,31 +324,288 @@ export const ProductDetail: React.FC = () => {
                 </div>
 
                 {/* Direct WhatsApp Ordering Button (Clean icon, no phone number displayed) */}
-                <a
-                  id="btn-whatsapp-order-product"
-                  href={whatsappOrderUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
-                >
-                  <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
-                  <span>হোয়াটসঅ্যাপে অর্ডার করুন ({formatBDT(product.price * selectedQuantity)})</span>
-                </a>
+                {isOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none shadow-none pointer-events-none"
+                    title="স্টক শেষ - অর্ডার গ্রহণ বন্ধ"
+                  >
+                    <WhatsAppIcon className="w-5 h-5 text-gray-400 shrink-0 opacity-50" />
+                    <span>স্টক আউট (অর্ডার বন্ধ)</span>
+                  </button>
+                ) : (
+                  <a
+                    id="btn-whatsapp-order-product"
+                    href={whatsappOrderUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
+                  >
+                    <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
+                    <span>হোয়াটসঅ্যাপে অর্ডার করুন ({formatBDT(product.price * selectedQuantity)})</span>
+                  </a>
+                )}
               </div>
 
               {/* Assurances */}
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 text-xs text-gray-500">
                 <div className="flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Truck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Prompt Bangladesh nationwide courier delivery</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-gray-400 shrink-0" />
+                  <Shield className="w-4 h-4 text-blue-600 shrink-0" />
                   <span>Authentic Hardware & Direct Customer Support</span>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* Professional Detailed Product Tabs: Overview, Specs & Warranty */}
+        {/* ============================================================== */}
+        <div className="border-t border-gray-200 pt-8 mt-8">
+          {/* Tabs Navigation Header */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-3 border-b border-gray-200 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                activeTab === 'overview'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>ওভারভিউ ও বিবরণ (Overview)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('specs')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                activeTab === 'specs'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              <span>টেকনিক্যাল স্পেসিফিকেশন (Specifications)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('warranty')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all cursor-pointer ${
+                activeTab === 'warranty'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>ডেলিভারি ও ওয়ারেন্টি পলিসি (Warranty & Shipping)</span>
+            </button>
+          </div>
+
+          {/* Tab 1: Overview Content */}
+          {activeTab === 'overview' && (
+            <div className="pt-6 space-y-8 animate-in fade-in duration-200">
+              {/* Detailed Description */}
+              <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200/80">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-blue-600" />
+                  <span>Product Detailed Description</span>
+                </h3>
+                <p className="text-sm sm:text-base text-gray-700 leading-relaxed font-normal whitespace-pre-line">
+                  {product.description}
+                </p>
+              </div>
+
+              {/* Hardware Value Proposition Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs space-y-1.5">
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-900">Precision Engineering</h4>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Designed for peak acoustic responsiveness and high ergonomic endurance.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs space-y-1.5">
+                  <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-900">100% Genuine Guaranteed</h4>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Every piece is authentic, direct sourced, and verified prior to packaging.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs space-y-1.5">
+                  <div className="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                    <Truck className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-900">Fast Express Dispatch</h4>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Same-day handover to courier with rapid tracking updates.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs space-y-1.5">
+                  <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <RotateCcw className="w-4 h-4" />
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-900">7-Day Replacement</h4>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Hassle-free replacement policy for manufacturing issues.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature Highlights Grid */}
+              {product.features && product.features.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                    Key Highlighted Features
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {product.features.map((feat, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-gray-50/80 border border-gray-200/60"
+                      >
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-medium text-gray-800">{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 2: Technical Specifications Content */}
+          {activeTab === 'specs' && (
+            <div className="pt-6 animate-in fade-in duration-200">
+              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs">
+                <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                  <tbody>
+                    <tr className="border-b border-gray-100 bg-gray-50/70">
+                      <td className="py-3 px-4 font-bold text-gray-600 w-1/3 sm:w-1/4">ব্র্যান্ড (Brand)</td>
+                      <td className="py-3 px-4 font-semibold text-gray-950">{product.brand}</td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 font-bold text-gray-600">মডেল / SKU</td>
+                      <td className="py-3 px-4 font-mono font-medium text-gray-800">{product.sku}</td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-gray-50/70">
+                      <td className="py-3 px-4 font-bold text-gray-600">ক্যাটাগরি (Category)</td>
+                      <td className="py-3 px-4 font-semibold text-blue-600">{category?.name || 'Tech Hardware'}</td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 font-bold text-gray-600">ইনভেন্টরি স্ট্যাটাস</td>
+                      <td className="py-3 px-4">
+                        {isOutOfStock ? (
+                          <span className="font-bold text-rose-600">স্টক শেষ (Out of Stock)</span>
+                        ) : (
+                          <span className="font-bold text-emerald-600">
+                            ইন স্টক ({product.stockQuantity} টি পণ্য মজুত রয়েছে)
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-gray-50/70">
+                      <td className="py-3 px-4 font-bold text-gray-600">গ্রাহক রেটিং</td>
+                      <td className="py-3 px-4 text-amber-600 font-bold">
+                        ★ {product.rating.toFixed(1)} / 5.0 ({product.reviewsCount} verified reviews)
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-100">
+                      <td className="py-3 px-4 font-bold text-gray-600">মূল্য (Price)</td>
+                      <td className="py-3 px-4 font-black font-mono text-emerald-600 text-sm">
+                        {formatBDT(product.price)}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-100 bg-gray-50/70">
+                      <td className="py-3 px-4 font-bold text-gray-600">প্যাকেজিং ও বক্স</td>
+                      <td className="py-3 px-4 text-gray-700">100% Brand Sealed Retail Pack with authentic QR seal</td>
+                    </tr>
+                    <tr>
+                      <td className="py-3 px-4 font-bold text-gray-600">সাপোর্ট ও ওয়ারেন্টি</td>
+                      <td className="py-3 px-4 text-gray-700">
+                        অফিসিয়াল ব্র্যান্ড ওয়ারেন্টি + ৭ দিনের সরাসরি রিপ্লেসমেন্ট গ্যারান্টি
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 3: Delivery & Warranty Content */}
+          {activeTab === 'warranty' && (
+            <div className="pt-6 space-y-6 animate-in fade-in duration-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Delivery Information Box */}
+                <div className="p-6 rounded-2xl bg-white border border-gray-200 shadow-xs space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900">ডেলিভারি টাইমলাইন ও চার্জ</h4>
+                      <p className="text-xs text-gray-500">Rapid nationwide doorstep delivery</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2.5 text-xs text-gray-700">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>ঢাকা সিটির ভেতর:</strong> ২৪ থেকে ৪৮ ঘণ্টার মধ্যে ক্যাশ অন ডেলিভারি (৬০৳)।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span><strong>ঢাকার বাইরে:</strong> স্টেডফাস্ট / সুন্দরবন কুরিয়ারে ২-৩ দিনের মধ্যে হোম ডেলিভারি (১২০৳)।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>ডেলিভারি ম্যানের সামনে প্রোডাক্ট যাচাই করে নেওয়ার সুবিধা।</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Warranty & Return Information Box */}
+                <div className="p-6 rounded-2xl bg-white border border-gray-200 shadow-xs space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900">ওয়ারেন্টি ও রিটার্ন পলিসি</h4>
+                      <p className="text-xs text-gray-500">Official authentic guarantee</p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2.5 text-xs text-gray-700">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                      <span><strong>৭ দিনের রিপ্লেসমেন্ট:</strong> টেকনিক্যাল কোনো সমস্যা থাকলে সম্পূর্ণ ফ্রি রিপ্লেসমেন্ট।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                      <span><strong>১০০% জেনুইন প্রডাক্ট:</strong> কোনো ক্লোন বা কপি পণ্য বিক্রয় করা হয় না।</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
+                      <span>যেকোনো প্রয়োজনে সরাসরি আমাদের হোয়াটসঅ্যাপ সাপোর্ট ডেস্কে যোগাযোগ করুন।</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

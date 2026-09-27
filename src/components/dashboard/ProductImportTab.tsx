@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Product } from '../../types';
 import { formatBDT } from '../../utils/currency';
+import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import {
   DownloadCloud,
   UploadCloud,
@@ -334,14 +335,7 @@ export const ProductImportTab: React.FC = () => {
     setScrapedProduct(null);
 
     try {
-      const response = await fetch(`/api/scrape-product?url=${encodeURIComponent(singleUrl.trim())}`);
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to extract product data from this website.');
-      }
-
-      const prod = data.product;
+      const prod = await scrapeProductFromAnyUrl(singleUrl.trim());
       setScrapedProduct(prod);
 
       // Auto-calculate BDT price
@@ -354,12 +348,12 @@ export const ProductImportTab: React.FC = () => {
         calculatedBDT = Math.round(prod.price * 155);
       }
       setSinglePriceBDT(calculatedBDT > 0 ? calculatedBDT : 2500);
-      setSingleStock(prod.stockQuantity || 25);
+      setSingleStock(25);
 
-      addToast(`Successfully extracted product details from website!`, 'success');
+      addToast(`Successfully extracted ${prod.images.length} images and details from website!`, 'success');
     } catch (err: any) {
       console.warn('Scraping error:', err);
-      setScrapeError(err.message || 'Could not scrape product. The website might be blocking automated requests or behind Cloudflare.');
+      setScrapeError(err.message || 'Could not extract product data automatically. If the website requires verification, please use manual entry.');
     } finally {
       setIsScraping(false);
     }

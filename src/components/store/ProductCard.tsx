@@ -158,18 +158,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
 
           <div>
-            <a
-              id={`whatsapp-order-btn-${product.id}`}
-              href={whatsappUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={e => e.stopPropagation()}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
-              title="হোয়াটসঅ্যাপে অর্ডার করুন"
-            >
-              <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-              <span>হোয়াটসঅ্যাপ অর্ডার</span>
-            </a>
+            {isOutOfStock ? (
+              <button
+                type="button"
+                disabled
+                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-100 text-gray-400 font-bold text-xs border border-gray-200 cursor-not-allowed select-none opacity-70 pointer-events-none"
+                title="স্টক শেষ - অর্ডার গ্রহণ বন্ধ"
+              >
+                <WhatsAppIcon className="w-4 h-4 text-gray-400 shrink-0 opacity-50" />
+                <span>স্টক আউট</span>
+              </button>
+            ) : (
+              <a
+                id={`whatsapp-order-btn-${product.id}`}
+                href={whatsappUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
+                title="হোয়াটসঅ্যাপে অর্ডার করুন"
+              >
+                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
+                <span>হোয়াটসঅ্যাপ অর্ডার</span>
+              </a>
+            )}
           </div>
         </div>
       </div>

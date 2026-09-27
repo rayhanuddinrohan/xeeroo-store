@@ -102,7 +102,7 @@ export const AuthModal: React.FC = () => {
           )}
 
           {/* Secure Admin Credentials Form */}
-          <form onSubmit={handleAdminLogin} className="space-y-4">
+          <form onSubmit={handleAdminLogin} className="space-y-4" autoComplete="off">
             <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 এডমিন ইমেইল (Admin Email)
@@ -111,10 +111,14 @@ export const AuthModal: React.FC = () => {
                 <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                 <input
                   type="text"
+                  name="xeeroo_login_id"
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="এডমিন ইমেইল দিন"
-                  autoComplete="username"
+                  placeholder=""
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   className="w-full pl-9 pr-3 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
                   required
                 />
@@ -129,10 +133,11 @@ export const AuthModal: React.FC = () => {
                 <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                 <input
                   type={showPassword ? 'text' : 'password'}
+                  name="xeeroo_security_key"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="current-password"
+                  placeholder=""
+                  autoComplete="new-password"
                   className="w-full pl-9 pr-10 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none font-mono"
                   required
                 />
