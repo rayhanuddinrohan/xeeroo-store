@@ -270,11 +270,9 @@ export function parseProductFromHtml(html: string, targetUrl: string): ScrapedPr
     category,
     sku,
     stockQuantity: 25,
-    images: images.length > 0 ? images : [
-      'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
-    ],
+    images: images.length > 0 ? images : [],
     features: features.length > 0 ? features : [
-      'Premium acoustic precision engineering',
+      'Authentic quality tested hardware',
       'Ultra-durable ergonomic chassis',
       'Universal broad compatibility',
       'Official verified warranty coverage'
@@ -287,8 +285,12 @@ export function parseProductFromHtml(html: string, targetUrl: string): ScrapedPr
 
 /**
  * Universal Scraper with automatic GitHub / Static / Dev fallback!
- * 1. Tries local backend /api/scrape-product (if running in dev)
- * 2. If running on GitHub Pages (static), falls back to high-availability CORS proxies
+ * 1. Tries local backend /api/scrape-product (if running in dev / Node full-stack)
+ * 2. If running on GitHub Pages (static), uses high-performance CORS engines:
+ *    - Engine 1: Microlink OpenGraph API (Instant, high uptime, CORS enabled)
+ *    - Engine 2: Jina AI Reader API (Markdown + JSON reader with images)
+ *    - Engine 3: AllOrigins JSON proxy (HTML parser)
+ *    - Engine 4: CodeTabs proxy (HTML parser)
  */
 export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<ScrapedProductResult> {
   const cleanUrl = targetUrl.trim();
@@ -296,7 +298,10 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     throw new Error('অনুগ্রহ করে http:// বা https:// দিয়ে শুরু হওয়া সঠিক প্রোডাক্টের লিংক দিন।');
   }
 
-  // Strategy A: Try backend API route (/api/scrape-product)
+  const urlObj = new URL(cleanUrl);
+  const domain = urlObj.hostname.replace(/^www\./, '');
+
+  // Strategy A: Try backend API route (/api/scrape-product) if available
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
@@ -305,7 +310,7 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
       } catch {
         // ignore
       }
-    }, 22000);
+    }, 15000);
 
     const localResponse = await fetch(`/api/scrape-product?url=${encodeURIComponent(cleanUrl)}`, {
       signal: controller.signal,
@@ -313,7 +318,7 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     clearTimeout(timeoutId);
 
     const contentType = localResponse.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
+    if (localResponse.ok && contentType.includes('application/json')) {
       const data = await localResponse.json();
       if (data.success && data.product && data.product.title) {
         return data.product;
@@ -324,123 +329,191 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     }
   } catch (err: unknown) {
     const error = err as { name?: string; message?: string };
-    // If backend gave an explicit error message, rethrow it directly
     if (
       error.message &&
       !error.message.includes('aborted') &&
       !error.message.includes('Failed to fetch') &&
-      !error.message.includes('Load failed')
+      !error.message.includes('Load failed') &&
+      !error.message.includes('404')
     ) {
       throw err;
     }
-    // Otherwise fallback to client-side proxies
   }
 
-  // Strategy B: Client-Side Proxies
-  const proxyFetchers = [
-    // 1. AllOrigins JSON wrapper
-    async (target: string) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        try {
-          controller.abort(new Error('Proxy timeout'));
-        } catch {
-          // ignore
-        }
-      }, 12000);
-      try {
-        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        const data = await res.json();
-        return typeof data.contents === 'string' ? data.contents : null;
-      } catch {
-        clearTimeout(timeoutId);
-        return null;
-      }
-    },
-    // 2. CorsProxy.io
-    async (target: string) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        try {
-          controller.abort(new Error('Proxy timeout'));
-        } catch {
-          // ignore
-        }
-      }, 12000);
-      try {
-        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(target)}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        return await res.text();
-      } catch {
-        clearTimeout(timeoutId);
-        return null;
-      }
-    },
-    // 3. CodeTabs
-    async (target: string) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        try {
-          controller.abort(new Error('Proxy timeout'));
-        } catch {
-          // ignore
-        }
-      }, 12000);
-      try {
-        const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`, {
-          signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        if (!res.ok) return null;
-        return await res.text();
-      } catch {
-        clearTimeout(timeoutId);
-        return null;
-      }
-    },
-  ];
+  // Strategy B: Client-Side Fallback for GitHub Pages / Static Hosting
 
-  let lastError: Error | null = null;
+  // B1: Microlink OpenGraph Engine (Direct client fetch, high speed, CORS enabled)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(cleanUrl)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  for (const fetcher of proxyFetchers) {
-    try {
-      const html = await fetcher(cleanUrl);
-      if (html && html.length > 300) {
+    if (res.ok) {
+      const json = await res.json();
+      if (json.status === 'success' && json.data?.title) {
+        const rawTitle = String(json.data.title || '').trim();
+        const lowerTitle = rawTitle.toLowerCase();
         if (
-          html.includes('The page could not be found') ||
-          html.includes('404: NOT_FOUND') ||
-          html.includes('403 Forbidden')
+          rawTitle.length > 2 &&
+          !lowerTitle.includes('404') &&
+          !lowerTitle.includes('not found') &&
+          !lowerTitle.includes('cannot be found') &&
+          !lowerTitle.includes('access denied')
         ) {
-          continue;
-        }
+          const cleanTitle = rawTitle
+            .replace(/\s*[|\-–—]\s*(?:Amazon|Daraz|StarTech|Ryans|AliExpress|Alibaba|Shopify|eBay|Pickaboo).*$/i, '')
+            .trim();
 
-        const parsed = parseProductFromHtml(html, cleanUrl);
+          const imgUrl = json.data.image?.url;
+          const images: string[] = [];
+          if (imgUrl && typeof imgUrl === 'string' && imgUrl.startsWith('http')) {
+            images.push(sanitizeAndUpresImageUrl(imgUrl));
+          }
+
+          return {
+            title: cleanTitle || rawTitle,
+            description: (json.data.description as string) || 'Authentic imported product.',
+            price: 0,
+            currency: 'BDT',
+            brand: (json.data.publisher as string) || domain.split('.')[0] || 'Imported',
+            category: 'Gadgets',
+            sku: `IMP-${Date.now().toString().slice(-5)}`,
+            stockQuantity: 20,
+            images,
+            features: [
+              'Authentic imported product',
+              'Quality checked and verified',
+              'Official XEEROO support coverage',
+            ],
+            specifications: {},
+            originalUrl: cleanUrl,
+            sourceDomain: domain,
+          };
+        }
+      }
+    }
+  } catch {
+    // try next engine
+  }
+
+  // B2: Jina Reader Engine (CORS enabled markdown / JSON reader)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(`https://r.jina.ai/${cleanUrl}`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const json = await res.json();
+      const item = json.data || json;
+      if (item && item.title) {
+        const rawTitle = String(item.title || '').trim();
+        const lowerTitle = rawTitle.toLowerCase();
+        if (
+          rawTitle.length > 2 &&
+          !lowerTitle.includes('404') &&
+          !lowerTitle.includes('not found') &&
+          !lowerTitle.includes('cannot be found') &&
+          !lowerTitle.includes('access denied')
+        ) {
+          const cleanTitle = rawTitle
+            .replace(/\s*[|\-–—]\s*(?:Amazon|Daraz|StarTech|Ryans|AliExpress|Alibaba|Shopify|eBay|Pickaboo).*$/i, '')
+            .trim();
+
+          const content = typeof item.content === 'string' ? item.content : '';
+          const foundImgs: string[] = [];
+          const imgMatches = content.match(/https?:\/\/[^\s\)\"']+\.(?:jpg|jpeg|png|webp|avif)/gi) || [];
+          for (const u of imgMatches) {
+            const clean = sanitizeAndUpresImageUrl(u);
+            if (clean && !clean.includes('logo') && !clean.includes('icon') && !foundImgs.includes(clean)) {
+              foundImgs.push(clean);
+              if (foundImgs.length >= 6) break;
+            }
+          }
+
+          // Search for price in markdown content
+          let extractedPrice = 0;
+          const priceMatch = content.match(/(?:৳|Tk\.?|BDT|\$)\s*([0-9,]+(?:\.[0-9]{1,2})?)/i) ||
+                             content.match(/([0-9,]+)\s*(?:৳|Tk\.?|BDT)/i);
+          if (priceMatch) {
+            extractedPrice = parseFloat(priceMatch[1].replace(/,/g, '')) || 0;
+          }
+
+          return {
+            title: cleanTitle || rawTitle,
+            description: (item.description as string) || (content ? content.slice(0, 300) + '...' : 'Authentic imported product.'),
+            price: extractedPrice,
+            currency: 'BDT',
+            brand: domain.split('.')[0] || 'Imported',
+            category: 'Gadgets',
+            sku: `IMP-${Date.now().toString().slice(-5)}`,
+            stockQuantity: 20,
+            images: foundImgs,
+            features: [
+              'Authentic imported product',
+              'Quality checked and verified',
+              'Official XEEROO support coverage',
+            ],
+            specifications: {},
+            originalUrl: cleanUrl,
+            sourceDomain: domain,
+          };
+        }
+      }
+    }
+  } catch {
+    // try next engine
+  }
+
+  // B3: Raw HTML proxy with AllOrigins
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(cleanUrl)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (typeof data.contents === 'string' && data.contents.length > 200) {
+        const parsed = parseProductFromHtml(data.contents, cleanUrl);
         if (parsed.title) {
           return parsed;
         }
       }
-    } catch (err: unknown) {
-      lastError = err as Error;
     }
+  } catch {
+    // ignore
   }
 
-  const isTimeout =
-    lastError?.name === 'AbortError' ||
-    lastError?.message?.includes('aborted') ||
-    lastError?.message?.includes('timeout');
+  // B4: CodeTabs Proxy
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(cleanUrl)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  throw new Error(
-    isTimeout
-      ? 'ওয়েবসাইটের সাথে সংযোগ করতে সময় বেশি লেগেছে (Connection Timeout)। অনুগ্রহ করে লিঙ্কটি চেক করুন অথবা ম্যানুয়ালি তথ্য পূরণ করুন।'
-      : (lastError?.message && !lastError.message.includes('aborted')
-          ? lastError.message
-          : 'লিংক থেকে স্বয়ংক্রিয়ভাবে তথ্য সংগ্রহ করা যায়নি। সাইটটি বোট প্রটেকশন দিয়ে সুরক্ষিত থাকতে পারে। আপনি ম্যানুয়ালি তথ্য পূরণ করতে পারেন।')
-  );
+    if (res.ok) {
+      const text = await res.text();
+      if (text && text.length > 200) {
+        const parsed = parseProductFromHtml(text, cleanUrl);
+        if (parsed.title) {
+          return parsed;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  throw new Error('লিংক থেকে স্বয়ংক্রিয়ভাবে তথ্য সংগ্রহ করা যায়নি। সাইটটি বোট প্রটেকশন দিয়ে সুরক্ষিত থাকতে পারে। আপনি ম্যানুয়ালি তথ্য পূরণ করতে পারেন।');
 }
