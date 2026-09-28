@@ -15,25 +15,26 @@ import {
   getDocs,
   getDocFromServer,
   writeBatch,
+  onSnapshot,
 } from "firebase/firestore";
 import { Product, User, Category, Order, BannerSlide } from "../types";
+import firebaseAppletConfig from "../../firebase-applet-config.json";
 
-// Web app's Firebase configuration
+// Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDqDf3Ae_JuH8b9IMwz-pJsh_EKB7hza9Q",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "xeeroo-store.firebaseapp.com",
-  databaseURL: "https://xeeroo-store-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "xeeroo-store",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "xeeroo-store.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "751882362566",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:751882362566:web:27bdc54b01d2683a8281c7",
-  measurementId: "G-0VY2GNZYR9",
+  apiKey: firebaseAppletConfig.apiKey,
+  authDomain: firebaseAppletConfig.authDomain,
+  projectId: firebaseAppletConfig.projectId,
+  storageBucket: firebaseAppletConfig.storageBucket,
+  messagingSenderId: firebaseAppletConfig.messagingSenderId,
+  appId: firebaseAppletConfig.appId,
+  measurementId: firebaseAppletConfig.measurementId || "G-0VY2GNZYR9",
 };
 
-// Initialize Firebase App, Auth, Firestore
+// Initialize Firebase App, Auth, Firestore with provisioned Database ID
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+export const db = getFirestore(app, firebaseAppletConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -246,6 +247,54 @@ export const deleteFirestoreProduct = async (productId: string): Promise<boolean
     console.warn('Firestore delete product error:', err);
     return false;
   }
+};
+
+/**
+ * Real-time real-world subscription to Products in Firestore.
+ * Automatically synchronizes across all browsers and users!
+ */
+export const subscribeToFirestoreProducts = (
+  onProductsUpdate: (products: Product[]) => void,
+  onError?: (err: Error) => void
+) => {
+  const colRef = collection(db, 'products');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: Product[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.title) {
+          list.push({
+            id: data.id || docSnap.id,
+            title: data.title,
+            slug: data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            description: data.description || '',
+            price: Number(data.price) || 0,
+            stockQuantity: Number(data.stockQuantity) || 0,
+            sku: data.sku || '',
+            categoryId: data.categoryId || 'cat-audio',
+            images: Array.isArray(data.images) && data.images.length > 0
+              ? data.images
+              : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+            isPublished: data.isPublished !== false,
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            updatedBy: data.updatedBy || 'admin',
+            rating: Number(data.rating) || 5.0,
+            reviewsCount: Number(data.reviewsCount) || 1,
+            brand: data.brand || 'XEEROO',
+            features: Array.isArray(data.features) ? data.features : [],
+          });
+        }
+      });
+      onProductsUpdate(list);
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot products error:', err);
+      onError?.(err);
+    }
+  );
 };
 
 export const fetchFirestoreProducts = async (): Promise<Product[]> => {

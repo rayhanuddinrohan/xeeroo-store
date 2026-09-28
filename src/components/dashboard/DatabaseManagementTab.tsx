@@ -253,7 +253,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1 max-w-xl">
-                Connected Project: <strong className="text-slate-200 font-mono">xeeroo-store</strong>. Real-time synchronization active for products, customer accounts with shipping addresses, categories, and orders.
+                Connected Project: <strong className="text-slate-200 font-mono">{dbStatus.projectId || 'peaceful-momentum-4wh4c'}</strong>. Real-time synchronization active for products, customer accounts with shipping addresses, categories, and orders.
               </p>
               {dbStatus.lastSyncedAt && (
                 <p className="text-[11px] text-slate-500 mt-1 font-mono">

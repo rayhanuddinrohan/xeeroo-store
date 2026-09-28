@@ -36,6 +36,7 @@ import {
   saveFirestoreProduct,
   deleteFirestoreProduct,
   fetchFirestoreProducts,
+  subscribeToFirestoreProducts,
   saveFirestoreCategory,
   fetchFirestoreCategories,
   saveFirestoreOrder,
@@ -370,9 +371,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Automatic connection test & initial sync on boot
+  // Automatic connection test & real-time sync on boot
   useEffect(() => {
     let isMounted = true;
+    let unsubscribeProducts: (() => void) | null = null;
+
     const initDatabase = async () => {
       try {
         const ping = await testFirestoreConnection();
@@ -394,9 +397,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           if (!isMounted) return;
 
+          // If database has products, use them directly
           if (dbProds.length > 0) {
             setProducts(dbProds);
+          } else {
+            // First time seeding: Upload initial products to Firestore so all browsers have them!
+            console.log('Seeding initial catalog to Firestore for multi-browser sync...');
+            syncAllDataToFirestore(products, categories, users, orders);
           }
+
           if (dbCats.length > 0) {
             setCategories(dbCats);
           }
@@ -416,10 +425,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...prev,
             isConnected: true,
             lastSyncedAt: new Date().toLocaleTimeString(),
-            productCount: dbProds.length,
-            userCount: dbUsers.length,
-            orderCount: dbOrders.length,
+            productCount: dbProds.length > 0 ? dbProds.length : products.length,
+            userCount: dbUsers.length > 0 ? dbUsers.length : users.length,
+            orderCount: dbOrders.length > 0 ? dbOrders.length : orders.length,
           }));
+
+          // Attach real-time Firestore listener for products
+          // Whenever an admin adds, edits or deletes a product, ALL browsers and customers update instantly!
+          unsubscribeProducts = subscribeToFirestoreProducts((liveProducts) => {
+            if (!isMounted) return;
+            // Always update to match live database, even when products are deleted!
+            setProducts(liveProducts);
+            setDbStatus(prev => ({
+              ...prev,
+              isConnected: true,
+              productCount: liveProducts.length,
+              lastSyncedAt: new Date().toLocaleTimeString(),
+            }));
+          });
         } else {
           setDbStatus(prev => ({
             ...prev,
@@ -435,6 +458,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initDatabase();
     return () => {
       isMounted = false;
+      if (unsubscribeProducts) unsubscribeProducts();
     };
   }, []);
 
