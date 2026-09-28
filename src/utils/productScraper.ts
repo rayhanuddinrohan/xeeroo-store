@@ -293,13 +293,19 @@ export function parseProductFromHtml(html: string, targetUrl: string): ScrapedPr
 export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<ScrapedProductResult> {
   const cleanUrl = targetUrl.trim();
   if (!cleanUrl.startsWith('http')) {
-    throw new Error('Please enter a valid URL starting with http:// or https://');
+    throw new Error('অনুগ্রহ করে http:// বা https:// দিয়ে শুরু হওয়া সঠিক প্রোডাক্টের লিংক দিন।');
   }
 
-  // Strategy A: Try local server API route (works in local dev server)
+  // Strategy A: Try backend API route (/api/scrape-product)
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => {
+      try {
+        controller.abort(new Error('Connection timeout'));
+      } catch {
+        // ignore
+      }
+    }, 22000);
 
     const localResponse = await fetch(`/api/scrape-product?url=${encodeURIComponent(cleanUrl)}`, {
       signal: controller.signal,
@@ -307,62 +313,97 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     clearTimeout(timeoutId);
 
     const contentType = localResponse.headers.get('content-type') || '';
-    if (localResponse.ok && contentType.includes('application/json')) {
+    if (contentType.includes('application/json')) {
       const data = await localResponse.json();
-      if (data.success && data.product && data.product.images?.length > 0) {
+      if (data.success && data.product && data.product.title) {
         return data.product;
       }
+      if (data.error) {
+        throw new Error(data.error);
+      }
     }
-  } catch {
-    // Server route unavailable (e.g., deployed to GitHub Pages or static host)
+  } catch (err: unknown) {
+    const error = err as { name?: string; message?: string };
+    // If backend gave an explicit error message, rethrow it directly
+    if (
+      error.message &&
+      !error.message.includes('aborted') &&
+      !error.message.includes('Failed to fetch') &&
+      !error.message.includes('Load failed')
+    ) {
+      throw err;
+    }
+    // Otherwise fallback to client-side proxies
   }
 
-  // Strategy B: Client-Side Proxies (for GitHub Pages / static hosting)
+  // Strategy B: Client-Side Proxies
   const proxyFetchers = [
-    // 1. AllOrigins JSON wrapper (safest, encodes HTML inside .contents)
+    // 1. AllOrigins JSON wrapper
     async (target: string) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return typeof data.contents === 'string' ? data.contents : null;
+      const timeoutId = setTimeout(() => {
+        try {
+          controller.abort(new Error('Proxy timeout'));
+        } catch {
+          // ignore
+        }
+      }, 12000);
+      try {
+        const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(target)}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return typeof data.contents === 'string' ? data.contents : null;
+      } catch {
+        clearTimeout(timeoutId);
+        return null;
+      }
     },
-    // 2. AllOrigins raw endpoint
+    // 2. CorsProxy.io
     async (target: string) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) return null;
-      return await res.text();
+      const timeoutId = setTimeout(() => {
+        try {
+          controller.abort(new Error('Proxy timeout'));
+        } catch {
+          // ignore
+        }
+      }, 12000);
+      try {
+        const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(target)}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return await res.text();
+      } catch {
+        clearTimeout(timeoutId);
+        return null;
+      }
     },
-    // 3. CorsProxy.io
+    // 3. CodeTabs
     async (target: string) => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(target)}`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) return null;
-      return await res.text();
-    },
-    // 4. CodeTabs
-    async (target: string) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) return null;
-      return await res.text();
+      const timeoutId = setTimeout(() => {
+        try {
+          controller.abort(new Error('Proxy timeout'));
+        } catch {
+          // ignore
+        }
+      }, 12000);
+      try {
+        const res = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return await res.text();
+      } catch {
+        clearTimeout(timeoutId);
+        return null;
+      }
     },
   ];
 
@@ -372,7 +413,6 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     try {
       const html = await fetcher(cleanUrl);
       if (html && html.length > 300) {
-        // Verify it didn't return an error page like "The page could not be found"
         if (
           html.includes('The page could not be found') ||
           html.includes('404: NOT_FOUND') ||
@@ -386,14 +426,21 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
           return parsed;
         }
       }
-    } catch (err: any) {
-      lastError = err;
+    } catch (err: unknown) {
+      lastError = err as Error;
     }
   }
 
-  // If both fail, throw informative error
+  const isTimeout =
+    lastError?.name === 'AbortError' ||
+    lastError?.message?.includes('aborted') ||
+    lastError?.message?.includes('timeout');
+
   throw new Error(
-    lastError?.message ||
-    'Could not extract data automatically. The destination website may have strict bot protection or Captcha. You can still paste the details using Quick Add.'
+    isTimeout
+      ? 'ওয়েবসাইটের সাথে সংযোগ করতে সময় বেশি লেগেছে (Connection Timeout)। অনুগ্রহ করে লিঙ্কটি চেক করুন অথবা ম্যানুয়ালি তথ্য পূরণ করুন।'
+      : (lastError?.message && !lastError.message.includes('aborted')
+          ? lastError.message
+          : 'লিংক থেকে স্বয়ংক্রিয়ভাবে তথ্য সংগ্রহ করা যায়নি। সাইটটি বোট প্রটেকশন দিয়ে সুরক্ষিত থাকতে পারে। আপনি ম্যানুয়ালি তথ্য পূরণ করতে পারেন।')
   );
 }

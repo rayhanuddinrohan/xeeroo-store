@@ -666,7 +666,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const canManageUsers = currentUser?.role === 'admin';
   const canDeleteProduct = currentUser?.role === 'admin';
   const canEditProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
-  const canManageCategories = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+  const canManageCategories = currentUser?.role === 'moderator' || currentUser?.role === 'admin' || canAccessDashboard;
   const canViewAnalytics = currentUser?.role === 'admin';
   const canUpdateOrderStatus = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 

@@ -31,6 +31,7 @@ import {
   Loader2,
   X,
   ExternalLink,
+  Clipboard,
 } from 'lucide-react';
 
 export const ProductManagementTab: React.FC = () => {
@@ -96,6 +97,20 @@ export const ProductManagementTab: React.FC = () => {
       addToast(error.message || 'এই URL থেকে তথ্য সংগ্রহ করা যায়নি। লিংকটি সঠিক কিনা দেখুন।', 'error');
     } finally {
       setIsScraping(false);
+    }
+  };
+
+  const handlePasteScrapeUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setScrapeUrl(text.trim());
+        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+      } else {
+        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+      }
+    } catch {
+      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
     }
   };
 
@@ -207,6 +222,15 @@ export const ProductManagementTab: React.FC = () => {
               className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
           </div>
+          <button
+            type="button"
+            onClick={handlePasteScrapeUrl}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs"
+            title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+          >
+            <Clipboard className="w-4 h-4 text-slate-400" />
+            <span>Paste</span>
+          </button>
           <button
             type="submit"
             disabled={isScraping || !scrapeUrl.trim()}
@@ -411,6 +435,15 @@ export const ProductManagementTab: React.FC = () => {
           >
             <DownloadCloud className="w-4 h-4 text-cyan-400" />
             <span>API & Web Importer</span>
+          </button>
+
+          <button
+            onClick={() => setDashboardTab('categories')}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer border border-gray-300 shadow-xs shrink-0"
+            title="নতুন ক্যাটাগরি তৈরি ও ম্যানেজ করুন"
+          >
+            <Plus className="w-3.5 h-3.5 text-blue-600" />
+            <span>ক্যাটাগরি</span>
           </button>
 
           <button

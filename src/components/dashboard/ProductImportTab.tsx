@@ -34,6 +34,8 @@ import {
   TrendingUp,
   Percent,
   ShieldCheck,
+  Clipboard,
+  Plus,
 } from 'lucide-react';
 
 interface ExternalProductPreview {
@@ -330,6 +332,20 @@ export const ProductImportTab: React.FC = () => {
   // ==============================================================
   // 1. Single Website URL Scraper Handler
   // ==============================================================
+  const handlePasteSingleUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setSingleUrl(text.trim());
+        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+      } else {
+        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+      }
+    } catch {
+      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
+    }
+  };
+
   const handleScrapeUrl = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!singleUrl.trim()) {
@@ -806,6 +822,15 @@ export const ProductImportTab: React.FC = () => {
                       </option>
                     ))}
                   </select>
+                  <button
+                    type="button"
+                    onClick={() => setDashboardTab('categories')}
+                    className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    title="নতুন ক্যাটাগরি তৈরি করুন"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>ক্যাটাগরি</span>
+                  </button>
                 </div>
               </div>
 
@@ -1082,7 +1107,7 @@ export const ProductImportTab: React.FC = () => {
               </p>
             </div>
 
-            <form onSubmit={handleScrapeUrl} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <form onSubmit={handleScrapeUrl} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="relative flex-1">
                 <LinkIcon className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                 <input
@@ -1094,6 +1119,16 @@ export const ProductImportTab: React.FC = () => {
                   required
                 />
               </div>
+
+              <button
+                type="button"
+                onClick={handlePasteSingleUrl}
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-300 transition-colors cursor-pointer shrink-0 shadow-xs"
+                title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+              >
+                <Clipboard className="w-4 h-4 text-gray-500" />
+                <span>Paste</span>
+              </button>
 
               <button
                 type="submit"

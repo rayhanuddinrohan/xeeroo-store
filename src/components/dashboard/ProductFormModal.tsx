@@ -24,6 +24,7 @@ import {
   Globe,
   Link,
   Loader2,
+  Clipboard,
 } from 'lucide-react';
 
 interface ProductFormModalProps {
@@ -73,17 +74,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onClose,
   productToEdit,
 }) => {
-  const { categories, addProduct, updateProduct, currentUser, addToast } = useStore();
+  const { categories, addProduct, updateProduct, currentUser, addToast, addCategory } = useStore();
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [price, setPrice] = useState(199);
+  const [price, setPrice] = useState<number>(0);
   const [stockQuantity, setStockQuantity] = useState(10);
   const [sku, setSku] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isPublished, setIsPublished] = useState(true);
-  const [brand, setBrand] = useState('XEEROO Gear');
+  const [brand, setBrand] = useState('');
   const [featuresText, setFeaturesText] = useState('');
 
   // Primary Thumbnail Image URL
@@ -96,9 +97,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [bulkUrlsInput, setBulkUrlsInput] = useState('');
   const [showPresets, setShowPresets] = useState(false);
 
+  // Quick Add Category State
+  const [showQuickAddCategory, setShowQuickAddCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatDesc, setNewCatDesc] = useState('');
+
   // Auto-fill from external URL state
   const [urlScrapeInput, setUrlScrapeInput] = useState('');
   const [isScrapingUrl, setIsScrapingUrl] = useState(false);
+
+  // Paste from clipboard handler
+  const handlePasteUrl = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setUrlScrapeInput(text.trim());
+        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+      } else {
+        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+      }
+    } catch {
+      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
+    }
+  };
 
   const handleExtractFromUrl = async () => {
     if (!urlScrapeInput.trim()) {
@@ -130,6 +151,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
+  const handleQuickCreateCategory = (e: React.FormEvent) => {
+    e.preventDefault();
+    const catName = newCatName.trim();
+    if (!catName) {
+      addToast('ক্যাটাগরির নাম দিন!', 'error');
+      return;
+    }
+    const ok = addCategory(catName, newCatDesc.trim() || undefined);
+    if (ok) {
+      const generatedSlug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const created = categories.find(c => c.name.toLowerCase() === catName.toLowerCase() || c.slug === generatedSlug);
+      if (created) {
+        setCategoryId(created.id);
+      }
+      setNewCatName('');
+      setNewCatDesc('');
+      setShowQuickAddCategory(false);
+    }
+  };
+
   useEffect(() => {
     if (productToEdit) {
       setTitle(productToEdit.title);
@@ -140,38 +181,32 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setSku(productToEdit.sku);
       setCategoryId(productToEdit.categoryId);
       setIsPublished(productToEdit.isPublished);
-      setBrand(productToEdit.brand || 'XEEROO Gear');
+      setBrand(productToEdit.brand || '');
       setFeaturesText(productToEdit.features?.join('\n') || '');
 
       const productImgs = productToEdit.images || [];
       setThumbnailUrl(productImgs[0] || '');
       setGalleryUrls(productImgs.slice(1));
     } else {
-      // Default new product values
+      // Clean, empty default values for new product - no headphone prefill
       setTitle('');
       setSlug('');
       setDescription('');
-      setPrice(149.0);
-      setStockQuantity(15);
-      setSku(`XRO-${Math.floor(1000 + Math.random() * 9000)}`);
-      setCategoryId(categories[0]?.id || 'cat-audio');
+      setPrice(0);
+      setStockQuantity(10);
+      setSku(`PRD-${Math.floor(1000 + Math.random() * 9000)}`);
+      setCategoryId(categories[0]?.id || '');
       setIsPublished(true);
-      setBrand('XEEROO Gear');
-      setFeaturesText(
-        'Engineered with premium aerospace alloy\nUltra-low latency connectivity\nUSB-C Rapid Fast Charging\nOfficial XEEROO Warranty Coverage'
-      );
-      setThumbnailUrl(
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=85'
-      );
-      setGalleryUrls([
-        'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&w=1000&q=85',
-        'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&w=1000&q=85',
-      ]);
+      setBrand('');
+      setFeaturesText('');
+      setThumbnailUrl('');
+      setGalleryUrls([]);
     }
     setNewGalleryInput('');
     setBulkUrlsInput('');
     setShowBulkAdd(false);
     setShowPresets(false);
+    setShowQuickAddCategory(false);
   }, [productToEdit, categories, isOpen]);
 
   // Auto-generate slug when title changes (if adding new product)
@@ -295,12 +330,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
     });
 
-    // Fallback if user cleared everything
-    if (allImages.length === 0) {
-      allImages.push(
-        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=85'
-      );
-    }
+    // Collect all valid images - keep empty if user provided none
+    // Do not forcibly append headphone image
 
     const features = featuresText
       .split('\n')
@@ -391,11 +422,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
+
+              {/* Paste Button right on the left side of Auto-Fill */}
+              <button
+                type="button"
+                onClick={handlePasteUrl}
+                className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg border border-slate-300 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
+                title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+              >
+                <Clipboard className="w-3.5 h-3.5 text-slate-500" />
+                <span>Paste</span>
+              </button>
+
+              {/* Auto-Fill Button */}
               <button
                 type="button"
                 onClick={handleExtractFromUrl}
                 disabled={isScrapingUrl || !urlScrapeInput.trim()}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-xs"
               >
                 {isScrapingUrl ? (
                   <>
@@ -403,7 +447,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <span>আনছে...</span>
                   </>
                 ) : (
-                  <span>Auto-Fill</span>
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Auto-Fill</span>
+                  </>
                 )}
               </button>
             </div>
@@ -456,20 +503,74 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
             {/* Category */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Category *
-              </label>
-              <select
-                value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
-              >
-                {categories.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Category *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddCategory(prev => !prev)}
+                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>ক্যাটাগরি যোগ করুন</span>
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={categoryId}
+                  onChange={e => setCategoryId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
+                >
+                  {categories.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddCategory(prev => !prev)}
+                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                  title="নতুন ক্যাটাগরি তৈরি করুন"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New</span>
+                </button>
+              </div>
+
+              {/* Inline Quick Add Category Form */}
+              {showQuickAddCategory && (
+                <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 mt-2 animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between text-xs font-bold text-blue-900">
+                    <span>নতুন ক্যাটাগরি তৈরি করুন</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddCategory(false)}
+                      className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      placeholder="ক্যাটাগরির নাম (যেমন Smart Watches, T-Shirts)..."
+                      value={newCatName}
+                      onChange={e => setNewCatName(e.target.value)}
+                      className="flex-1 px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleQuickCreateCategory}
+                      disabled={!newCatName.trim()}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0"
+                    >
+                      যোগ করুন
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Brand */}

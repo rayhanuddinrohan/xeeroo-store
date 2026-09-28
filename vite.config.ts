@@ -46,19 +46,103 @@ function productImporterPlugin(): Plugin {
             return;
           }
 
-          // Fetch the external webpage with a standard browser User-Agent
-          const response = await fetch(targetUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
-            },
-          });
+          // Fetch the external webpage with a standard browser User-Agent and 18s timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 18000);
+
+          let response: Response;
+          try {
+            response = await fetch(targetUrl, {
+              signal: controller.signal,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,application/json,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,bn;q=0.8',
+                'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                'Sec-Ch-Ua-Mobile': '?0',
+                'Sec-Ch-Ua-Platform': '"Windows"',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Upgrade-Insecure-Requests': '1',
+              },
+            });
+          } catch (fetchErr: unknown) {
+            clearTimeout(timeoutId);
+            const errObj = fetchErr as { name?: string; message?: string };
+            const isTimeout = errObj.name === 'AbortError' || errObj.message?.includes('aborted');
+            res.statusCode = 200;
+            res.end(JSON.stringify({
+              success: false,
+              error: isTimeout
+                ? 'ওয়েবসাইটের সাথে সংযোগ করতে সময় বেশি লেগেছে (Connection Timeout)। অনুগ্রহ করে লিঙ্কটি চেক করুন অথবা ম্যানুয়ালি তথ্য পূরণ করুন।'
+                : 'ওয়েবসাইটের সাথে সংযোগ স্থাপন করা যায়নি। লিঙ্কটি চেক করুন।'
+            }));
+            return;
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
           if (!response.ok) {
-            res.statusCode = response.status;
-            res.end(JSON.stringify({ success: false, error: `Website returned status: ${response.status} ${response.statusText}` }));
+            let friendlyMsg = `ওয়েবসাইট থেকে স্ট্যাটাস কোড ${response.status} এসেছে।`;
+            if (response.status === 403) {
+              friendlyMsg = 'ওয়েবসাইটটির সিকিউরিটি প্রটেকশন (Cloudflare/Bot Guard) এর কারণে সরাসরি তথ্য আনা যাচ্ছে না। অনুগ্রহ করে ম্যানুয়ালি তথ্য দিন।';
+            } else if (response.status === 404) {
+              friendlyMsg = 'প্রোডাক্টের লিঙ্কটি খুঁজে পাওয়া যায়নি (404 Not Found)। লিঙ্কটি সঠিক কিনা চেক করুন।';
+            }
+            res.statusCode = 200;
+            res.end(JSON.stringify({ success: false, error: friendlyMsg }));
             return;
+          }
+
+          const contentType = response.headers.get('content-type') || '';
+
+          // If the target URL is a JSON API endpoint (e.g. DummyJSON or REST API)
+          if (contentType.includes('application/json')) {
+            try {
+              const jsonData = await response.json();
+              const p = jsonData.product || jsonData.data || jsonData;
+              const jsonTitle = p.title || p.name || p.product_name || '';
+              const jsonDesc = p.description || p.detail || '';
+              const jsonPrice = Number(p.price) || 0;
+              const jsonBrand = p.brand || 'Imported Tech';
+              const jsonImages: string[] = [];
+
+              if (Array.isArray(p.images)) {
+                p.images.forEach((img: unknown) => {
+                  if (typeof img === 'string' && img.startsWith('http')) jsonImages.push(img);
+                });
+              }
+              if (jsonImages.length === 0 && (p.thumbnail || p.image)) {
+                const singleImg = p.thumbnail || p.image;
+                if (typeof singleImg === 'string' && singleImg.startsWith('http')) {
+                  jsonImages.push(singleImg);
+                }
+              }
+
+              if (jsonTitle) {
+                res.statusCode = 200;
+                res.end(JSON.stringify({
+                  success: true,
+                  sourceUrl: targetUrl,
+                  product: {
+                    title: jsonTitle,
+                    description: jsonDesc,
+                    price: jsonPrice,
+                    currency: 'BDT',
+                    brand: jsonBrand,
+                    sku: p.sku || `IMP-${Date.now().toString().slice(-4)}`,
+                    stockQuantity: Number(p.stock) || Number(p.stockQuantity) || 20,
+                    images: jsonImages.length > 0 ? jsonImages : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+                    features: Array.isArray(p.features) ? p.features : undefined,
+                  }
+                }));
+                return;
+              }
+            } catch {
+              // fallback to text parsing if json parsing failed
+            }
           }
 
           const html = await response.text();
