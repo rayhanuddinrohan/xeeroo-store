@@ -102,9 +102,9 @@ export const ProductImportTab: React.FC = () => {
   });
   const [bkOrigin, setBkOrigin] = useState(() => {
     try {
-      return localStorage.getItem('bk_origin') || '';
+      return localStorage.getItem('bk_origin') || 'https://xeeroo.com';
     } catch {
-      return '';
+      return 'https://xeeroo.com';
     }
   });
   const [bkShowKey, setBkShowKey] = useState(false);
@@ -187,13 +187,20 @@ export const ProductImportTab: React.FC = () => {
     try {
       const queryParams = new URLSearchParams();
       queryParams.set('apiKey', bkApiKey.trim());
-      if (bkOrigin.trim()) queryParams.set('origin', bkOrigin.trim());
+      const effectiveOrigin = bkOrigin.trim() || 'https://xeeroo.com';
+      queryParams.set('origin', effectiveOrigin);
 
       const res = await fetch(`/api/businesskoro/products?${queryParams.toString()}`);
-      const json = await res.json();
+      const rawText = await res.text();
+      let json: any = null;
+      try {
+        json = JSON.parse(rawText);
+      } catch {
+        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+      }
 
       if (!res.ok || json.error) {
-        throw new Error(json.error || `HTTP ${res.status}: Failed to fetch products from Business Koro.`);
+        throw new Error(json.error || json.message || `HTTP ${res.status}: Failed to fetch products from Business Koro.`);
       }
 
       const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
@@ -729,11 +736,11 @@ export const ProductImportTab: React.FC = () => {
                     type="text"
                     value={bkOrigin}
                     onChange={e => setBkOrigin(e.target.value)}
-                    placeholder="e.g. https://your-domain.com (খালি রাখতে পারেন)"
+                    placeholder="https://xeeroo.com (খালি রাখলেও স্বয়ংক্রিয়ভাবে xeeroo.com যুক্ত হবে)"
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-gray-900 bg-white font-mono"
                   />
                   <p className="text-[11px] text-gray-400 mt-1">
-                    ড্যাশবোর্ডে ডোমেইন সেট করা থাকলে দিন, ঝামেলা এড়াতে খালিও রাখতে পারেন।
+                    ডিফল্ট: <span className="font-mono text-emerald-700">https://xeeroo.com</span> (আপনার API কি xeeroo.com ডোমেইনে লক করা, তাই খালি রাখলেও স্বয়ংক্রিয়ভাবে এটি কাজ করবে)।
                   </p>
                 </div>
               </div>

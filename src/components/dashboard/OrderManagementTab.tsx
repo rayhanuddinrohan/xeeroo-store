@@ -120,10 +120,16 @@ export const OrderManagementTab: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+      }
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || `HTTP ${res.status}: Failed to submit order to Business Koro.`);
+        throw new Error(data.error || data.message || `HTTP ${res.status}: Failed to submit order to Business Koro.`);
       }
 
       const returnedOrderId = data.id || data.orderId || data.data?.id || `BK-ORD-${Date.now().toString().slice(-6)}`;
@@ -175,10 +181,16 @@ export const OrderManagementTab: React.FC = () => {
       if (origin.trim()) q.set('origin', origin.trim());
 
       const res = await fetch(`/api/businesskoro/order-status?${q.toString()}`);
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+      }
 
       if (!res.ok || data.error) {
-        throw new Error(data.error || `Failed to fetch status for order #${statusOrderIdInput}`);
+        throw new Error(data.error || data.message || `Failed to fetch status for order #${statusOrderIdInput}`);
       }
 
       setCheckedStatusResult(data);

@@ -7,5 +7,10 @@ import React from 'react';
 import { BannerCarousel } from './BannerCarousel';
 
 export const HeroBanner: React.FC = () => {
-  return <BannerCarousel />;
+  return (
+    <div className="hidden md:block">
+      <BannerCarousel />
+    </div>
+  );
 };
+

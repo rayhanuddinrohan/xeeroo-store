@@ -420,6 +420,80 @@ function productImporterPlugin(): Plugin {
         }
       });
 
+      // Helper for robust Business Koro requests with origin autofill, locked domain retry, and safe JSON handling
+      const executeBusinessKoroRequest = async (
+        endpoint: string,
+        method: 'GET' | 'POST',
+        apiKey: string,
+        originHeader: string | undefined,
+        bodyPayload?: any
+      ) => {
+        // Default to xeeroo.com if blank or not provided
+        let targetDomain = (originHeader && originHeader.trim() && originHeader !== 'null')
+          ? originHeader.trim()
+          : 'https://xeeroo.com';
+
+        const buildHeaders = (domUrl: string) => {
+          const cleanDomain = domUrl.replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+          const formattedOrigin = domUrl.startsWith('http') ? domUrl : `https://${cleanDomain}`;
+          const h: Record<string, string> = {
+            'x-api-key': apiKey.trim(),
+            'Accept': 'application/json',
+            'User-Agent': 'XEEROO-Storefront/1.0',
+            'Origin': formattedOrigin,
+            'Referer': formattedOrigin.endsWith('/') ? formattedOrigin : `${formattedOrigin}/`,
+            'x-domain': cleanDomain,
+          };
+          if (bodyPayload) {
+            h['Content-Type'] = 'application/json';
+          }
+          return h;
+        };
+
+        let headers = buildHeaders(targetDomain);
+        let bkResponse = await fetch(`https://api.businesskoro.com${endpoint}`, {
+          method,
+          headers,
+          body: bodyPayload ? JSON.stringify(bodyPayload) : undefined,
+        });
+
+        let rawText = await bkResponse.text();
+        let parsedData: any = null;
+        try {
+          parsedData = JSON.parse(rawText);
+        } catch {
+          parsedData = {
+            success: false,
+            error: rawText.slice(0, 300) || `HTTP ${bkResponse.status}: Non-JSON response returned from Business Koro.`
+          };
+        }
+
+        // Automatic retry if key is locked to a specific domain
+        if (bkResponse.status === 403 && parsedData?.message && typeof parsedData.message === 'string') {
+          const match = parsedData.message.match(/locked to domain ["']([^"']+)["']/i);
+          if (match && match[1]) {
+            const lockedDomain = match[1];
+            headers = buildHeaders(`https://${lockedDomain}`);
+            bkResponse = await fetch(`https://api.businesskoro.com${endpoint}`, {
+              method,
+              headers,
+              body: bodyPayload ? JSON.stringify(bodyPayload) : undefined,
+            });
+            rawText = await bkResponse.text();
+            try {
+              parsedData = JSON.parse(rawText);
+            } catch {
+              parsedData = {
+                success: false,
+                error: rawText.slice(0, 300) || `HTTP ${bkResponse.status}: Non-JSON response returned from Business Koro.`
+              };
+            }
+          }
+        }
+
+        return { status: bkResponse.status, data: parsedData };
+      };
+
       // 4. Business Koro API Integration: Product List
       // GET https://api.businesskoro.com/api/v1/storefront/products
       server.middlewares.use('/api/businesskoro/products', async (req, res) => {
@@ -462,24 +536,9 @@ function productImporterPlugin(): Plugin {
             return;
           }
 
-          const headers: Record<string, string> = {
-            'x-api-key': apiKey.trim(),
-            'Accept': 'application/json',
-            'User-Agent': 'XEEROO-Storefront/1.0',
-          };
-
-          if (originHeader && originHeader.trim() && originHeader !== 'null') {
-            headers['Origin'] = originHeader.trim();
-          }
-
-          const bkResponse = await fetch('https://api.businesskoro.com/api/v1/storefront/products', {
-            method: 'GET',
-            headers,
-          });
-
-          const data = await bkResponse.json();
-          res.statusCode = bkResponse.status;
-          res.end(JSON.stringify(data));
+          const result = await executeBusinessKoroRequest('/api/v1/storefront/products', 'GET', apiKey, originHeader);
+          res.statusCode = result.status;
+          res.end(JSON.stringify(result.data));
         } catch (err: unknown) {
           const error = err as { message?: string };
           res.statusCode = 500;
@@ -548,26 +607,9 @@ function productImporterPlugin(): Plugin {
               : {}),
           };
 
-          const headers: Record<string, string> = {
-            'x-api-key': apiKey.trim(),
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'XEEROO-Storefront/1.0',
-          };
-
-          if (originHeader && originHeader.trim() && originHeader !== 'null') {
-            headers['Origin'] = originHeader.trim();
-          }
-
-          const bkResponse = await fetch('https://api.businesskoro.com/api/v1/storefront/orders', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(orderPayload),
-          });
-
-          const data = await bkResponse.json();
-          res.statusCode = bkResponse.status;
-          res.end(JSON.stringify(data));
+          const result = await executeBusinessKoroRequest('/api/v1/storefront/orders', 'POST', apiKey, originHeader, orderPayload);
+          res.statusCode = result.status;
+          res.end(JSON.stringify(result.data));
         } catch (err: unknown) {
           const error = err as { message?: string };
           res.statusCode = 500;
@@ -601,24 +643,9 @@ function productImporterPlugin(): Plugin {
             return;
           }
 
-          const headers: Record<string, string> = {
-            'x-api-key': apiKey.trim(),
-            'Accept': 'application/json',
-            'User-Agent': 'XEEROO-Storefront/1.0',
-          };
-
-          if (originHeader && originHeader.trim() && originHeader !== 'null') {
-            headers['Origin'] = originHeader.trim();
-          }
-
-          const bkResponse = await fetch(`https://api.businesskoro.com/api/v1/storefront/orders/${encodeURIComponent(orderId)}`, {
-            method: 'GET',
-            headers,
-          });
-
-          const data = await bkResponse.json();
-          res.statusCode = bkResponse.status;
-          res.end(JSON.stringify(data));
+          const result = await executeBusinessKoroRequest(`/api/v1/storefront/orders/${encodeURIComponent(orderId)}`, 'GET', apiKey, originHeader);
+          res.statusCode = result.status;
+          res.end(JSON.stringify(result.data));
         } catch (err: unknown) {
           const error = err as { message?: string };
           res.statusCode = 500;
