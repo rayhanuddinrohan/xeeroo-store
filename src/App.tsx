@@ -43,6 +43,7 @@ const AppContent: React.FC = () => {
     resetDemoData,
     isCheckoutOpen,
     setIsCheckoutOpen,
+    cartTotalCount,
   } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -102,6 +103,7 @@ const AppContent: React.FC = () => {
       <CheckoutModal
         isOpen={isCheckoutOpen}
         onClose={() => setIsCheckoutOpen(false)}
+        onIncompleteOrder={() => setIsCartOpen(true)}
       />
 
       {/* Login & Customer Registration Modal */}
@@ -118,6 +120,23 @@ const AppContent: React.FC = () => {
 
       {/* Toast Notification Stack */}
       <ToastContainer />
+
+      {/* Floating Cart Quick Button */}
+      <button
+        id="btn-floating-cart"
+        type="button"
+        onClick={handleOpenCart}
+        className="fixed bottom-20 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-full shadow-lg shadow-blue-600/30 hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
+        title="Open Shopping Cart"
+      >
+        <ShoppingBag className="w-5 h-5 text-white" />
+        <span className="hidden sm:inline">Shopping Cart</span>
+        {cartTotalCount > 0 && (
+          <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-white text-blue-700 text-[11px] font-black shadow-xs">
+            {cartTotalCount}
+          </span>
+        )}
+      </button>
 
       {/* Floating WhatsApp Quick Order Button */}
       <a

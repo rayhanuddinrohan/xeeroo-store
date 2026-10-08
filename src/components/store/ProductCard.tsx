@@ -8,7 +8,7 @@ import { Product } from '../../types';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
-import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check } from 'lucide-react';
+import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, Package, Image as ImageIcon } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -84,13 +84,20 @@ My Delivery Address:`
       }`}
     >
       {/* Product Image & Badges */}
-      <div className="relative aspect-4/3 w-full bg-gray-100 overflow-hidden">
-        <img
-          src={product.images[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'}
-          alt={product.title}
-          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-          loading="lazy"
-        />
+      <div className="relative aspect-4/3 w-full bg-gray-100 overflow-hidden flex items-center justify-center">
+        {product.images && product.images[0] ? (
+          <img
+            src={product.images[0]}
+            alt={product.title}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-4">
+            <Package className="w-10 h-10 text-gray-300 mb-1" />
+            <span className="text-[11px] font-medium text-gray-400">No Image</span>
+          </div>
+        )}
 
         {/* Top badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start z-10">
@@ -184,12 +191,14 @@ My Delivery Address:`
                 </button>
 
                 <button
+                  id={`add-to-cart-btn-${product.id}`}
                   type="button"
                   onClick={handleAddToCart}
-                  className="p-1.5 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer"
-                  title="Add to Cart"
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 text-gray-700 font-medium text-xs transition-colors cursor-pointer"
+                  title="Add to Shopping Cart"
                 >
                   <ShoppingBag className="w-3.5 h-3.5 text-gray-600" />
+                  <span className="hidden xs:inline">Cart</span>
                 </button>
 
                 <a
@@ -197,9 +206,12 @@ My Delivery Address:`
                   href={whatsappUrl}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={e => e.stopPropagation()}
+                  onClick={e => {
+                    e.stopPropagation();
+                    addToCart(product, 1);
+                  }}
                   className="p-1.5 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 transition-all cursor-pointer"
-                  title="Order via WhatsApp"
+                  title="Order via WhatsApp (also saves to your cart)"
                 >
                   <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
                 </a>

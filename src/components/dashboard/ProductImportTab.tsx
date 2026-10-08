@@ -220,7 +220,7 @@ export const ProductImportTab: React.FC = () => {
 
         const images = Array.isArray(item.images) && item.images.length > 0
           ? item.images
-          : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'];
+          : [];
 
         return {
           id: String(item.id || `bk-${idx}`),
@@ -398,7 +398,7 @@ export const ProductImportTab: React.FC = () => {
       categoryId: singleCategory,
       images: scrapedProduct.images && scrapedProduct.images.length > 0
         ? scrapedProduct.images
-        : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+        : [],
       isPublished: true,
       rating: 4.9,
       reviewsCount: 16,
@@ -463,11 +463,11 @@ export const ProductImportTab: React.FC = () => {
           (Array.isArray(item.images) && item.images[0]) ||
           item.image ||
           item.thumbnail ||
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
+          '';
 
         const rawImages = Array.isArray(item.images) && item.images.length > 0
           ? item.images
-          : [mainImg];
+          : (mainImg ? [mainImg] : []);
 
         return {
           id: `ext-${item.id || idx}-${Date.now().toString(36)}`,
@@ -521,9 +521,11 @@ export const ProductImportTab: React.FC = () => {
           (Array.isArray(item.images) && item.images[0]) ||
           item.image ||
           item.thumbnail ||
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
+          '';
 
-        const rawImages = Array.isArray(item.images) && item.images.length > 0 ? item.images : [img];
+        const rawImages = Array.isArray(item.images) && item.images.length > 0
+          ? item.images
+          : (img ? [img] : []);
 
         return {
           id: `json-${item.id || idx}`,
@@ -1006,16 +1008,16 @@ export const ProductImportTab: React.FC = () => {
                         />
 
                         {/* Image */}
-                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
-                          <img
-                            src={p.images[0]}
-                            alt={p.name}
-                            className="w-full h-full object-cover"
-                            onError={e => {
-                              (e.target as HTMLImageElement).src =
-                                'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80';
-                            }}
-                          />
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200 flex items-center justify-center">
+                          {p.images && p.images[0] ? (
+                            <img
+                              src={p.images[0]}
+                              alt={p.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Package className="w-6 h-6 text-gray-300" />
+                          )}
                         </div>
 
                         {/* Details */}

@@ -32,6 +32,7 @@ import {
   X,
   ExternalLink,
   Clipboard,
+  Package,
 } from 'lucide-react';
 
 export const ProductManagementTab: React.FC = () => {
@@ -86,9 +87,7 @@ export const ProductManagementTab: React.FC = () => {
         currency: prod.currency || 'BDT',
         brand: prod.brand || 'Imported Brand',
         sku: prod.sku || `PROD-${Date.now().toString().slice(-5)}`,
-        images: Array.isArray(prod.images) && prod.images.length > 0 
-          ? prod.images 
-          : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+        images: Array.isArray(prod.images) && prod.images.length > 0 ? prod.images : [],
         categoryId: categories[0]?.id || 'cat-general',
       });
       addToast('Product details and images extracted successfully!', 'success');
@@ -134,7 +133,7 @@ export const ProductManagementTab: React.FC = () => {
       stockQuantity: 50,
       sku: scrapedProduct.sku || `SKU-${Date.now().toString().slice(-4)}`,
       categoryId: scrapedProduct.categoryId || (categories[0]?.id || 'cat-general'),
-      images: scrapedProduct.images.length > 0 ? scrapedProduct.images : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+      images: scrapedProduct.images && scrapedProduct.images.length > 0 ? scrapedProduct.images : [],
       isPublished: true,
       brand: scrapedProduct.brand || 'Store Item',
       rating: 5,
@@ -270,12 +269,19 @@ export const ProductManagementTab: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Product Thumbnail & Gallery */}
               <div className="space-y-2 md:col-span-1">
-                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 relative">
-                  <img
-                    src={scrapedProduct.images[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80'}
-                    alt="Extracted Product"
-                    className="w-full h-full object-cover"
-                  />
+                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200 relative flex items-center justify-center">
+                  {scrapedProduct.images && scrapedProduct.images[0] ? (
+                    <img
+                      src={scrapedProduct.images[0]}
+                      alt="Extracted Product"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-gray-400 p-4">
+                      <Package className="w-8 h-8 text-gray-300 mb-1" />
+                      <span className="text-[11px] font-medium text-gray-400">No Image Extracted</span>
+                    </div>
+                  )}
                   <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full font-mono">
                     {scrapedProduct.images.length} images found
                   </span>
@@ -488,14 +494,17 @@ export const ProductManagementTab: React.FC = () => {
                       {/* Product Column */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={
-                              product.images[0] ||
-                              'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=120&q=80'
-                            }
-                            alt={product.title}
-                            className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200 shrink-0"
-                          />
+                          {product.images && product.images[0] ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.title}
+                              className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                              <Package className="w-5 h-5 text-gray-300" />
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <span className="font-semibold text-gray-900 block truncate max-w-xs">
                               {product.title}

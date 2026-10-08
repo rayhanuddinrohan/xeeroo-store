@@ -25,6 +25,7 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_USERS,
   DEFAULT_ADMIN_USER,
+  DEFAULT_MODERATOR_USER,
 } from '../data/mockData';
 import {
   signInFirebaseUser,
@@ -226,15 +227,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const hasAdmin = parsed.some((u: User) => u.role === 'admin');
-          if (!hasAdmin) {
-            return [DEFAULT_ADMIN_USER, ...parsed];
-          }
-          return parsed;
+          const hasMod = parsed.some((u: User) => u.role === 'moderator');
+          const list = [...parsed];
+          if (!hasAdmin) list.unshift(DEFAULT_ADMIN_USER);
+          if (!hasMod) list.push(DEFAULT_MODERATOR_USER);
+          return list;
         }
       }
-      return [DEFAULT_ADMIN_USER];
+      return [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
     } catch {
-      return [DEFAULT_ADMIN_USER];
+      return [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
     }
   });
 
@@ -717,7 +719,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // RBAC permissions check
   const canAccessDashboard = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
   const canManageUsers = currentUser?.role === 'admin';
-  const canDeleteProduct = currentUser?.role === 'admin';
+  const canDeleteProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
   const canEditProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
   const canManageCategories = currentUser?.role === 'moderator' || currentUser?.role === 'admin' || canAccessDashboard;
   const canViewAnalytics = currentUser?.role === 'admin';
@@ -776,10 +778,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Fallback for default master admin
+    // Fallback for default master admin & moderator
     if (!user && (clean === 'admin' || clean === 'admin@xeeroo.com')) {
       user = DEFAULT_ADMIN_USER;
       setUsers(prev => [DEFAULT_ADMIN_USER, ...prev.filter(u => u.id !== DEFAULT_ADMIN_USER.id)]);
+    } else if (!user && (clean === 'staff' || clean === 'staff@xeeroo.com' || clean === 'moderator' || clean === 'moderator@xeeroo.com')) {
+      user = DEFAULT_MODERATOR_USER;
+      setUsers(prev => [DEFAULT_MODERATOR_USER, ...prev.filter(u => u.id !== DEFAULT_MODERATOR_USER.id)]);
     }
 
     if (!user) {

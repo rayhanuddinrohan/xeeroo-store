@@ -731,11 +731,17 @@ export const DatabaseManagementTab: React.FC = () => {
                   <tr key={p.id} className="hover:bg-gray-50/50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={p.images[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=150&q=80'}
-                          alt={p.title}
-                          className="w-8 h-8 rounded-lg object-cover border border-gray-200"
-                        />
+                        {p.images && p.images[0] ? (
+                          <img
+                            src={p.images[0]}
+                            alt={p.title}
+                            className="w-8 h-8 rounded-lg object-cover border border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                            <Package className="w-4 h-4 text-gray-300" />
+                          </div>
+                        )}
                         <div>
                           <p className="font-semibold text-gray-900 line-clamp-1">{p.title}</p>
                           <p className="text-[10px] text-gray-400 font-mono">{p.id}</p>

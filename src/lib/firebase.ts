@@ -286,9 +286,7 @@ export const subscribeToFirestoreProducts = (
             stockQuantity: Number(data.stockQuantity) || 0,
             sku: data.sku || '',
             categoryId: data.categoryId || 'cat-audio',
-            images: Array.isArray(data.images) && data.images.length > 0
-              ? data.images
-              : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+            images: Array.isArray(data.images) ? data.images : [],
             isPublished: data.isPublished !== false,
             createdAt: data.createdAt || new Date().toISOString(),
             updatedAt: data.updatedAt || new Date().toISOString(),
@@ -326,9 +324,7 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           stockQuantity: Number(data.stockQuantity) || 0,
           sku: data.sku || '',
           categoryId: data.categoryId || 'cat-audio',
-          images: Array.isArray(data.images) && data.images.length > 0
-            ? data.images
-            : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
+          images: Array.isArray(data.images) ? data.images : [],
           isPublished: data.isPublished !== false,
           createdAt: data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt || new Date().toISOString(),

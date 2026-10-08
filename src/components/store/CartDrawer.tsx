@@ -7,7 +7,7 @@ import React from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
-import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, AlertCircle, Package } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -112,11 +112,17 @@ My Delivery Address:`
                     key={product.id}
                     className="flex gap-3.5 p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-gray-50 transition-colors"
                   >
-                    <img
-                      src={product.images[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=200&q=80'}
-                      alt={product.title}
-                      className="w-16 h-16 rounded-lg object-cover bg-gray-200 shrink-0"
-                    />
+                    {product.images && product.images[0] ? (
+                      <img
+                        src={product.images[0]}
+                        alt={product.title}
+                        className="w-16 h-16 rounded-lg object-cover bg-gray-200 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                        <Package className="w-6 h-6 text-gray-300" />
+                      </div>
+                    )}
 
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2">

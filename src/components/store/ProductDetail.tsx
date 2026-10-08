@@ -110,9 +110,9 @@ export const ProductDetail: React.FC = () => {
   };
 
   const currentImage =
-    product.images[activeImageIndex] ||
-    product.images[0] ||
-    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80';
+    (product.images && product.images[activeImageIndex]) ||
+    (product.images && product.images[0]) ||
+    '';
 
   const productUrl =
     typeof window !== 'undefined'
@@ -159,24 +159,33 @@ My Delivery Address:`
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14">
           {/* Left Column: Image Gallery & Full View Trigger */}
           <div>
-            <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 mb-4 group">
-              <img
-                src={currentImage}
-                alt={product.title}
-                className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
-                onClick={() => setIsLightboxOpen(true)}
-              />
+            <div className="relative aspect-4/3 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 mb-4 group flex items-center justify-center">
+              {currentImage ? (
+                <>
+                  <img
+                    src={currentImage}
+                    alt={product.title}
+                    className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
+                    onClick={() => setIsLightboxOpen(true)}
+                  />
 
-              {/* Full view button overlay */}
-              <button
-                id="btn-open-full-view"
-                onClick={() => setIsLightboxOpen(true)}
-                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-xs transition-all shadow-md cursor-pointer"
-                title="Open full view image"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-                <span>Full View</span>
-              </button>
+                  {/* Full view button overlay */}
+                  <button
+                    id="btn-open-full-view"
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-black text-white text-xs font-semibold flex items-center gap-1.5 backdrop-blur-xs transition-all shadow-md cursor-pointer"
+                    title="Open full view image"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>Full View</span>
+                  </button>
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-8">
+                  <Package className="w-16 h-16 text-gray-300 mb-2" />
+                  <span className="text-sm font-medium text-gray-400">No Image Available</span>
+                </div>
+              )}
 
               {!product.isPublished && (
                 <div className="absolute top-4 left-4 z-10">
@@ -373,7 +382,11 @@ My Delivery Address:`
                     href={whatsappOrderUrl}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={() => {
+                      addToCart(product, selectedQuantity);
+                    }}
                     className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs border border-[#25D366]/30 transition-all cursor-pointer"
+                    title="Order via WhatsApp (also saves to your cart)"
                   >
                     <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
                     <span>Order via WhatsApp</span>
@@ -671,15 +684,19 @@ My Delivery Address:`
                 className="group bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md hover:border-blue-500 transition-all cursor-pointer flex flex-col justify-between"
               >
                 <div>
-                  <div className="aspect-4/3 overflow-hidden bg-gray-100 relative">
-                    <img
-                      src={
-                        relProduct.images[0] ||
-                        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80'
-                      }
-                      alt={relProduct.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
+                  <div className="aspect-4/3 overflow-hidden bg-gray-100 relative flex items-center justify-center">
+                    {relProduct.images && relProduct.images[0] ? (
+                      <img
+                        src={relProduct.images[0]}
+                        alt={relProduct.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-2">
+                        <Package className="w-8 h-8 text-gray-300 mb-1" />
+                        <span className="text-[10px] font-medium text-gray-400">No Image</span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-4 space-y-1.5">
                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">

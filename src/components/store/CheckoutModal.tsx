@@ -26,9 +26,14 @@ import {
 interface CheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onIncompleteOrder?: () => void;
 }
 
-export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
+export const CheckoutModal: React.FC<CheckoutModalProps> = ({
+  isOpen,
+  onClose,
+  onIncompleteOrder,
+}) => {
   const {
     currentUser,
     isLoggedIn,
@@ -39,6 +44,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose })
     cartTotal,
     createOrder,
     setViewMode,
+    addToast,
   } = useStore();
 
   const [step, setStep] = useState<'shipping' | 'payment' | 'success'>('shipping');
@@ -192,6 +198,22 @@ Please confirm and dispatch the order. Thank you!`;
     }
   };
 
+  const handleCloseCheckout = () => {
+    if (step !== 'success' && cart.length > 0) {
+      addToast('Order not completed. Your items are saved in your cart.', 'info');
+      onClose();
+      onIncompleteOrder?.();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleReturnToCart = () => {
+    addToast('Your items are saved in your cart.', 'info');
+    onClose();
+    onIncompleteOrder?.();
+  };
+
   const handleFinish = () => {
     onClose();
     setViewMode('store');
@@ -226,7 +248,7 @@ Please confirm and dispatch the order. Thank you!`;
           </div>
 
           <button
-            onClick={onClose}
+            onClick={handleCloseCheckout}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
             aria-label="Close"
           >
@@ -357,21 +379,33 @@ Please confirm and dispatch the order. Thank you!`;
               />
             </div>
 
-            <div className="pt-2 flex items-center justify-between border-t border-gray-100">
-              <div className="text-xs text-gray-600">
-                <span>Subtotal: <strong className="text-gray-900 font-mono">{formatBDT(cartSubtotal)}</strong></span>
-                <span className="mx-1.5 text-gray-300">|</span>
-                <span>Delivery: <strong className="text-emerald-700 font-mono">{formatBDT(deliveryCharge)}</strong></span>
-              </div>
-
+            <div className="pt-2 flex items-center justify-between border-t border-gray-100 gap-2">
               <button
-                id="btn-shipping-next"
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                type="button"
+                onClick={handleReturnToCart}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                title="Save items and return to shopping cart"
               >
-                <span>Proceed to Payment</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ShoppingBag className="w-3.5 h-3.5 text-gray-500" />
+                <span>Return to Cart</span>
               </button>
+
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:block text-xs text-gray-600">
+                  <span>Subtotal: <strong className="text-gray-900 font-mono">{formatBDT(cartSubtotal)}</strong></span>
+                  <span className="mx-1.5 text-gray-300">|</span>
+                  <span>Delivery: <strong className="text-emerald-700 font-mono">{formatBDT(deliveryCharge)}</strong></span>
+                </div>
+
+                <button
+                  id="btn-shipping-next"
+                  type="submit"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  <span>Proceed to Payment</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -409,14 +443,17 @@ Please confirm and dispatch the order. Thank you!`;
                     key={item.product.id}
                     className="flex items-center justify-between gap-2 text-xs bg-white p-2 rounded-lg border border-gray-100"
                   >
-                    <img
-                      src={
-                        item.product.images?.[0] ||
-                        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=100&q=80'
-                      }
-                      alt={item.product.title}
-                      className="w-8 h-8 rounded object-cover bg-gray-100 shrink-0"
-                    />
+                    {item.product.images && item.product.images[0] ? (
+                      <img
+                        src={item.product.images[0]}
+                        alt={item.product.title}
+                        className="w-8 h-8 rounded object-cover bg-gray-100 shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                        <Package className="w-4 h-4 text-gray-300" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 truncate text-[11px]">{item.product.title}</p>
                       <span className="text-[10px] text-gray-500">
@@ -556,13 +593,25 @@ Please confirm and dispatch the order. Thank you!`;
               </button>
 
               <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep('shipping')}
-                  className="text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-1"
-                >
-                  ← Edit Address
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep('shipping')}
+                    className="text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-1"
+                  >
+                    ← Edit Address
+                  </button>
+                  <span className="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    onClick={handleReturnToCart}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 cursor-pointer py-2 px-1 flex items-center gap-1"
+                    title="Keep items and view in shopping cart"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>Return to Cart</span>
+                  </button>
+                </div>
 
                 <button
                   id="btn-confirm-order-whatsapp"

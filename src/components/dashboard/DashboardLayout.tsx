@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { DashboardTab } from '../../types';
 import { AnalyticsTab } from './AnalyticsTab';
@@ -47,7 +47,19 @@ export const DashboardLayout: React.FC = () => {
     canViewAnalytics,
     resetDemoData,
     banners,
+    orders,
+    products,
   } = useStore();
+
+  const isModerator = currentUser?.role === 'moderator';
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Ensure moderators automatically land on staff tabs (orders or products)
+  useEffect(() => {
+    if (isModerator && ['analytics', 'users', 'database', 'docs'].includes(dashboardTab)) {
+      setDashboardTab('orders');
+    }
+  }, [isModerator, dashboardTab, setDashboardTab]);
 
   // RBAC Access Guard: Customers cannot access Dashboard
   if (!canAccessDashboard) {
@@ -99,197 +111,230 @@ export const DashboardLayout: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <BrandLogo size="xs" />
               <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                XEEROO Admin
+                {isModerator ? 'Staff Dashboard' : 'Admin Console'}
               </h2>
             </div>
-            <p className="text-[11px] text-gray-500 truncate">
-              {currentUser?.fullName || 'Administrator'} (Master Admin)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-gray-600 truncate font-medium">
+                {currentUser?.fullName || (isModerator ? 'Staff Member' : 'Administrator')}
+              </p>
+              <span
+                className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase font-mono ${
+                  isModerator ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                }`}
+              >
+                {isModerator ? 'Staff Moderator' : 'Master Admin'}
+              </span>
+            </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="space-y-1 text-xs font-medium">
-            {/* Analytics Tab (Admin Only) */}
-            <button
-              onClick={() => {
-                if (canViewAnalytics) {
-                  setDashboardTab('analytics');
-                }
-              }}
-              disabled={!canViewAnalytics}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'analytics'
-                  ? 'bg-purple-50 text-purple-700 font-bold'
-                  : canViewAnalytics
-                  ? 'text-gray-700 hover:bg-gray-50'
-                  : 'text-gray-400 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <BarChart3 className="w-4 h-4" />
-                <span>Sales Analytics</span>
-              </div>
-              {!canViewAnalytics && (
-                <span className="text-[9px] px-1 py-0.2 rounded bg-gray-100 text-gray-500 font-mono">
-                  Admin
+          <nav className="space-y-4 text-xs font-medium">
+            {/* SECTION 1: STAFF OPERATIONS (Moderator & Admin) */}
+            <div className="space-y-1">
+              <div className="px-2 pb-1 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 font-mono">
+                  Staff Operations
                 </span>
-              )}
-            </button>
-
-            {/* Product Management (Moderator & Admin) */}
-            <button
-              onClick={() => setDashboardTab('products')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'products'
-                  ? 'bg-blue-50 text-blue-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Package className="w-4 h-4" />
-                <span>Product Catalog</span>
-              </div>
-            </button>
-
-            {/* Order Management (Moderator & Admin) */}
-            <button
-              onClick={() => setDashboardTab('orders')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'orders'
-                  ? 'bg-blue-50 text-blue-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <ShoppingBag className="w-4 h-4" />
-                <span>Order Fulfillment</span>
-              </div>
-            </button>
-
-            {/* Banner Management (Staff - Up to 10 banners) */}
-            <button
-              id="tab-btn-banners"
-              onClick={() => setDashboardTab('banners')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'banners'
-                  ? 'bg-blue-50 text-blue-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <ImageIcon className="w-4 h-4" />
-                <span>Desktop Banners</span>
-              </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono font-bold">
-                {banners.length}/10
-              </span>
-            </button>
-
-            {/* User Management (Admin Only) */}
-            <button
-              onClick={() => {
-                if (canManageUsers) {
-                  setDashboardTab('users');
-                }
-              }}
-              disabled={!canManageUsers}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'users'
-                  ? 'bg-purple-50 text-purple-700 font-bold'
-                  : canManageUsers
-                  ? 'text-gray-700 hover:bg-gray-50'
-                  : 'text-gray-400 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Users & Roles</span>
-              </div>
-              {!canManageUsers && (
-                <span className="text-[9px] px-1 py-0.2 rounded bg-gray-100 text-gray-500 font-mono">
-                  Admin
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">
+                  Active
                 </span>
-              )}
-            </button>
-
-            {/* Category Management (Staff & Admin) */}
-            <button
-              id="tab-btn-categories"
-              onClick={() => {
-                if (canManageCategories) {
-                  setDashboardTab('categories');
-                }
-              }}
-              disabled={!canManageCategories}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'categories'
-                  ? 'bg-blue-50 text-blue-700 font-bold'
-                  : canManageCategories
-                  ? 'text-gray-700 hover:bg-gray-50'
-                  : 'text-gray-400 opacity-50 cursor-not-allowed'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FolderTree className="w-4 h-4" />
-                <span>Categories</span>
               </div>
-              {!canManageCategories && (
-                <span className="text-[9px] px-1 py-0.2 rounded bg-gray-100 text-gray-500 font-mono">
-                  Staff
+
+              {/* Order Management (Orders) */}
+              <button
+                id="tab-btn-orders"
+                onClick={() => setDashboardTab('orders')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                  dashboardTab === 'orders'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <ShoppingBag className="w-4 h-4" />
+                  <span>Order Fulfillment</span>
+                </div>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                    dashboardTab === 'orders'
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {orders.length}
                 </span>
-              )}
-            </button>
+              </button>
 
-            {/* API Product Importer (New System!) */}
-            <button
-              id="tab-btn-importer"
-              onClick={() => setDashboardTab('importer')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'importer'
-                  ? 'bg-cyan-50 text-cyan-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <DownloadCloud className="w-4 h-4 text-cyan-600" />
-                <span>API Product Importer</span>
-              </div>
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-100 text-cyan-800 font-mono font-bold">
-                API
-              </span>
-            </button>
+              {/* Product Catalog (Products) */}
+              <button
+                id="tab-btn-products"
+                onClick={() => setDashboardTab('products')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                  dashboardTab === 'products'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Package className="w-4 h-4" />
+                  <span>Product Catalog</span>
+                </div>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                    dashboardTab === 'products'
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {products.length}
+                </span>
+              </button>
 
-            {/* Cloud Database & Tables */}
-            <button
-              id="tab-btn-database"
-              onClick={() => setDashboardTab('database')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'database'
-                  ? 'bg-emerald-50 text-emerald-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Database className="w-4 h-4 text-emerald-600" />
-                <span>Cloud Database & Tables</span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            </button>
+              {/* Desktop Banners */}
+              <button
+                id="tab-btn-banners"
+                onClick={() => setDashboardTab('banners')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                  dashboardTab === 'banners'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Desktop Banners</span>
+                </div>
+                <span
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                    dashboardTab === 'banners'
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  {banners.length}/10
+                </span>
+              </button>
 
-            {/* Schema & SQL Docs */}
-            <button
-              onClick={() => setDashboardTab('docs')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                dashboardTab === 'docs'
-                  ? 'bg-blue-50 text-blue-700 font-bold'
-                  : 'text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <FileCode className="w-4 h-4" />
-                <span>Schema & RLS Docs</span>
+              {/* Categories */}
+              <button
+                id="tab-btn-categories"
+                onClick={() => setDashboardTab('categories')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                  dashboardTab === 'categories'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <FolderTree className="w-4 h-4" />
+                  <span>Categories</span>
+                </div>
+              </button>
+            </div>
+
+            {/* SECTION 2: ADMINISTRATIVE CONTROLS (Admin Only) */}
+            {isAdmin ? (
+              <div className="space-y-1 pt-2 border-t border-gray-100">
+                <div className="px-2 pb-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 font-mono">
+                    Admin Controls
+                  </span>
+                </div>
+
+                {/* Sales Analytics */}
+                <button
+                  id="tab-btn-analytics"
+                  onClick={() => setDashboardTab('analytics')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                    dashboardTab === 'analytics'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <BarChart3 className="w-4 h-4" />
+                    <span>Sales Analytics</span>
+                  </div>
+                </button>
+
+                {/* Users & Roles */}
+                <button
+                  id="tab-btn-users"
+                  onClick={() => setDashboardTab('users')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                    dashboardTab === 'users'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="w-4 h-4" />
+                    <span>Users & Staff</span>
+                  </div>
+                </button>
+
+                {/* API Product Importer */}
+                <button
+                  id="tab-btn-importer"
+                  onClick={() => setDashboardTab('importer')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                    dashboardTab === 'importer'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <DownloadCloud className="w-4 h-4" />
+                    <span>API Product Importer</span>
+                  </div>
+                </button>
+
+                {/* Cloud Database */}
+                <button
+                  id="tab-btn-database"
+                  onClick={() => setDashboardTab('database')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                    dashboardTab === 'database'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Database className="w-4 h-4" />
+                    <span>Cloud Database</span>
+                  </div>
+                </button>
+
+                {/* Schema & SQL Docs */}
+                <button
+                  id="tab-btn-docs"
+                  onClick={() => setDashboardTab('docs')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                    dashboardTab === 'docs'
+                      ? 'bg-purple-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FileCode className="w-4 h-4" />
+                    <span>Schema & SQL Docs</span>
+                  </div>
+                </button>
               </div>
-            </button>
+            ) : (
+              <div className="pt-2 border-t border-gray-100">
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900">
+                  <div className="flex items-center gap-1.5 font-bold text-xs mb-1 text-amber-900">
+                    <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span>Staff Privileges</span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    You have active authorization to manage orders and the product catalog. Advanced system settings are reserved for the Master Admin.
+                  </p>
+                </div>
+              </div>
+            )}
           </nav>
         </div>
 

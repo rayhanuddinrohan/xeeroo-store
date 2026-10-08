@@ -136,9 +136,9 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
           (Array.isArray(item.images) && item.images[0]) ||
           item.image ||
           item.thumbnail ||
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
+          '';
 
-        const rawImages = Array.isArray(item.images) && item.images.length > 0 ? item.images : [img];
+        const rawImages = Array.isArray(item.images) && item.images.length > 0 ? item.images : (img ? [img] : []);
 
         return {
           id: `ext-${item.id || idx}`,
@@ -183,7 +183,9 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
           (Array.isArray(item.images) && item.images[0]) ||
           item.image ||
           item.thumbnail ||
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80';
+          '';
+
+        const rawImages = Array.isArray(item.images) && item.images.length > 0 ? item.images : (img ? [img] : []);
 
         return {
           id: `ext-${item.id || idx}`,
@@ -194,6 +196,7 @@ export const ProductImportModal: React.FC<ProductImportModalProps> = ({ isOpen, 
           stock: Number(item.stock || 20),
           brand: item.brand || 'XEEROO Global',
           imageUrl: img,
+          images: rawImages,
           selected: true,
         };
       });

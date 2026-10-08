@@ -42,7 +42,21 @@ export const DEFAULT_ADMIN_USER: User = {
   avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
 };
 
-export const INITIAL_USERS: User[] = [DEFAULT_ADMIN_USER];
+export const DEFAULT_MODERATOR_USER: User = {
+  id: 'usr-mod-staff',
+  email: 'staff@xeeroo.com',
+  fullName: 'Staff Moderator',
+  role: 'moderator',
+  phone: '+880 1700-112233',
+  password: 'staff',
+  approvalStatus: 'approved',
+  isVerified: true,
+  isBanned: false,
+  createdAt: '2026-01-01T00:00:00Z',
+  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
+};
+
+export const INITIAL_USERS: User[] = [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
 
 export const INITIAL_BANNERS: BannerSlide[] = [
   {

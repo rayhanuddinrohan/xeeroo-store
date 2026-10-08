@@ -34,6 +34,7 @@ import {
   Layers,
   MessageCircle,
   Settings,
+  Package,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -166,72 +167,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
         showHeader ? 'translate-y-0' : '-translate-y-full md:translate-y-0'
       }`}
     >
-      {/* XEEROO Top Contact & Official Status Bar */}
-      <div className="bg-slate-950 text-slate-200 px-4 py-1.5 text-xs border-b border-slate-800">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-1.5 gap-x-4">
-          {/* Left: Official Brand Support Email */}
-          <div className="flex items-center flex-wrap gap-x-4 gap-y-1 text-[11px] sm:text-xs">
-            <span className="text-slate-400 font-medium">Official Destination for Precision Hardware</span>
-            <span className="text-slate-700 hidden sm:inline">•</span>
-            <a
-              href={`mailto:${XEEROO_CONTACT.email}`}
-              className="inline-flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors font-medium cursor-pointer"
-              title="Email XEEROO Official"
-            >
-              <Mail className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="font-mono">{XEEROO_CONTACT.email}</span>
-            </a>
-          </div>
-
-          {/* Right: Social Channels & Contact */}
-          <div className="flex items-center gap-2.5">
-            {/* Social buttons */}
-            <div className="flex items-center gap-1.5">
-              <a
-                href={XEEROO_CONTACT.facebook}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-blue-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
-                title="Follow XEEROO on Facebook"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                <span>Facebook</span>
-              </a>
-              <a
-                href={XEEROO_CONTACT.instagram}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-pink-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
-                title="Follow XEEROO on Instagram"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-pink-500"></span>
-                <span>Instagram</span>
-              </a>
-              <a
-                href={XEEROO_CONTACT.tiktok}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2 py-0.5 rounded bg-slate-900 hover:bg-cyan-600 text-slate-300 hover:text-white flex items-center gap-1.5 text-[10px] font-bold transition-colors cursor-pointer border border-slate-800"
-                title="Follow XEEROO on TikTok"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-                <span>TikTok</span>
-              </a>
-            </div>
-
-            <span className="text-slate-700 hidden sm:inline">|</span>
-
-            {/* Quick Contact Button */}
-            <button
-              onClick={() => setContactModalOpen(true)}
-              className="text-[11px] font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-0.5 rounded border border-slate-700 transition-colors cursor-pointer"
-            >
-              Contact
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
@@ -261,12 +196,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   onClick={() => setViewMode('dashboard')}
                   className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
                     viewMode === 'dashboard'
-                      ? 'text-purple-700 bg-purple-50 font-semibold'
+                      ? currentUser?.role === 'moderator'
+                        ? 'text-amber-800 bg-amber-50 font-semibold'
+                        : 'text-purple-700 bg-purple-50 font-semibold'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                  <span>Admin Dashboard</span>
+                  <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
+                  <span>{currentUser?.role === 'moderator' ? 'Staff Dashboard' : 'Admin Dashboard'}</span>
                 </button>
               )}
               <button
@@ -322,7 +259,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 <div className="max-h-[380px] overflow-y-auto divide-y divide-gray-100">
                   {matchingProducts.length > 0 ? (
                     matchingProducts.map(product => {
-                      const img = product.images?.[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80';
+                      const hasImg = product.images && product.images.length > 0 && product.images[0];
                       const isOutOfStock = product.stockQuantity <= 0;
                       return (
                         <div
@@ -331,7 +268,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                           className="p-3 hover:bg-blue-50/70 transition-colors cursor-pointer flex items-center gap-3 group"
                         >
                           <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
-                            <img src={img} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            {hasImg ? (
+                              <img src={product.images[0]} alt={product.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            ) : (
+                              <Package className="w-5 h-5 text-gray-300" />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5 mb-0.5">
@@ -399,23 +340,50 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             >
               <Search className="w-5 h-5" />
             </button>
-            {/* Admin Dashboard Quick Button if staff */}
+            {/* Staff / Admin Dashboard Quick Button if staff */}
             {canAccessDashboard && (
               <button
                 id="nav-dashboard-btn"
                 onClick={handleDashboardClick}
                 className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                   viewMode === 'dashboard'
-                    ? 'bg-purple-900 text-white border-purple-800'
+                    ? currentUser?.role === 'moderator'
+                      ? 'bg-amber-800 text-white border-amber-700'
+                      : 'bg-purple-900 text-white border-purple-800'
+                    : currentUser?.role === 'moderator'
+                    ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                     : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                 }`}
-                title="Open XEEROO Admin Dashboard"
+                title={currentUser?.role === 'moderator' ? 'Open XEEROO Staff Dashboard' : 'Open XEEROO Admin Dashboard'}
               >
-                <Shield className="w-4 h-4 text-purple-600" />
-                <span className="hidden sm:inline">Admin Dashboard</span>
-                <span className="sm:hidden">Admin</span>
+                <Shield className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
+                <span className="hidden sm:inline">
+                  {currentUser?.role === 'moderator' ? 'Staff Dashboard' : 'Admin Dashboard'}
+                </span>
+                <span className="sm:hidden">
+                  {currentUser?.role === 'moderator' ? 'Staff' : 'Admin'}
+                </span>
               </button>
             )}
+
+            {/* Shopping Cart Button */}
+            <button
+              id="nav-cart-btn"
+              type="button"
+              onClick={onOpenCart}
+              className="relative inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 transition-colors cursor-pointer border border-gray-200 shadow-xs"
+              title={`Shopping Cart (${cartTotalCount} items)`}
+            >
+              <div className="relative flex items-center">
+                <ShoppingBag className="w-4 h-4 text-gray-700" />
+                {cartTotalCount > 0 && (
+                  <span className="absolute -top-2 -right-2.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-blue-600 text-[10px] font-bold text-white shadow-xs">
+                    {cartTotalCount}
+                  </span>
+                )}
+              </div>
+              <span className="hidden sm:inline">Cart</span>
+            </button>
 
             {/* Unified Login Button */}
             {!isLoggedIn ? (
@@ -469,6 +437,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                               <Crown className="w-2.5 h-2.5" />
                               ADMIN
                             </span>
+                          ) : currentUser?.role === 'moderator' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-amber-100 text-amber-800">
+                              <Shield className="w-2.5 h-2.5" />
+                              STAFF / MODERATOR
+                            </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-blue-100 text-blue-700">
                               <UserIcon className="w-2.5 h-2.5" />
@@ -513,10 +486,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
                           >
-                            <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                            <span>Admin Dashboard</span>
+                            <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
+                            <span>{currentUser?.role === 'moderator' ? 'Staff Dashboard' : 'Admin Dashboard'}</span>
                           </button>
                         )}
+
+                        <button
+                          onClick={() => {
+                            onOpenCart();
+                            setUserDropdownOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
+                        >
+                          <div className="flex items-center gap-2">
+                            <ShoppingBag className="w-4 h-4 text-gray-600" />
+                            <span>View Cart</span>
+                          </div>
+                          {cartTotalCount > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px]">
+                              {cartTotalCount}
+                            </span>
+                          )}
+                        </button>
 
                         <button
                           onClick={() => {
@@ -620,14 +611,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             <div className="mt-2 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden divide-y divide-gray-100 max-h-72 overflow-y-auto">
               {matchingProducts.length > 0 ? (
                 matchingProducts.map(product => {
-                  const img = product.images?.[0] || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80';
+                  const hasImg = product.images && product.images.length > 0 && product.images[0];
                   return (
                     <div
                       key={product.id}
                       onClick={() => handleSelectSearchProduct(product.id)}
                       className="p-2.5 hover:bg-blue-50/70 flex items-center gap-2.5 cursor-pointer"
                     >
-                      <img src={img} alt={product.title} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
+                      {hasImg ? (
+                        <img src={product.images[0]} alt={product.title} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0">
+                          <Package className="w-4 h-4 text-gray-300" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <span className="text-[9px] font-bold text-blue-600 uppercase block">{product.brand}</span>
                         <h4 className="text-xs font-bold text-gray-900 truncate">{product.title}</h4>

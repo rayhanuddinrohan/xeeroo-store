@@ -12,7 +12,9 @@ export const BannerCarousel: React.FC = () => {
 
   // 1. Automatically pick in-stock, published products
   const inStockProducts = useMemo(() => {
-    const available = products.filter(p => p.stockQuantity > 0 && (p.isPublished ?? true));
+    const available = products.filter(
+      p => p.stockQuantity > 0 && (p.isPublished ?? true) && p.images && p.images.length > 0 && p.images[0]
+    );
     if (available.length === 0) return [];
 
     // Deterministic pseudo-random shuffle seeded so it doesn't reshuffle every re-render
@@ -64,10 +66,7 @@ export const BannerCarousel: React.FC = () => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
-  const currentImage =
-    currentProduct.images && currentProduct.images.length > 0
-      ? currentProduct.images[0]
-      : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=80';
+  const currentImage = currentProduct.images?.[0] || '';
 
   return (
     <div
