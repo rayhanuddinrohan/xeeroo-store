@@ -27,7 +27,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     clearCart,
     cartTotalCount,
     cartSubtotal,
-    cartTax,
+    deliveryCharge,
     cartTotal,
     setViewMode,
   } = useStore();
@@ -40,14 +40,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     .join('\n');
 
   const cartWhatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
-    `আসসালামু আলাইকুম! আমি কার্টের নিচের পণ্যগুলো অর্ডার করতে চাই:
+    `Hello! I would like to order the following items from my cart:
 
-🛒 পণ্যের তালিকা:
+🛒 Items List:
 ${cartItemsText}
 
-💵 সর্বমোট মূল্য: ${formatBDT(cartTotal)}
+Items Subtotal: ${formatBDT(cartSubtotal)}
+Delivery Charge: ${formatBDT(deliveryCharge)}
+Total Payable: ${formatBDT(cartTotal)}
 
-আমার নাম ও ডেলিভারি ঠিকানা:`
+My Delivery Address:`
   )}`;
 
   if (!isOpen) return null;
@@ -178,33 +180,40 @@ ${cartItemsText}
             <div className="p-4 sm:p-5 border-t border-gray-200 bg-gray-50/80 space-y-3">
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-gray-500">
-                  <span>Subtotal</span>
+                  <span>Items Subtotal</span>
                   <span className="font-mono">{formatBDT(cartSubtotal)}</span>
                 </div>
                 <div className="flex justify-between text-gray-500">
-                  <span>Shipping</span>
-                  <span className="text-emerald-600 font-medium">Free</span>
-                </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Estimated Tax (5%)</span>
-                  <span className="font-mono">{formatBDT(cartTax)}</span>
+                  <span>Delivery Charge</span>
+                  <span className="font-mono font-medium text-gray-900">{formatBDT(deliveryCharge)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
-                  <span>Total Due</span>
+                  <span>Total Amount Due</span>
                   <span className="font-mono text-blue-600 font-bold">{formatBDT(cartTotal)}</span>
                 </div>
               </div>
 
-              {/* WhatsApp Cart Order Button (Clean, no phone number displayed) */}
+              {/* Primary Online Checkout Button */}
+              <button
+                id="btn-proceed-online-checkout"
+                type="button"
+                onClick={onProceedToCheckout}
+                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
+              >
+                <span>Proceed to Checkout • {formatBDT(cartTotal)}</span>
+                <ArrowRight className="w-4 h-4 shrink-0" />
+              </button>
+
+              {/* WhatsApp Cart Order Button */}
               <a
                 id="btn-whatsapp-cart-checkout"
                 href={cartWhatsappUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
+                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30"
               >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>হোয়াটসঅ্যাপে অর্ডার করুন (Order via WhatsApp)</span>
+                <WhatsAppIcon className="w-4 h-4 shrink-0" />
+                <span>Order via WhatsApp</span>
               </a>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 pt-1">

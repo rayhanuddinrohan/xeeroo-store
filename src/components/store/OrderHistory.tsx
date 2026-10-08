@@ -282,7 +282,7 @@ export const OrderHistory: React.FC = () => {
                           <br />
                           {order.shippingAddress.street}
                           <br />
-                          {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
+                          {order.shippingAddress.thana || order.shippingAddress.state}, {order.shippingAddress.district || order.shippingAddress.city}
                           <br />
                           {order.shippingAddress.country}
                         </p>

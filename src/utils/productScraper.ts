@@ -295,7 +295,7 @@ export function parseProductFromHtml(html: string, targetUrl: string): ScrapedPr
 export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<ScrapedProductResult> {
   const cleanUrl = targetUrl.trim();
   if (!cleanUrl.startsWith('http')) {
-    throw new Error('অনুগ্রহ করে http:// বা https:// দিয়ে শুরু হওয়া সঠিক প্রোডাক্টের লিংক দিন।');
+    throw new Error('Please provide a valid product URL starting with http:// or https://');
   }
 
   const urlObj = new URL(cleanUrl);
@@ -515,5 +515,5 @@ export async function scrapeProductFromAnyUrl(targetUrl: string): Promise<Scrape
     // ignore
   }
 
-  throw new Error('লিংক থেকে স্বয়ংক্রিয়ভাবে তথ্য সংগ্রহ করা যায়নি। সাইটটি বোট প্রটেকশন দিয়ে সুরক্ষিত থাকতে পারে। আপনি ম্যানুয়ালি তথ্য পূরণ করতে পারেন।');
+  throw new Error('Could not automatically scrape data from this link. The site may be protected. You can enter details manually.');
 }

@@ -4,6 +4,7 @@ import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  signInWithPopup,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -105,6 +106,17 @@ export const signInFirebaseUser = async (email: string, pass: string) => {
   } catch (err: unknown) {
     const error = err as { code?: string; message?: string };
     return { success: false, error: error.code || error.message || 'Authentication failed' };
+  }
+};
+
+export const signInWithGooglePopup = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return { success: true, user: result.user };
+  } catch (err: unknown) {
+    const error = err as { code?: string; message?: string };
+    console.warn("Google Sign-In Popup notice:", error);
+    return { success: false, error: error.message || 'Google authentication was not completed.' };
   }
 };
 
@@ -437,6 +449,88 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
     console.warn('Firestore fetch orders error:', err);
     return [];
   }
+};
+
+export const subscribeToFirestoreOrders = (
+  onOrdersUpdate: (orders: Order[]) => void,
+  onError?: (err: Error) => void
+) => {
+  const colRef = collection(db, 'orders');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: Order[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && (data.id || docSnap.id)) {
+          list.push({
+            id: data.id || docSnap.id,
+            userId: data.userId || 'guest',
+            userEmail: data.userEmail || '',
+            status: data.status || 'pending',
+            totalAmount: Number(data.totalAmount) || 0,
+            shippingAddress: data.shippingAddress || {
+              fullName: 'Customer',
+              street: '',
+              city: '',
+              state: '',
+              postalCode: '',
+              country: 'Bangladesh',
+              phone: '',
+            },
+            items: Array.isArray(data.items) ? data.items : [],
+            paymentMethod: data.paymentMethod || 'cod',
+            createdAt: data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+          });
+        }
+      });
+      // Sort newest order first
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      onOrdersUpdate(list);
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot orders error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+export const subscribeToFirestoreUsers = (
+  onUsersUpdate: (users: User[]) => void,
+  onError?: (err: Error) => void
+) => {
+  const colRef = collection(db, 'users');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: User[] = [];
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data && data.email) {
+          list.push({
+            id: data.id || docSnap.id,
+            email: data.email,
+            role: data.role || 'customer',
+            fullName: data.fullName || 'Customer',
+            phone: data.phone || '',
+            password: data.password || '',
+            avatarUrl: data.avatarUrl || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            approvalStatus: data.approvalStatus || 'approved',
+            isBanned: data.isBanned || false,
+            isVerified: data.isVerified ?? true,
+            address: data.address || undefined,
+          });
+        }
+      });
+      onUsersUpdate(list);
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot users error:', err);
+      onError?.(err);
+    }
+  );
 };
 
 // ==========================================

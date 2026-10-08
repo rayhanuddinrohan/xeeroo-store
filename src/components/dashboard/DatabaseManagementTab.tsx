@@ -84,7 +84,7 @@ export const DatabaseManagementTab: React.FC = () => {
 
   const handleTestMongo = async () => {
     if (!mongoUri.trim()) {
-      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      addToast('Please enter your MongoDB Connection URI first!', 'error');
       return;
     }
     setIsMongoTesting(true);
@@ -108,17 +108,17 @@ export const DatabaseManagementTab: React.FC = () => {
       } else {
         setMongoTestResult({
           success: false,
-          message: data.error || 'MongoDB Atlas-এর সাথে সংযোগ স্থাপন সম্ভব হয়নি।',
+          message: data.error || 'Could not establish connection to MongoDB Atlas.',
         });
-        addToast(data.error || 'MongoDB সংযোগ ব্যর্থ হয়েছে!', 'error');
+        addToast(data.error || 'MongoDB connection failed!', 'error');
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
       setMongoTestResult({
         success: false,
-        message: error.message || 'নেটওয়ার্ক এরর। ব্যাকএন্ড রেসপন্স করেনি।',
+        message: error.message || 'Network error. Backend did not respond.',
       });
-      addToast('MongoDB টেস্ট এরর!', 'error');
+      addToast('MongoDB test error!', 'error');
     } finally {
       setIsMongoTesting(false);
     }
@@ -126,7 +126,7 @@ export const DatabaseManagementTab: React.FC = () => {
 
   const handleSyncToMongo = async () => {
     if (!mongoUri.trim()) {
-      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      addToast('Please enter your MongoDB Connection URI first!', 'error');
       return;
     }
     setIsMongoSyncing(true);
@@ -143,11 +143,11 @@ export const DatabaseManagementTab: React.FC = () => {
       if (res.ok && data.success) {
         addToast(data.message, 'success');
       } else {
-        addToast(data.error || 'MongoDB তে সিঙ্ক ব্যর্থ হয়েছে!', 'error');
+        addToast(data.error || 'Failed to sync to MongoDB!', 'error');
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'সিঙ্ক রিকোয়েস্ট ব্যর্থ হয়েছে!', 'error');
+      addToast(error.message || 'Sync request failed!', 'error');
     } finally {
       setIsMongoSyncing(false);
     }
@@ -155,7 +155,7 @@ export const DatabaseManagementTab: React.FC = () => {
 
   const handlePullFromMongo = async () => {
     if (!mongoUri.trim()) {
-      addToast('অনুগ্রহ করে আগে আপনার MongoDB Connection URI পেস্ট করুন!', 'error');
+      addToast('Please enter your MongoDB Connection URI first!', 'error');
       return;
     }
     setIsMongoPulling(true);
@@ -167,13 +167,13 @@ export const DatabaseManagementTab: React.FC = () => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        addToast(`সফলভাবে ডেটা আনা হয়েছে! (প্রোডাক্ট: ${data.products?.length || 0}, অর্ডার: ${data.orders?.length || 0})`, 'success');
+        addToast(`Successfully pulled data! (Products: ${data.products?.length || 0}, Orders: ${data.orders?.length || 0})`, 'success');
       } else {
-        addToast(data.error || 'MongoDB থেকে ডেটা ফেচ ব্যর্থ হয়েছে!', 'error');
+        addToast(data.error || 'Failed to pull data from MongoDB!', 'error');
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'MongoDB ফেচ ব্যর্থ হয়েছে!', 'error');
+      addToast(error.message || 'MongoDB fetch failed!', 'error');
     } finally {
       setIsMongoPulling(false);
     }
@@ -190,7 +190,7 @@ export const DatabaseManagementTab: React.FC = () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    addToast(`${filename} ডাউনলোড শুরু হয়েছে!`, 'success');
+    addToast(`${filename} download started!`, 'success');
   };
 
   const handleTestPing = async () => {
@@ -352,7 +352,7 @@ export const DatabaseManagementTab: React.FC = () => {
           }`}
         >
           <Shield className="w-3.5 h-3.5 text-purple-600" />
-          <span>অ্যাডমিন অ্যাকাউন্ট তৈরি ও গাইড (Admin Setup)</span>
+          <span>Admin Setup & User Accounts</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-100 text-purple-800 font-mono font-bold">
             {adminList.length}
           </span>
@@ -366,7 +366,7 @@ export const DatabaseManagementTab: React.FC = () => {
           }`}
         >
           <Database className="w-3.5 h-3.5 text-emerald-600" />
-          <span>MongoDB Atlas (ফ্রি ডাটাবেজ গাইড ও কানেকশন)</span>
+          <span>MongoDB Atlas Cloud Setup</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-800 font-mono font-bold">
             Free M0
           </span>
@@ -380,7 +380,7 @@ export const DatabaseManagementTab: React.FC = () => {
           }`}
         >
           <Zap className="w-3.5 h-3.5 text-indigo-600" />
-          <span>লোগো ও বাটন এসেটস গাইড (PNG & Logo Assets)</span>
+          <span>Brand Assets & Icon Links</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-800 font-mono font-bold">
             Live Assets
           </span>
@@ -572,9 +572,9 @@ export const DatabaseManagementTab: React.FC = () => {
                 <Zap className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white">লোগো ও বাটন এসেটস গাইড (Button Logos & Brand Assets)</h3>
+                <h3 className="text-base font-bold text-white">Brand Assets & Social Icons Guide</h3>
                 <p className="text-xs text-indigo-200 mt-1 leading-relaxed">
-                  ওয়েবসাইটে যেকোনো বাটন লোগো, সোশ্যাল আইকন বা ব্র্যান্ড ছবি যুক্ত করতে সেগুলো সরাসরি প্রজেক্টের <strong className="text-amber-300 font-mono">public/</strong> ফোল্ডারে রাখতে হয়।
+                  All button logos, social icons, and branding assets are served directly from the project's <strong className="text-amber-300 font-mono">public/</strong> directory.
                 </p>
               </div>
             </div>
@@ -582,10 +582,10 @@ export const DatabaseManagementTab: React.FC = () => {
             <div className="p-4 bg-white/10 rounded-xl border border-white/10 text-xs text-slate-200 space-y-2">
               <p className="flex items-center gap-2 text-emerald-400 font-semibold">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>আপনার আপলোড করা ৬টি ফাইল সফলভাবে <code className="bg-black/40 px-1.5 py-0.5 rounded font-mono text-white">public/</code> ফোল্ডারে যুক্ত করা হয়েছে!</span>
+                <span>Uploaded branding files are active in the <code className="bg-black/40 px-1.5 py-0.5 rounded font-mono text-white">public/</code> directory!</span>
               </p>
               <p className="text-slate-300">
-                ভবিষ্যতে যেকোনো নতুন আইকন বা লোগো পরিবর্তন করতে চাইলে ফাইলের একই নাম দিয়ে <code className="font-mono text-amber-300">public/</code> ফোল্ডারে প্রতিস্থাপন করলেই ওয়েবসাইটে স্বয়ংক্রিয়ভাবে আপডেট হয়ে যাবে।
+                To replace any logo or icon, upload a new file with the matching name to <code className="font-mono text-amber-300">public/</code> to automatically update across the storefront.
               </p>
             </div>
           </div>
@@ -603,8 +603,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/whatsapp.png" alt="WhatsApp Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">হোয়াটসঅ্যাপ বাটন লোগো</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">সব প্রোডাক্ট পেজ ও অর্ডারের বাটনে ব্যবহৃত হচ্ছে</p>
+                  <h4 className="text-xs font-bold text-gray-900">WhatsApp Button Icon</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Used across product detail and direct ordering actions</p>
                 </div>
               </div>
             </div>
@@ -620,8 +620,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/facebook.png" alt="Facebook Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">ফেসবুক বাটন লোগো</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">ফুটার ও কন্ট্যাক্ট প্যানেলে প্রদর্শিত হচ্ছে</p>
+                  <h4 className="text-xs font-bold text-gray-900">Facebook Button Icon</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Displayed in footer and contact channels</p>
                 </div>
               </div>
             </div>
@@ -637,8 +637,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/instagram.png" alt="Instagram Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">ইনস্টাগ্রাম বাটন লোগো</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">অফিশিয়াল ইনস্টাগ্রাম পেজ লিঙ্ক</p>
+                  <h4 className="text-xs font-bold text-gray-900">Instagram Button Icon</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Official Instagram profile link</p>
                 </div>
               </div>
             </div>
@@ -654,8 +654,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/messenger.png" alt="Messenger Logo" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">মেসেঞ্জার বাটন লোগো</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">ডাইরেক্ট কাস্টমার চ্যাটের জন্য ব্যবহৃত হচ্ছে</p>
+                  <h4 className="text-xs font-bold text-gray-900">Messenger Button Icon</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Direct customer support channel</p>
                 </div>
               </div>
             </div>
@@ -671,8 +671,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/favicon.png" alt="Favicon" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">ওয়েবসাইট ফেভিকন (Tab Icon)</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">ব্রাউজারের ট্যাবে লোগো হিসেবে দেখাচ্ছে</p>
+                  <h4 className="text-xs font-bold text-gray-900">Browser Favicon (Tab Icon)</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Displayed in browser tabs and bookmark bars</p>
                 </div>
               </div>
             </div>
@@ -688,8 +688,8 @@ export const DatabaseManagementTab: React.FC = () => {
                   <img src="/xeeroo.jpg" alt="Brand Logo" className="w-full h-full object-cover rounded-lg" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-gray-900">XEEROO ব্র্যান্ড লোগো</h4>
-                  <p className="text-[11px] text-gray-500 mt-0.5">হেডার এবং ব্র্যান্ডিং আইকনে ব্যবহৃত হচ্ছে</p>
+                  <h4 className="text-xs font-bold text-gray-900">XEEROO Brand Logo</h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Primary header and branding emblem</p>
                 </div>
               </div>
             </div>
@@ -778,10 +778,10 @@ export const DatabaseManagementTab: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">
-                  প্রথমবার ডাটাবেজ থেকে অ্যাডমিন অ্যাকাউন্ট তৈরির নির্দেশিকা ও টুল
+                  First-Time Admin Setup & Account Generator
                 </h3>
                 <p className="text-xs text-purple-200 mt-1 max-w-2xl leading-relaxed">
-                  ফায়ারবেস/ফায়ারস্টোর ডাটাবেজে <code className="bg-purple-950 px-1.5 py-0.5 rounded font-mono text-purple-300 font-bold">role: 'admin'</code> থাকা যেকোনো অ্যাকাউন্ট সম্পূর্ণ অ্যাডমিন অধিকার পায়। আপনি এখান থেকে সরাসরি ১-ক্লিকে ডাটাবেজে নতুন অ্যাডমিন তৈরি করতে পারেন অথবা ফায়ারবেস কনসোল থেকে ম্যানুয়ালি যুক্ত করতে পারেন।
+                  In the Firestore database, any user account with <code className="bg-purple-950 px-1.5 py-0.5 rounded font-mono text-purple-300 font-bold">role: 'admin'</code> receives full administrator privileges. Create an admin account directly using the form below or manually configure it in Firebase Console.
                 </p>
               </div>
             </div>
@@ -792,13 +792,13 @@ export const DatabaseManagementTab: React.FC = () => {
             <div className="bg-white p-6 rounded-2xl border border-purple-200 shadow-xs space-y-4">
               <div className="pb-3 border-b border-gray-100">
                 <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  পদ্ধতি ১: ডিরেক্ট ডাটাবেজ ক্রিয়েটর
+                  Method 1: Direct Database Creator
                 </span>
                 <h4 className="text-sm font-bold text-gray-900 mt-2">
-                  ডাটাবেজে নতুন অ্যাডমিন অ্যাকাউন্ট ইনসার্ট করুন
+                  Create Admin Account in Database
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  নিচের ফর্মে তথ্য পূরণ করে সাবমিট করলেই ফায়ারবেস ফায়ারস্টোর ডাটাবেজের <code className="text-gray-700 font-mono">users</code> কালেকশনে পার্মানেন্টলি অ্যাডমিন তৈরি হবে।
+                  Submitting this form creates an authorized administrator document in the Firestore <code className="text-gray-700 font-mono">users</code> collection.
                 </p>
               </div>
 
@@ -806,11 +806,11 @@ export const DatabaseManagementTab: React.FC = () => {
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2">
                   <div className="flex items-center gap-2 text-xs font-bold text-emerald-800">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>অ্যাডমিন অ্যাকাউন্ট ডাটাবেজে সফলভাবে তৈরি হয়েছে!</span>
+                    <span>Admin account created successfully in database!</span>
                   </div>
                   <p className="text-xs text-emerald-700 font-mono bg-emerald-100/60 p-2.5 rounded-lg">
-                    ইমেইল: <strong>{createdAdminResult.email}</strong><br />
-                    পাসওয়ার্ড: <strong>{createdAdminResult.pass}</strong>
+                    Email: <strong>{createdAdminResult.email}</strong><br />
+                    Password: <strong>{createdAdminResult.pass}</strong>
                   </p>
                   <button
                     type="button"
@@ -826,7 +826,7 @@ export const DatabaseManagementTab: React.FC = () => {
               <form onSubmit={handleCreateAdminSubmit} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    অ্যাডমিনের পুরো নাম *
+                    Admin Full Name *
                   </label>
                   <input
                     type="text"
@@ -840,7 +840,7 @@ export const DatabaseManagementTab: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    অ্যাডমিন ইমেইল ঠিকানা *
+                    Admin Email Address *
                   </label>
                   <input
                     type="email"
@@ -855,7 +855,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      মোবাইল নম্বর (ঐচ্ছিক)
+                      Phone Number (Optional)
                     </label>
                     <input
                       type="tel"
@@ -868,14 +868,14 @@ export const DatabaseManagementTab: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
-                      লগইন পাসওয়ার্ড (মিনিমাম ৬ ডিজিট) *
+                      Login Password (Min 6 chars) *
                     </label>
                     <input
                       type="password"
                       required
                       value={adminPassword}
                       onChange={e => setAdminPassword(e.target.value)}
-                      placeholder="মজবুত পাসওয়ার্ড দিন..."
+                      placeholder="Enter strong password..."
                       className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-purple-600 bg-white text-gray-900"
                     />
                   </div>
@@ -887,11 +887,11 @@ export const DatabaseManagementTab: React.FC = () => {
                   className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs shadow-sm hover:shadow transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60"
                 >
                   {isCreatingAdmin ? (
-                    <span>ডাটাবেজে সেভ হচ্ছে...</span>
+                    <span>Saving to database...</span>
                   ) : (
                     <>
                       <ShieldCheck className="w-4 h-4" />
-                      <span>ডাটাবেজে সরাসরি অ্যাডমিন তৈরি করুন</span>
+                      <span>Create Admin in Database</span>
                     </>
                   )}
                 </button>
@@ -902,41 +902,41 @@ export const DatabaseManagementTab: React.FC = () => {
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-xs space-y-4">
               <div className="pb-3 border-b border-gray-100">
                 <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                  পদ্ধতি ২: Firebase Console থেকে ম্যানুয়াল তৈরি
+                  Method 2: Manual Setup via Firebase Console
                 </span>
                 <h4 className="text-sm font-bold text-gray-900 mt-2">
-                  ফায়ারবেস কনসোল থেকে সরাসরি অ্যাডমিন সেটআপ
+                  Direct Firebase Console Configuration
                 </h4>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  আপনি যদি সরাসরি Google Firebase ওয়েবসাইটে গিয়ে অ্যাডমিন ডকুমেন্ট তৈরি করতে চান, তবে এই ধাপগুলো অনুসরণ করুন:
+                  Follow these steps to manually register or verify an admin document directly in Google Firebase Console:
                 </p>
               </div>
 
               <div className="space-y-3 text-xs text-gray-700 leading-relaxed">
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <strong className="text-gray-900 block mb-1">ধাপ ১: ফায়ারবেস কনসোলে যান</strong>
-                  <span><a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-600 font-semibold underline">console.firebase.google.com</a> ওপেন করে আপনার প্রজেক্ট সিলেক্ট করুন এবং বামপাশের মেনু থেকে <strong>Firestore Database</strong>-এ ক্লিক করুন।</span>
+                  <strong className="text-gray-900 block mb-1">Step 1: Open Firebase Console</strong>
+                  <span>Visit <a href="https://console.firebase.google.com" target="_blank" rel="noreferrer" className="text-blue-600 font-semibold underline">console.firebase.google.com</a>, open your project, and click <strong>Firestore Database</strong> from the left sidebar menu.</span>
                 </div>
 
                 <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <strong className="text-gray-900 block mb-1">ধাপ ২: users কালেকশনে ডকুমেন্ট যোগ করুন</strong>
-                  <span><strong>Start collection</strong> বা বিদ্যমান <code className="bg-white px-1.5 py-0.5 border rounded font-mono font-bold text-blue-600">users</code> কালেকশনে ক্লিক করে <strong>Add document</strong> বাটনে চাপ দিন (Document ID ফাঁকা রাখতে পারেন বা <code className="font-mono text-purple-700">admin-master</code> দিন)।</span>
+                  <strong className="text-gray-900 block mb-1">Step 2: Add Document to users Collection</strong>
+                  <span>Click <strong>Start collection</strong> or select the existing <code className="bg-white px-1.5 py-0.5 border rounded font-mono font-bold text-blue-600">users</code> collection and click <strong>Add document</strong> (Document ID can be left blank or set to <code className="font-mono text-purple-700">admin-master</code>).</span>
                 </div>
 
                 <div className="p-3 bg-slate-950 text-slate-200 rounded-xl font-mono text-[11px] space-y-1">
-                  <p className="text-amber-400 font-bold mb-1">// এই ফিল্ডগুলো হুবহু টাইপ করুন:</p>
-                  <p><span className="text-blue-400">role:</span> <span className="text-emerald-400">"admin"</span> (string) <span className="text-amber-300 font-sans text-[10px]">← সবচেয়ে গুরুত্বপূর্ণ!</span></p>
+                  <p className="text-amber-400 font-bold mb-1">// Enter these fields exact values:</p>
+                  <p><span className="text-blue-400">role:</span> <span className="text-emerald-400">"admin"</span> (string) <span className="text-amber-300 font-sans text-[10px]">← Most critical!</span></p>
                   <p><span className="text-blue-400">email:</span> <span className="text-emerald-400">"admin@yourstore.com"</span> (string)</p>
                   <p><span className="text-blue-400">fullName:</span> <span className="text-emerald-400">"Master Administrator"</span> (string)</p>
-                  <p><span className="text-blue-400">password:</span> <span className="text-emerald-400">"আপনার_পাসওয়ার্ড"</span> (string)</p>
+                  <p><span className="text-blue-400">password:</span> <span className="text-emerald-400">"your_password"</span> (string)</p>
                   <p><span className="text-blue-400">approvalStatus:</span> <span className="text-emerald-400">"approved"</span> (string)</p>
                   <p><span className="text-blue-400">isVerified:</span> <span className="text-cyan-400">true</span> (boolean)</p>
                   <p><span className="text-blue-400">isBanned:</span> <span className="text-rose-400">false</span> (boolean)</p>
                 </div>
 
                 <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-800">
-                  <strong className="block mb-0.5 font-bold">ধাপ ৩: সাইন-ইন করুন</strong>
-                  <span>ডকুমেন্ট সেভ করার পর এই ওয়েবসাইটের <strong>Sign In</strong> উইন্ডোতে গিয়ে ওই ইমেইল ও পাসওয়ার্ড দিলে আপনি সাথে সাথে <strong>Master Admin</strong> হিসেবে লগইন হয়ে যাবেন!</span>
+                  <strong className="block mb-0.5 font-bold">Step 3: Sign In</strong>
+                  <span>After saving the document, open the website's <strong>Login</strong> modal and sign in with the email and password to access the <strong>Master Admin</strong> dashboard!</span>
                 </div>
               </div>
             </div>
@@ -947,20 +947,20 @@ export const DatabaseManagementTab: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-sm font-bold text-gray-900">
-                  বর্তমান অ্যাডমিনিস্ট্রেটর ও মডারেটরদের তালিকা
+                  Current Administrators & Staff
                 </h4>
                 <p className="text-xs text-gray-500">
-                  ডাটাবেজে নিবন্ধিত সকল অ্যাডমিন অ্যাকাউন্ট
+                  List of all registered administrator accounts in database
                 </p>
               </div>
               <span className="text-xs font-mono font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-lg">
-                মোট স্টাফ: {adminList.length} জন
+                Total Staff: {adminList.length}
               </span>
             </div>
 
             {adminList.length === 0 ? (
               <p className="text-xs text-gray-500 py-4 text-center">
-                এখনো কোনো অ্যাডমিন অ্যাকাউন্ট তৈরি করা হয়নি। উপরের ফর্ম থেকে প্রথম অ্যাডমিন তৈরি করুন।
+                No admin accounts created yet. Use the form above to add your first administrator.
               </p>
             ) : (
               <div className="overflow-x-auto">
@@ -1012,13 +1012,13 @@ export const DatabaseManagementTab: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                    <span>MongoDB Atlas ক্লাউড ডাটাবেজ গাইড ও লাইভ কানেকশন</span>
+                    <span>MongoDB Atlas Cloud Database Guide & Live Connection</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold uppercase tracking-wider">
                       100% Free M0
                     </span>
                   </h3>
                   <p className="text-xs text-slate-300">
-                    Firebase কনসোল জটিল মনে হলে MongoDB হলো সবচেয়ে জনপ্রিয়, নির্ভরযোগ্য ও সহজে ব্যবহারযোগ্য NoSQL ডাটাবেজ।
+                    MongoDB Atlas provides a reliable, easy-to-use cloud NoSQL database that pairs seamlessly with modern storefronts.
                   </p>
                 </div>
               </div>
@@ -1030,14 +1030,14 @@ export const DatabaseManagementTab: React.FC = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md transition-all cursor-pointer"
                 >
-                  <span>MongoDB Atlas-এ ফ্রি অ্যাকাউন্ট খুলুন</span>
+                  <span>Sign Up on MongoDB Atlas Free</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>
 
             <div className="p-3.5 rounded-xl bg-emerald-900/30 border border-emerald-700/40 text-xs text-emerald-200 leading-relaxed">
-              💡 <strong>চিন্তার কিছু নেই:</strong> Firebase না বুঝলেও আপনার এই স্টোর বন্ধ হবে না! স্টোরে অলরেডি একটি ব্রাউজার ডাটাবেজ (LocalStorage & Memory) সক্রিয় আছে, ফলে পণ্য যোগ করা, অর্ডার নেওয়া, গ্রাহক রেজিস্ট্রেশন সবই কাজ করছে। আর আপনি যদি পার্মানেন্ট ক্লাউড ডাটাবেজ হিসেবে MongoDB ব্যবহার করতে চান, নিচের ৪টি সহজ ধাপ অনুসরণ করুন:
+              💡 <strong>Instant Active Storage:</strong> The store already features active local & memory database replication, so all products, orders, and customer accounts function immediately out of the box. Follow the steps below if you want persistent MongoDB cloud synchronization:
             </div>
           </div>
 
@@ -1047,10 +1047,10 @@ export const DatabaseManagementTab: React.FC = () => {
               <div>
                 <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                   <Key className="w-4 h-4 text-emerald-600" />
-                  <span>MongoDB Atlas কানেকশন স্ট্রিং (URI) কনফিগারেশন</span>
+                  <span>MongoDB Atlas Connection String (URI) Configuration</span>
                 </h4>
                 <p className="text-xs text-gray-500">
-                  আপনার ক্লাস্টারের Connection String এখানে দিন এবং সাথে সাথে কানেকশন ও ডাটা সিঙ্ক পরীক্ষা করুন
+                  Enter your cluster connection string here to immediately test ping and sync catalog data.
                 </p>
               </div>
               <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
@@ -1080,7 +1080,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 </button>
               </div>
               <p className="text-[11px] text-gray-500 leading-normal">
-                পাসওয়ার্ডে বিশেষ অক্ষর (যেমন @, #, %) থাকলে URL encode করতে হয়। সহজ পাসওয়ার্ড (যেমন: <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-800">XeerooPass2026</code>) ব্যবহার করা সবচেয়ে নিরাপদ।
+                If your password contains special characters (such as @, #, %), URL-encode them. A clean alphanumeric password (e.g., <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-gray-800">XeerooPass2026</code>) is safest.
               </p>
             </div>
 
@@ -1092,7 +1092,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
               >
                 <Zap className={`w-3.5 h-3.5 text-amber-400 ${isMongoTesting ? 'animate-spin' : ''}`} />
-                <span>{isMongoTesting ? 'পরীক্ষা করা হচ্ছে...' : 'কানেকশন টেস্ট করুন (Test Ping)'}</span>
+                <span>{isMongoTesting ? 'Testing connection...' : 'Test Connection (Ping)'}</span>
               </button>
 
               <button
@@ -1101,7 +1101,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
               >
                 <UploadCloud className={`w-3.5 h-3.5 ${isMongoSyncing ? 'animate-bounce' : ''}`} />
-                <span>{isMongoSyncing ? 'সিঙ্ক হচ্ছে...' : 'বর্তমান সব ডাটা MongoDB তে আপলোড করুন'}</span>
+                <span>{isMongoSyncing ? 'Syncing...' : 'Upload Current Store Data to MongoDB'}</span>
               </button>
 
               <button
@@ -1110,7 +1110,7 @@ export const DatabaseManagementTab: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl transition-all cursor-pointer disabled:opacity-50"
               >
                 <DownloadCloud className="w-3.5 h-3.5 text-blue-600" />
-                <span>MongoDB থেকে ডাটা আনুন (Pull)</span>
+                <span>Pull Data from MongoDB</span>
               </button>
             </div>
 
@@ -1134,30 +1134,30 @@ export const DatabaseManagementTab: React.FC = () => {
 
                 {mongoTestResult.success && mongoTestResult.collections && (
                   <div className="text-[11px] pt-1">
-                    ডাটাবেজ নাম: <strong className="font-mono text-emerald-800">{mongoTestResult.database}</strong> | 
-                    পাওয়া কালেকশনসমূহ: <span className="font-mono">{mongoTestResult.collections.length > 0 ? mongoTestResult.collections.join(', ') : 'এখনো কোনো কালেকশন নেই (সিঙ্ক বাটনে চাপ দিলে তৈরি হবে)'}</span>
+                    Database Name: <strong className="font-mono text-emerald-800">{mongoTestResult.database}</strong> | 
+                    Discovered Collections: <span className="font-mono">{mongoTestResult.collections.length > 0 ? mongoTestResult.collections.join(', ') : 'No collections found yet (click Sync to create them)'}</span>
                   </div>
                 )}
 
                 {!mongoTestResult.success && (
                   <ul className="list-disc list-inside text-[11px] space-y-1 text-rose-800 pt-1">
-                    <li>MongoDB Atlas-এর <strong>Network Access</strong> এ গিয়ে <strong>0.0.0.0/0</strong> আইপি এলাউ করেছেন কি না চেক করুন।</li>
-                    <li>ইউজারনেম এবং পাসওয়ার্ডে কোনো ভুল বানান বা অতিরিক্ত স্পেস আছে কি না দেখুন।</li>
+                    <li>Check if IP <strong className="font-mono">0.0.0.0/0</strong> is allowed under MongoDB Atlas <strong>Network Access</strong>.</li>
+                    <li>Verify username and password for typos or extraneous spaces.</li>
                   </ul>
                 )}
               </div>
             )}
           </div>
 
-          {/* 4-Step Visual Beginner Guide (Bengali) */}
+          {/* 4-Step Visual Beginner Guide */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5 shadow-sm">
             <div>
               <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span>MongoDB Atlas ফ্রি ক্লাউড ক্লাস্টার খোলার ৪টি সহজ ধাপ</span>
+                <span>4 Quick Steps to Create a Free MongoDB Atlas Cluster</span>
               </h4>
               <p className="text-xs text-gray-500">
-                কোনো ক্রেডিট কার্ড লাগবে না। এই ডাটাবেজ সারাজীবন ১০০% ফ্রিতে ব্যবহার করা যায়।
+                No credit card required. MongoDB Atlas provides a permanent free M0 tier.
               </p>
             </div>
 
@@ -1165,46 +1165,46 @@ export const DatabaseManagementTab: React.FC = () => {
               {/* Step 1 */}
               <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-gray-900">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">১</span>
-                  <span>MongoDB Atlas-এ সাইন-আপ করুন</span>
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">1</span>
+                  <span>Sign Up on MongoDB Atlas</span>
                 </div>
                 <p className="text-gray-600 leading-relaxed">
-                  <a href="https://www.mongodb.com/cloud/atlas" target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold underline">
+                  Go to <a href="https://www.mongodb.com/cloud/atlas" target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold underline">
                     mongodb.com/cloud/atlas
-                  </a> ওয়েবসাইটে যান। আপনার Google অ্যাকাউন্ট দিয়ে মাত্র ১ ক্লিকে ফ্রি অ্যাকাউন্ট খুলে ফেলুন।
+                  </a> and sign in with Google or create a free account.
                 </p>
               </div>
 
               {/* Step 2 */}
               <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-gray-900">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">২</span>
-                  <span>M0 Free ক্লাস্টার সিলেক্ট করুন</span>
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">2</span>
+                  <span>Select M0 Free Cluster</span>
                 </div>
                 <p className="text-gray-600 leading-relaxed">
-                  <strong>Create a Deployment</strong> স্ক্রিনে এসে <strong className="text-emerald-700">M0 (Free)</strong> অপশনটি পছন্দ করুন। ক্লাউড হিসেবে AWS এবং রিজিয়ন হিসেবে <strong>Singapore</strong> বা <strong>Mumbai</strong> নির্বাচন করে <strong>Create Deployment</strong> বাটনে চাপ দিন।
+                  On the <strong>Create a Deployment</strong> screen, choose the <strong className="text-emerald-700">M0 (Free)</strong> tier. Select cloud provider (AWS) and nearest region (Singapore or Mumbai), then click <strong>Create Deployment</strong>.
                 </p>
               </div>
 
               {/* Step 3 */}
               <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-gray-900">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">৩</span>
-                  <span>ইউজার ও আইপি পারমিশন দিন</span>
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">3</span>
+                  <span>Configure User & Network Access</span>
                 </div>
                 <p className="text-gray-600 leading-relaxed">
-                  <strong>Database Access</strong> এ গিয়ে একটি ইউজারনেম (যেমন: <code className="bg-white px-1 py-0.5 border rounded">xeeroo_admin</code>) ও পাসওয়ার্ড দিন। এরপর <strong>Network Access</strong> মেন্যুতে গিয়ে <code className="bg-white px-1 py-0.5 border rounded font-bold text-emerald-700">0.0.0.0/0</code> (Allow Access from Anywhere) দিন।
+                  Under <strong>Database Access</strong>, add a database user and password (e.g. <code className="bg-white px-1 py-0.5 border rounded">xeeroo_admin</code>). Under <strong>Network Access</strong>, add IP address <code className="bg-white px-1 py-0.5 border rounded font-bold text-emerald-700">0.0.0.0/0</code> (Allow Access from Anywhere).
                 </p>
               </div>
 
               {/* Step 4 */}
               <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/50 space-y-2">
                 <div className="flex items-center gap-2 font-bold text-gray-900">
-                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">৪</span>
-                  <span>Connection URI কপি করে পেস্ট করুন</span>
+                  <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs">4</span>
+                  <span>Copy Connection URI & Paste</span>
                 </div>
                 <p className="text-gray-600 leading-relaxed">
-                  <strong>Database</strong> ট্যাবে গিয়ে <strong>Connect</strong> এ চাপ দিয়ে <strong>Drivers (Node.js)</strong> নির্বাচন করুন। যে <code className="bg-white px-1 py-0.5 border rounded text-[11px]">mongodb+srv://...</code> লিংকটি পাবেন, সেখানে আপনার পাসওয়ার্ড বসিয়ে উপরের ঘরে পেস্ট করে দিন!
+                  Under the <strong>Database</strong> tab, click <strong>Connect</strong>, select <strong>Drivers (Node.js)</strong>, copy the <code className="bg-white px-1 py-0.5 border rounded text-[11px]">mongodb+srv://...</code> URI, insert your password, and paste it into the field above!
                 </p>
               </div>
             </div>
@@ -1216,10 +1216,10 @@ export const DatabaseManagementTab: React.FC = () => {
               <div>
                 <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                   <Download className="w-4 h-4 text-emerald-600" />
-                  <span>১-ক্লিকে MongoDB JSON এক্সপোর্ট (Direct Compass Import)</span>
+                  <span>1-Click MongoDB JSON Export (Direct Compass Import)</span>
                 </h4>
                 <p className="text-xs text-gray-500">
-                  আপনি চাইলে যেকোনো সময় আপনার স্টোরের ডাটা JSON ফাইল হিসেবে ডাউনলোড করে MongoDB Compass এ সরাসরি ইমপোর্ট করতে পারবেন
+                  Export and download your store collections as JSON files ready for direct import into MongoDB Compass or cloud databases.
                 </p>
               </div>
             </div>
@@ -1233,7 +1233,7 @@ export const DatabaseManagementTab: React.FC = () => {
                   <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Products</span>
                   <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
                 </div>
-                <span className="text-[11px] text-gray-500 block">{products.length} টি পণ্য (.json)</span>
+                <span className="text-[11px] text-gray-500 block">{products.length} products (.json)</span>
               </button>
 
               <button
@@ -1244,7 +1244,7 @@ export const DatabaseManagementTab: React.FC = () => {
                   <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Orders</span>
                   <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
                 </div>
-                <span className="text-[11px] text-gray-500 block">{orders.length} টি অর্ডার (.json)</span>
+                <span className="text-[11px] text-gray-500 block">{orders.length} orders (.json)</span>
               </button>
 
               <button
@@ -1255,7 +1255,7 @@ export const DatabaseManagementTab: React.FC = () => {
                   <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Users</span>
                   <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
                 </div>
-                <span className="text-[11px] text-gray-500 block">{users.length} জন গ্রাহক (.json)</span>
+                <span className="text-[11px] text-gray-500 block">{users.length} users (.json)</span>
               </button>
 
               <button
@@ -1266,7 +1266,7 @@ export const DatabaseManagementTab: React.FC = () => {
                   <span className="text-xs font-bold text-gray-800 group-hover:text-emerald-800">Categories</span>
                   <Download className="w-3.5 h-3.5 text-gray-400 group-hover:text-emerald-600" />
                 </div>
-                <span className="text-[11px] text-gray-500 block">{categories.length} টি ক্যাটাগরি (.json)</span>
+                <span className="text-[11px] text-gray-500 block">{categories.length} categories (.json)</span>
               </button>
             </div>
           </div>
@@ -1277,10 +1277,10 @@ export const DatabaseManagementTab: React.FC = () => {
               <div>
                 <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                   <Terminal className="w-4 h-4 text-emerald-600" />
-                  <span>রেডিমেড Mongoose Schemas ও Node.js কোড</span>
+                  <span>Ready-to-use Mongoose Schemas & Node.js Code</span>
                 </h4>
                 <p className="text-xs text-gray-500">
-                  ভবিষ্যতে নিজস্ব কাস্টম Node.js / Express ব্যাকএন্ড সার্ভার চালাতে চাইলে এই স্কিমা কোডগুলো কপি করে সরাসরি ব্যবহার করতে পারবেন
+                  Ready-to-use schema and server code if you wish to run a dedicated custom Node.js / Express backend in production.
                 </p>
               </div>
 

@@ -198,7 +198,7 @@ export const ProductImportTab: React.FC = () => {
       try {
         json = JSON.parse(rawText);
       } catch {
-        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+        throw new Error('Unexpected response received from server. Please try again.');
       }
 
       if (!res.ok || json.error) {
@@ -337,12 +337,12 @@ export const ProductImportTab: React.FC = () => {
       const text = await navigator.clipboard.readText();
       if (text && text.trim()) {
         setSingleUrl(text.trim());
-        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+        addToast('Link pasted successfully!', 'success');
       } else {
-        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+        addToast('No text or link found on clipboard.', 'warning');
       }
     } catch {
-      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
+      addToast('Clipboard permission denied. Please paste using Ctrl+V.', 'info');
     }
   };
 
@@ -647,7 +647,7 @@ export const ProductImportTab: React.FC = () => {
         >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <ShoppingBag className="w-4 h-4 text-emerald-600" />
-          <span>Business Koro API (বিজনেস করো)</span>
+          <span>Business Koro API</span>
           <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-mono font-bold">
             API v1
           </span>
@@ -690,7 +690,7 @@ export const ProductImportTab: React.FC = () => {
         </button>
       </div>
 
-      {/* MODE 0: Business Koro API (বাংলাদেশ ড্রপশিপিং) */}
+      {/* MODE 0: Business Koro API (Dropshipping) */}
       {activeImportMode === 'businesskoro' && (
         <div className="space-y-6">
           {/* Business Koro API Connect Card */}
@@ -708,7 +708,7 @@ export const ProductImportTab: React.FC = () => {
                     </span>
                   </h3>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    আপনার বিজনেস করো অ্যাকাউন্ট থেকে সরাসরি প্রোডাক্ট ডাটাবেজে ইমপোর্ট করুন, দাম বাড়িয়ে বা কমিয়ে নিজের বিক্রয় মূল্য নির্ধারণ করুন।
+                    Import products directly into your database from your Business Koro account with customized margins.
                   </p>
                 </div>
               </div>
@@ -727,7 +727,7 @@ export const ProductImportTab: React.FC = () => {
                       required
                       value={bkApiKey}
                       onChange={e => setBkApiKey(e.target.value)}
-                      placeholder="আপনার Business Koro API Key পেস্ট করুন..."
+                      placeholder="Paste your Business Koro API Key..."
                       className="w-full pr-16 pl-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-gray-900 bg-white font-mono"
                     />
                     <button
@@ -739,24 +739,24 @@ export const ProductImportTab: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[11px] text-gray-400 mt-1">
-                    প্রতিটি রিকোয়েস্টে <code className="text-emerald-700 font-mono">x-api-key</code> হেডার হিসেবে প্রেরিত হবে।
+                    Sent as <code className="text-emerald-700 font-mono">x-api-key</code> header with every request.
                   </p>
                 </div>
 
                 {/* Optional Origin / Domain */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">
-                    Domain / Origin Header (ঐচ্ছিক)
+                    Domain / Origin Header (Optional)
                   </label>
                   <input
                     type="text"
                     value={bkOrigin}
                     onChange={e => setBkOrigin(e.target.value)}
-                    placeholder="https://xeeroo.com (খালি রাখলেও স্বয়ংক্রিয়ভাবে xeeroo.com যুক্ত হবে)"
+                    placeholder="https://xeeroo.com (defaults to xeeroo.com if left empty)"
                     className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 text-gray-900 bg-white font-mono"
                   />
                   <p className="text-[11px] text-gray-400 mt-1">
-                    ডিফল্ট: <span className="font-mono text-emerald-700">https://xeeroo.com</span> (আপনার API কি xeeroo.com ডোমেইনে লক করা, তাই খালি রাখলেও স্বয়ংক্রিয়ভাবে এটি কাজ করবে)।
+                    Default: <span className="font-mono text-emerald-700">https://xeeroo.com</span> (authorized domain).
                   </p>
                 </div>
               </div>
@@ -771,8 +771,8 @@ export const ProductImportTab: React.FC = () => {
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs text-gray-500">
                   {bkProducts.length > 0
-                    ? `মোট লোডকৃত প্রোডাক্ট: ${bkProducts.length} টি`
-                    : 'প্রোডাক্ট দেখতে API Key দিয়ে লোড করুন'}
+                    ? `Total Products Loaded: ${bkProducts.length}`
+                    : 'Enter API Key to fetch products'}
                 </span>
                 <button
                   type="submit"
@@ -782,12 +782,12 @@ export const ProductImportTab: React.FC = () => {
                   {isLoadingBk ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>লোডিং হচ্ছে...</span>
+                      <span>Loading products...</span>
                     </>
                   ) : (
                     <>
                       <RefreshCw className="w-4 h-4" />
-                      <span>প্রোডাক্ট লোড করুন (Fetch Products)</span>
+                      <span>Fetch Products</span>
                     </>
                   )}
                 </button>
@@ -795,22 +795,22 @@ export const ProductImportTab: React.FC = () => {
             </form>
           </div>
 
-          {/* Price Adjustment & Margin Controls (Directly answers: ami jeno eta price barate komate pari seta thik korba) */}
+          {/* Price Adjustment & Margin Controls */}
           {bkProducts.length > 0 && (
             <div className="bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 shadow-md space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
                 <div>
                   <h4 className="text-sm font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    <span>প্রাইস ও প্রফিট মার্জিন কন্ট্রোল (Markup / Price Adjustment)</span>
+                    <span>Price & Profit Margin Control (Markup / Price Adjustment)</span>
                   </h4>
                   <p className="text-xs text-slate-300 mt-0.5">
-                    বিজনেস করো এর suggestedPrice হলো তাদের প্রত্যাশিত পাইকারি/বেজ প্রাইস। আপনি পছন্দমতো বাড়াতে বা কমাতে পারেন।
+                    suggestedPrice is the wholesale base cost. You can increase or decrease selling prices as desired.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">টার্গেট ক্যাটাগরি:</span>
+                  <span className="text-xs text-slate-400">Target Category:</span>
                   <select
                     value={bkTargetCategory}
                     onChange={e => setBkTargetCategory(e.target.value)}
@@ -826,10 +826,10 @@ export const ProductImportTab: React.FC = () => {
                     type="button"
                     onClick={() => setDashboardTab('categories')}
                     className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
-                    title="নতুন ক্যাটাগরি তৈরি করুন"
+                    title="Create new category"
                   >
                     <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>ক্যাটাগরি</span>
+                    <span>Category</span>
                   </button>
                 </div>
               </div>
@@ -839,7 +839,7 @@ export const ProductImportTab: React.FC = () => {
                 {/* Direction: Increase / Decrease */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    প্রাইস পরিবর্তন:
+                    Price Direction:
                   </label>
                   <div className="grid grid-cols-2 gap-1.5 bg-slate-800 p-1 rounded-xl">
                     <button
@@ -851,7 +851,7 @@ export const ProductImportTab: React.FC = () => {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      + বাড়ান (Markup)
+                      + Increase (Markup)
                     </button>
                     <button
                       type="button"
@@ -862,7 +862,7 @@ export const ProductImportTab: React.FC = () => {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      - কমান (Discount)
+                      - Decrease (Discount)
                     </button>
                   </div>
                 </div>
@@ -870,7 +870,7 @@ export const ProductImportTab: React.FC = () => {
                 {/* Type: Percent or Fixed */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    হিসাব পদ্ধতি:
+                    Calculation Method:
                   </label>
                   <div className="grid grid-cols-2 gap-1.5 bg-slate-800 p-1 rounded-xl">
                     <button
@@ -882,7 +882,7 @@ export const ProductImportTab: React.FC = () => {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      % শতকরা
+                      % Percentage
                     </button>
                     <button
                       type="button"
@@ -893,7 +893,7 @@ export const ProductImportTab: React.FC = () => {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      ৳ নির্দিষ্ট টাকা
+                      ৳ Fixed Amount
                     </button>
                   </div>
                 </div>
@@ -901,7 +901,7 @@ export const ProductImportTab: React.FC = () => {
                 {/* Amount / Value */}
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    পরিমাণ ({bkAdjustmentType === 'percent' ? '%' : '৳'}):
+                    Adjustment Amount ({bkAdjustmentType === 'percent' ? '%' : '৳'}):
                   </label>
                   <input
                     type="number"
@@ -919,7 +919,7 @@ export const ProductImportTab: React.FC = () => {
                     onClick={handleApplyBkGlobalPriceAdjustment}
                     className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm transition-all"
                   >
-                    সবগুলোতে প্রয়োগ করুন
+                    Apply to All Products
                   </button>
                 </div>
               </div>
@@ -944,7 +944,7 @@ export const ProductImportTab: React.FC = () => {
                   </button>
                   <span className="text-slate-600">•</span>
                   <span className="text-xs text-slate-300 font-medium">
-                    নির্বাচিত: <strong className="text-emerald-400 font-mono">{bkProducts.filter(p => p.selected).length}</strong> / {bkProducts.length} টি
+                    Selected: <strong className="text-emerald-400 font-mono">{bkProducts.filter(p => p.selected).length}</strong> / {bkProducts.length}
                   </span>
                 </div>
 
@@ -957,12 +957,12 @@ export const ProductImportTab: React.FC = () => {
                   {isImportingBk ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>ডাটাবেজে সেভ হচ্ছে...</span>
+                      <span>Saving to Database...</span>
                     </>
                   ) : (
                     <>
                       <UploadCloud className="w-4 h-4" />
-                      <span>নির্বাচিত প্রোডাক্ট ডাটাবেজে ইমপোর্ট করুন ({bkProducts.filter(p => p.selected).length})</span>
+                      <span>Import Selected Products to Database ({bkProducts.filter(p => p.selected).length})</span>
                     </>
                   )}
                 </button>
@@ -975,10 +975,10 @@ export const ProductImportTab: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-gray-800 uppercase tracking-wider">
-                  প্রোডাক্ট তালিকা ও কাস্টম বিক্রয় মূল্য নির্ধারণ
+                  Product Catalog & Custom Reseller Pricing
                 </h4>
                 <span className="text-[11px] text-gray-500">
-                  নিচের ইনপুট বক্সে সরাসরি যেকোনো দাম পরিবর্তন করতে পারেন
+                  You can adjust prices directly in the input boxes below
                 </span>
               </div>
 
@@ -1031,7 +1031,7 @@ export const ProductImportTab: React.FC = () => {
                                   : 'bg-rose-50 text-rose-700 border border-rose-200'
                               }`}
                             >
-                              {p.inStock ? 'স্টকে আছে' : 'স্টক শেষ'}
+                              {p.inStock ? 'In Stock' : 'Out of Stock'}
                             </span>
                           </div>
 
@@ -1048,7 +1048,7 @@ export const ProductImportTab: React.FC = () => {
                       <div className="mt-4 pt-3 border-t border-gray-100 bg-gray-50/70 p-3 rounded-xl flex flex-wrap items-center justify-between gap-3">
                         <div>
                           <span className="text-[10px] text-gray-400 block font-medium">
-                            প্রস্তাবিত পাইকারি মূল্য
+                            Base Wholesale Price
                           </span>
                           <span className="text-xs font-mono font-bold text-gray-600">
                             {formatBDT(p.suggestedPrice)}
@@ -1059,7 +1059,7 @@ export const ProductImportTab: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <div>
                             <span className="text-[10px] text-gray-600 block font-bold">
-                              আপনার বিক্রয় মূল্য (৳) *
+                              Your Selling Price (৳) *
                             </span>
                             <input
                               type="number"
@@ -1074,7 +1074,7 @@ export const ProductImportTab: React.FC = () => {
                         {/* Profit Tag */}
                         <div className="text-right">
                           <span className="text-[10px] text-gray-500 block">
-                            সম্ভাব্য লাভ
+                            Estimated Profit
                           </span>
                           <span
                             className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
@@ -1124,7 +1124,7 @@ export const ProductImportTab: React.FC = () => {
                 type="button"
                 onClick={handlePasteSingleUrl}
                 className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl border border-gray-300 transition-colors cursor-pointer shrink-0 shadow-xs"
-                title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+                title="Paste link from clipboard"
               >
                 <Clipboard className="w-4 h-4 text-gray-500" />
                 <span>Paste</span>

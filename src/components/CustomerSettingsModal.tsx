@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
+import { BANGLADESH_DISTRICTS } from '../data/bangladeshDistricts';
 import {
   X,
   User as UserIcon,
@@ -19,6 +20,7 @@ import {
   Shield,
   Clock,
   UserCheck,
+  ChevronDown,
 } from 'lucide-react';
 
 export const CustomerSettingsModal: React.FC = () => {
@@ -39,15 +41,35 @@ export const CustomerSettingsModal: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Address states
+  // Address states (District, Thana dropdowns - postal code removed)
   const [street, setStreet] = useState('');
-  const [city, setCity] = useState('');
-  const [stateDistrict, setStateDistrict] = useState('');
-  const [postalCode, setPostalCode] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState('Dhaka');
+  const [selectedThana, setSelectedThana] = useState('Uttara East');
   const [country, setCountry] = useState('Bangladesh');
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Sorted districts list
+  const districtList = useMemo(() => {
+    return [...BANGLADESH_DISTRICTS].sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+
+  // Available thanas for selected district
+  const availableThanas = useMemo(() => {
+    const matched = BANGLADESH_DISTRICTS.find(d => d.name.toLowerCase() === selectedDistrict.toLowerCase());
+    return matched ? matched.thanas : [];
+  }, [selectedDistrict]);
+
+  const handleDistrictChange = (districtName: string) => {
+    setSelectedDistrict(districtName);
+    const matched = BANGLADESH_DISTRICTS.find(d => d.name.toLowerCase() === districtName.toLowerCase());
+    if (matched && matched.thanas.length > 0) {
+      setSelectedThana(matched.thanas[0]);
+    } else {
+      setSelectedThana('');
+    }
+  };
 
   // Populate from currentUser
   useEffect(() => {
@@ -62,15 +84,22 @@ export const CustomerSettingsModal: React.FC = () => {
 
       if (currentUser.address) {
         setStreet(currentUser.address.street || '');
-        setCity(currentUser.address.city || '');
-        setStateDistrict(currentUser.address.state || '');
-        setPostalCode(currentUser.address.postalCode || '');
+        const currentDist = currentUser.address.district || currentUser.address.city || 'Dhaka';
+        const matched = BANGLADESH_DISTRICTS.find(d => d.name.toLowerCase() === currentDist.toLowerCase());
+        if (matched) {
+          setSelectedDistrict(matched.name);
+          const currentThana = currentUser.address.thana || currentUser.address.state || '';
+          if (currentThana && matched.thanas.includes(currentThana)) {
+            setSelectedThana(currentThana);
+          } else if (matched.thanas.length > 0) {
+            setSelectedThana(matched.thanas[0]);
+          }
+        }
         setCountry(currentUser.address.country || 'Bangladesh');
       } else {
-        setStreet('House 12, Road 4, Sector 7, Uttara');
-        setCity('Dhaka');
-        setStateDistrict('Dhaka');
-        setPostalCode('1230');
+        setStreet('House 12, Road 4, Sector 7');
+        setSelectedDistrict('Dhaka');
+        setSelectedThana('Uttara East');
         setCountry('Bangladesh');
       }
     }
@@ -112,9 +141,10 @@ export const CustomerSettingsModal: React.FC = () => {
     const updatedAddress = {
       fullName: fullName.trim(),
       street: street.trim(),
-      city: city.trim(),
-      state: stateDistrict.trim(),
-      postalCode: postalCode.trim(),
+      city: selectedDistrict,
+      state: selectedThana,
+      district: selectedDistrict,
+      thana: selectedThana,
       country: country.trim() || 'Bangladesh',
       phone: phone.trim(),
     };
@@ -324,62 +354,61 @@ export const CustomerSettingsModal: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    City / Town
+                    District *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={e => setCity(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"
-                    placeholder="e.g. Dhaka"
-                  />
+                  <div className="relative">
+                    <select
+                      value={selectedDistrict}
+                      onChange={e => handleDistrictChange(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none appearance-none pr-8 cursor-pointer font-medium text-gray-900"
+                    >
+                      {districtList.map(dist => (
+                        <option key={dist.name} value={dist.name}>
+                          {dist.name} ({dist.division} Division)
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
-                    District / Division
+                    Thana / Upazila *
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={stateDistrict}
-                    onChange={e => setStateDistrict(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"
-                    placeholder="e.g. Dhaka Division"
-                  />
+                  <div className="relative">
+                    <select
+                      value={selectedThana}
+                      onChange={e => setSelectedThana(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none appearance-none pr-8 cursor-pointer font-medium text-gray-900"
+                    >
+                      {availableThanas.map(th => (
+                        <option key={th} value={th}>
+                          {th}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Postal / Zip Code
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={postalCode}
-                    onChange={e => setPostalCode(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none font-mono"
-                    placeholder="e.g. 1230"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">
-                    Country
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={country}
-                    onChange={e => setCountry(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none"
-                    placeholder="Bangladesh"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1">
+                  Country
+                </label>
+                <input
+                  type="text"
+                  required
+                  readOnly
+                  value={country}
+                  className="w-full px-3 py-2 text-xs bg-gray-100 border border-gray-200 rounded-xl text-gray-600 cursor-not-allowed font-medium"
+                />
               </div>
             </div>
           )}

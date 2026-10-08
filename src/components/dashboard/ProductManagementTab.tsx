@@ -72,7 +72,7 @@ export const ProductManagementTab: React.FC = () => {
   const handleScrapeUrl = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!scrapeUrl.trim()) {
-      addToast('অনুগ্রহ করে একটি প্রোডাক্টের URL দিন!', 'error');
+      addToast('Please provide a valid product URL!', 'error');
       return;
     }
     setIsScraping(true);
@@ -91,10 +91,10 @@ export const ProductManagementTab: React.FC = () => {
           : ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'],
         categoryId: categories[0]?.id || 'cat-general',
       });
-      addToast('প্রোডাক্টের ছবি ও তথ্য সফলভাবে এক্সট্রাক্ট করা হয়েছে!', 'success');
+      addToast('Product details and images extracted successfully!', 'success');
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'এই URL থেকে তথ্য সংগ্রহ করা যায়নি। লিংকটি সঠিক কিনা দেখুন।', 'error');
+      addToast(error.message || 'Could not fetch data from this URL. Please verify the link.', 'error');
     } finally {
       setIsScraping(false);
     }
@@ -105,19 +105,19 @@ export const ProductManagementTab: React.FC = () => {
       const text = await navigator.clipboard.readText();
       if (text && text.trim()) {
         setScrapeUrl(text.trim());
-        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+        addToast('Link pasted successfully!', 'success');
       } else {
-        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+        addToast('No text or link found on clipboard.', 'warning');
       }
     } catch {
-      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
+      addToast('Clipboard permission denied. Press Ctrl+V to paste.', 'info');
     }
   };
 
   const handleSaveScrapedProduct = () => {
     if (!scrapedProduct) return;
     if (!scrapedProduct.title.trim()) {
-      addToast('প্রোডাক্টের নাম থাকা আবশ্যক!', 'error');
+      addToast('Product title is required!', 'error');
       return;
     }
 
@@ -142,11 +142,11 @@ export const ProductManagementTab: React.FC = () => {
     });
 
     if (success) {
-      addToast(`"${scrapedProduct.title}" সফলভাবে স্টোরে যুক্ত হয়েছে!`, 'success');
+      addToast(`"${scrapedProduct.title}" added to store catalog successfully!`, 'success');
       setScrapedProduct(null);
       setScrapeUrl('');
     } else {
-      addToast('প্রোডাক্ট সেভ করতে সমস্যা হয়েছে।', 'error');
+      addToast('Failed to save product.', 'error');
     }
   };
 
@@ -198,13 +198,13 @@ export const ProductManagementTab: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span>প্রোডাক্ট URL থেকে সরাসরি প্রোডাক্ট যোগ করুন (Auto Extractor)</span>
+                <span>Add Product Directly from Product URL (Auto Extractor)</span>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500 text-white font-bold uppercase tracking-wider">
                   Auto-Fill
                 </span>
               </h3>
               <p className="text-xs text-slate-300">
-                যেকোনো ওয়েবসাইটের (যেমন Daraz, Amazon, Shopify, ইত্যাদি) পণ্যের লিংক পেস্ট করলে ছবি, টাইটেল ও বিবরণ স্বয়ংক্রিয়ভাবে এক্সট্রাক্ট হয়ে যাবে
+                Paste any product link (Daraz, Amazon, Shopify, etc.) to automatically extract title, images, and description
               </p>
             </div>
           </div>
@@ -218,7 +218,7 @@ export const ProductManagementTab: React.FC = () => {
               type="url"
               value={scrapeUrl}
               onChange={(e) => setScrapeUrl(e.target.value)}
-              placeholder="https://www.daraz.com.bd/products/... বা যেকোনো প্রোডাক্টের URL পেস্ট করুন"
+              placeholder="Paste product URL (e.g. https://www.daraz.com.bd/products/...)"
               className="w-full pl-10 pr-4 py-2.5 text-xs bg-slate-950/80 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
             />
           </div>
@@ -226,7 +226,7 @@ export const ProductManagementTab: React.FC = () => {
             type="button"
             onClick={handlePasteScrapeUrl}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs font-bold transition-all cursor-pointer shrink-0 shadow-xs"
-            title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+            title="Paste link from clipboard"
           >
             <Clipboard className="w-4 h-4 text-slate-400" />
             <span>Paste</span>
@@ -239,12 +239,12 @@ export const ProductManagementTab: React.FC = () => {
             {isScraping ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>তথ্য আনা হচ্ছে...</span>
+                <span>Fetching Details...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>লিংক থেকে তথ্য আনুন</span>
+                <span>Extract Product Details</span>
               </>
             )}
           </button>
@@ -256,7 +256,7 @@ export const ProductManagementTab: React.FC = () => {
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <span className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>সফলভাবে তথ্য এক্সট্রাক্ট করা হয়েছে! নিচের তথ্যগুলো চেক করে স্টোরে সেভ করুন:</span>
+                <span>Product details extracted successfully! Verify and save to store:</span>
               </span>
               <button
                 type="button"
@@ -277,7 +277,7 @@ export const ProductManagementTab: React.FC = () => {
                     className="w-full h-full object-cover"
                   />
                   <span className="absolute bottom-2 left-2 bg-black/70 text-white text-[10px] px-2 py-0.5 rounded-full font-mono">
-                    {scrapedProduct.images.length} টি ছবি পাওয়া গেছে
+                    {scrapedProduct.images.length} images found
                   </span>
                 </div>
                 {/* Thumbnails list */}
@@ -299,7 +299,7 @@ export const ProductManagementTab: React.FC = () => {
               <div className="space-y-3 md:col-span-3">
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    প্রোডাক্টের নাম (Title):
+                    Product Title:
                   </label>
                   <input
                     type="text"
@@ -312,7 +312,7 @@ export const ProductManagementTab: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                      বিক্রয় মূল্য (Price BDT):
+                      Selling Price (BDT ৳):
                     </label>
                     <input
                       type="number"
@@ -324,7 +324,7 @@ export const ProductManagementTab: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                      ক্যাটাগরি (Category):
+                      Category:
                     </label>
                     <select
                       value={scrapedProduct.categoryId}
@@ -341,7 +341,7 @@ export const ProductManagementTab: React.FC = () => {
 
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                      ব্র্যান্ড / উৎস:
+                      Brand / Source:
                     </label>
                     <input
                       type="text"
@@ -354,7 +354,7 @@ export const ProductManagementTab: React.FC = () => {
 
                 <div>
                   <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                    বিবরণ (Description):
+                    Description:
                   </label>
                   <textarea
                     rows={3}
@@ -371,7 +371,7 @@ export const ProductManagementTab: React.FC = () => {
                     onClick={() => setScrapedProduct(null)}
                     className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
                   >
-                    বাতিল করুন
+                    Cancel
                   </button>
                   <button
                     type="button"
@@ -379,7 +379,7 @@ export const ProductManagementTab: React.FC = () => {
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm transition-all cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
-                    <span>স্টোরে প্রোডাক্টটি যুক্ত করুন (Add to Store Catalog)</span>
+                    <span>Add to Store Catalog</span>
                   </button>
                 </div>
               </div>
@@ -440,10 +440,10 @@ export const ProductManagementTab: React.FC = () => {
           <button
             onClick={() => setDashboardTab('categories')}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer border border-gray-300 shadow-xs shrink-0"
-            title="নতুন ক্যাটাগরি তৈরি ও ম্যানেজ করুন"
+            title="Create and manage product categories"
           >
             <Plus className="w-3.5 h-3.5 text-blue-600" />
-            <span>ক্যাটাগরি</span>
+            <span>Categories</span>
           </button>
 
           <button

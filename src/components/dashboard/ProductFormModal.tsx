@@ -112,18 +112,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const text = await navigator.clipboard.readText();
       if (text && text.trim()) {
         setUrlScrapeInput(text.trim());
-        addToast('লিংক পেস্ট করা হয়েছে!', 'success');
+        addToast('Link pasted successfully!', 'success');
       } else {
-        addToast('ক্লিপবোর্ডে কোনো টেক্সট বা লিংক পাওয়া যায়নি।', 'warning');
+        addToast('No text or link found on clipboard.', 'warning');
       }
     } catch {
-      addToast('ক্লিপবোর্ডের পারমিশন মেলেনি। কিবোর্ডে Ctrl+V দিয়ে পেস্ট করুন।', 'info');
+      addToast('Clipboard permission denied. Please paste using Ctrl+V.', 'info');
     }
   };
 
   const handleExtractFromUrl = async () => {
     if (!urlScrapeInput.trim()) {
-      addToast('অনুগ্রহ করে একটি প্রোডাক্টের লিংক দিন!', 'error');
+      addToast('Please provide a valid product URL!', 'error');
       return;
     }
     setIsScrapingUrl(true);
@@ -141,11 +141,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setThumbnailUrl(p.images[0]);
         setGalleryUrls(p.images.slice(1));
       }
-      addToast('লিংক থেকে ছবি, বিবরণ ও দাম স্বয়ংক্রিয়ভাবে বসানো হয়েছে!', 'success');
+      addToast('Product details and images auto-filled from link!', 'success');
       setUrlScrapeInput('');
     } catch (err: unknown) {
       const error = err as { message?: string };
-      addToast(error.message || 'লিংক থেকে তথ্য সংগ্রহ করা যায়নি।', 'error');
+      addToast(error.message || 'Could not fetch data from link.', 'error');
     } finally {
       setIsScrapingUrl(false);
     }
@@ -155,7 +155,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     e.preventDefault();
     const catName = newCatName.trim();
     if (!catName) {
-      addToast('ক্যাটাগরির নাম দিন!', 'error');
+      addToast('Please enter a category name!', 'error');
       return;
     }
     const ok = addCategory(catName, newCatDesc.trim() || undefined);
@@ -409,7 +409,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           <div className="p-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
               <Globe className="w-4 h-4 text-blue-600" />
-              <span>URL থেকে স্বয়ংক্রিয়ভাবে তথ্য ও ছবি পূরণ করুন (Auto-Fill from Link)</span>
+              <span>Auto-Fill Information & Images from Product URL</span>
             </div>
             <div className="flex gap-2">
               <div className="relative flex-1">
@@ -418,7 +418,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="url"
                   value={urlScrapeInput}
                   onChange={(e) => setUrlScrapeInput(e.target.value)}
-                  placeholder="যেকোনো প্রোডাক্টের লিঙ্ক পেস্ট করুন (যেমন Daraz, Amazon, ইত্যাদি)..."
+                  placeholder="Paste any product URL (e.g. Amazon, Daraz, etc.)..."
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
                 />
               </div>
@@ -428,7 +428,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 type="button"
                 onClick={handlePasteUrl}
                 className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-lg border border-slate-300 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
-                title="ক্লিপবোর্ড থেকে লিঙ্ক পেস্ট করুন"
+                title="Paste link from clipboard"
               >
                 <Clipboard className="w-3.5 h-3.5 text-slate-500" />
                 <span>Paste</span>
@@ -444,7 +444,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 {isScrapingUrl ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>আনছে...</span>
+                    <span>Fetching...</span>
                   </>
                 ) : (
                   <>
@@ -513,7 +513,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3 h-3" />
-                  <span>ক্যাটাগরি যোগ করুন</span>
+                  <span>Add Category</span>
                 </button>
               </div>
               <div className="flex gap-2">
@@ -532,7 +532,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="button"
                   onClick={() => setShowQuickAddCategory(prev => !prev)}
                   className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-lg border border-blue-200 transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-                  title="নতুন ক্যাটাগরি তৈরি করুন"
+                  title="Create new category"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New</span>
@@ -543,7 +543,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {showQuickAddCategory && (
                 <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2 mt-2 animate-in fade-in zoom-in-95">
                   <div className="flex items-center justify-between text-xs font-bold text-blue-900">
-                    <span>নতুন ক্যাটাগরি তৈরি করুন</span>
+                    <span>Create New Category</span>
                     <button
                       type="button"
                       onClick={() => setShowQuickAddCategory(false)}
@@ -555,7 +555,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
-                      placeholder="ক্যাটাগরির নাম (যেমন Smart Watches, T-Shirts)..."
+                      placeholder="Category name (e.g. Smart Watches, Wearables)..."
                       value={newCatName}
                       onChange={e => setNewCatName(e.target.value)}
                       className="flex-1 px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -566,7 +566,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       disabled={!newCatName.trim()}
                       className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shrink-0"
                     >
-                      যোগ করুন
+                      Add
                     </button>
                   </div>
                 </div>

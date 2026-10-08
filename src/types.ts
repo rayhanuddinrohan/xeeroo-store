@@ -68,9 +68,11 @@ export interface Product {
 export interface ShippingAddress {
   fullName: string;
   street: string;
-  city: string;
-  state: string;
-  postalCode: string;
+  city: string; // District
+  state: string; // Thana or Division
+  district?: string;
+  thana?: string;
+  postalCode?: string;
   country: string;
   phone: string;
 }

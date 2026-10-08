@@ -35,9 +35,16 @@ import { XEEROO_CONTACT } from './data/mockData';
 import { BrandLogo } from './components/common/BrandLogo';
 
 const AppContent: React.FC = () => {
-  const { viewMode, setViewMode, currentUser, canAccessDashboard, resetDemoData } = useStore();
+  const {
+    viewMode,
+    setViewMode,
+    currentUser,
+    canAccessDashboard,
+    resetDemoData,
+    isCheckoutOpen,
+    setIsCheckoutOpen,
+  } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
 
   const handleOpenCart = () => {

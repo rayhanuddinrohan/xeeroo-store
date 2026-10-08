@@ -40,6 +40,7 @@ export const ProductDetail: React.FC = () => {
     setViewMode,
     categories,
     addToCart,
+    openCheckoutModal,
     currentUser,
     setDashboardTab,
   } = useStore();
@@ -95,6 +96,13 @@ export const ProductDetail: React.FC = () => {
     }
   };
 
+  const handleBuyNow = () => {
+    if (!isOutOfStock) {
+      addToCart(product, selectedQuantity);
+      openCheckoutModal();
+    }
+  };
+
   const handleEditInDashboard = () => {
     setSelectedProductId(product.id);
     setDashboardTab('products');
@@ -112,14 +120,14 @@ export const ProductDetail: React.FC = () => {
       : `https://xeeroo.com/?product=${product.id}`;
 
   const whatsappOrderUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
-    `আসসালামু আলাইকুম! আমি এই প্রোডাক্টটি অর্ডার করতে চাই:
-📦 পণ্য: ${product.title}
-💰 দাম: ${formatBDT(product.price * selectedQuantity)}
-🔢 পরিমাণ: ${selectedQuantity}
+    `Hello! I would like to order this product:
+📦 Product: ${product.title}
+💰 Price: ${formatBDT(product.price * selectedQuantity)}
+🔢 Quantity: ${selectedQuantity}
 🏷️ SKU: ${product.sku}
-🔗 লিংক: ${productUrl}
+🔗 Link: ${productUrl}
 
-আমার নাম ও ডেলিভারি ঠিকানা:`
+My Delivery Address:`
   )}`;
 
   return (
@@ -299,7 +307,7 @@ export const ProductDetail: React.FC = () => {
               )}
             </div>
 
-            {/* Purchase & Quantity Actions (Direct WhatsApp Ordering Only) */}
+            {/* Purchase & Quantity Actions (Online Order & WhatsApp) */}
             <div className="pt-6 border-t border-gray-100 space-y-3">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 {/* Quantity Counter */}
@@ -323,30 +331,55 @@ export const ProductDetail: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Direct WhatsApp Ordering Button (Clean icon, no phone number displayed) */}
+                {/* Primary Buy Now / Online Order Button */}
                 {isOutOfStock ? (
                   <button
                     type="button"
                     disabled
-                    className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none shadow-none pointer-events-none"
-                    title="স্টক শেষ - অর্ডার গ্রহণ বন্ধ"
+                    className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed select-none shadow-none pointer-events-none"
+                    title="Out of stock - ordering unavailable"
                   >
-                    <WhatsAppIcon className="w-5 h-5 text-gray-400 shrink-0 opacity-50" />
-                    <span>স্টক আউট (অর্ডার বন্ধ)</span>
+                    <Package className="w-5 h-5 text-gray-400 shrink-0 opacity-50" />
+                    <span>Out of Stock</span>
                   </button>
                 ) : (
+                  <button
+                    id="btn-buy-now-product"
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
+                  >
+                    <CheckCircle className="w-5 h-5 text-white shrink-0" />
+                    <span>Order Online Now ({formatBDT(product.price * selectedQuantity)})</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Secondary Actions: Add to Cart & WhatsApp */}
+              {!isOutOfStock && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  <button
+                    id="btn-add-to-cart-detail"
+                    type="button"
+                    onClick={handleAddToCart}
+                    className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-gray-300 hover:border-gray-400 bg-white hover:bg-gray-50 text-gray-800 font-bold text-xs transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-gray-600 shrink-0" />
+                    <span>Add to Cart</span>
+                  </button>
+
                   <a
                     id="btn-whatsapp-order-product"
                     href={whatsappOrderUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl text-sm font-bold bg-[#25D366] hover:bg-[#20ba59] text-white shadow-lg shadow-[#25D366]/20 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
+                    className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs border border-[#25D366]/30 transition-all cursor-pointer"
                   >
-                    <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
-                    <span>হোয়াটসঅ্যাপে অর্ডার করুন ({formatBDT(product.price * selectedQuantity)})</span>
+                    <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                    <span>Order via WhatsApp</span>
                   </a>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Assurances */}
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 text-xs text-gray-500">
@@ -379,7 +412,7 @@ export const ProductDetail: React.FC = () => {
               }`}
             >
               <FileText className="w-4 h-4" />
-              <span>ওভারভিউ ও বিবরণ (Overview)</span>
+              <span>Overview & Description</span>
             </button>
 
             <button
@@ -392,7 +425,7 @@ export const ProductDetail: React.FC = () => {
               }`}
             >
               <Layers className="w-4 h-4" />
-              <span>টেকনিক্যাল স্পেসিফিকেশন (Specifications)</span>
+              <span>Technical Specifications</span>
             </button>
 
             <button
@@ -405,7 +438,7 @@ export const ProductDetail: React.FC = () => {
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>ডেলিভারি ও ওয়ারেন্টি পলিসি (Warranty & Shipping)</span>
+              <span>Warranty & Shipping Policy</span>
             </button>
           </div>
 
@@ -495,49 +528,49 @@ export const ProductDetail: React.FC = () => {
                 <table className="w-full text-left border-collapse text-xs sm:text-sm">
                   <tbody>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <td className="py-3 px-4 font-bold text-gray-600 w-1/3 sm:w-1/4">ব্র্যান্ড (Brand)</td>
+                      <td className="py-3 px-4 font-bold text-gray-600 w-1/3 sm:w-1/4">Brand</td>
                       <td className="py-3 px-4 font-semibold text-gray-950">{product.brand}</td>
                     </tr>
                     <tr className="border-b border-gray-100">
-                      <td className="py-3 px-4 font-bold text-gray-600">মডেল / SKU</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Model / SKU</td>
                       <td className="py-3 px-4 font-mono font-medium text-gray-800">{product.sku}</td>
                     </tr>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <td className="py-3 px-4 font-bold text-gray-600">ক্যাটাগরি (Category)</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Category</td>
                       <td className="py-3 px-4 font-semibold text-blue-600">{category?.name || 'Tech Hardware'}</td>
                     </tr>
                     <tr className="border-b border-gray-100">
-                      <td className="py-3 px-4 font-bold text-gray-600">ইনভেন্টরি স্ট্যাটাস</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Inventory Status</td>
                       <td className="py-3 px-4">
                         {isOutOfStock ? (
-                          <span className="font-bold text-rose-600">স্টক শেষ (Out of Stock)</span>
+                          <span className="font-bold text-rose-600">Out of Stock</span>
                         ) : (
                           <span className="font-bold text-emerald-600">
-                            ইন স্টক ({product.stockQuantity} টি পণ্য মজুত রয়েছে)
+                            In Stock ({product.stockQuantity} units available)
                           </span>
                         )}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <td className="py-3 px-4 font-bold text-gray-600">গ্রাহক রেটিং</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Customer Rating</td>
                       <td className="py-3 px-4 text-amber-600 font-bold">
                         ★ {product.rating.toFixed(1)} / 5.0 ({product.reviewsCount} verified reviews)
                       </td>
                     </tr>
                     <tr className="border-b border-gray-100">
-                      <td className="py-3 px-4 font-bold text-gray-600">মূল্য (Price)</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Price</td>
                       <td className="py-3 px-4 font-black font-mono text-emerald-600 text-sm">
                         {formatBDT(product.price)}
                       </td>
                     </tr>
                     <tr className="border-b border-gray-100 bg-gray-50/70">
-                      <td className="py-3 px-4 font-bold text-gray-600">প্যাকেজিং ও বক্স</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Packaging & Box</td>
                       <td className="py-3 px-4 text-gray-700">100% Brand Sealed Retail Pack with authentic QR seal</td>
                     </tr>
                     <tr>
-                      <td className="py-3 px-4 font-bold text-gray-600">সাপোর্ট ও ওয়ারেন্টি</td>
+                      <td className="py-3 px-4 font-bold text-gray-600">Support & Warranty</td>
                       <td className="py-3 px-4 text-gray-700">
-                        অফিসিয়াল ব্র্যান্ড ওয়ারেন্টি + ৭ দিনের সরাসরি রিপ্লেসমেন্ট গ্যারান্টি
+                        Official Brand Warranty + 7-Day Direct Replacement Guarantee
                       </td>
                     </tr>
                   </tbody>
@@ -557,22 +590,26 @@ export const ProductDetail: React.FC = () => {
                       <Truck className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-900">ডেলিভারি টাইমলাইন ও চার্জ</h4>
+                      <h4 className="text-sm font-bold text-gray-900">Delivery Timeline & Fee</h4>
                       <p className="text-xs text-gray-500">Rapid nationwide doorstep delivery</p>
                     </div>
                   </div>
                   <ul className="space-y-2.5 text-xs text-gray-700">
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span><strong>ঢাকা সিটির ভেতর:</strong> ২৪ থেকে ৪৮ ঘণ্টার মধ্যে ক্যাশ অন ডেলিভারি (৬০৳)।</span>
+                      <span><strong>Nationwide Delivery Fee:</strong> Flat ৳150 across all districts of Bangladesh.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span><strong>ঢাকার বাইরে:</strong> স্টেডফাস্ট / সুন্দরবন কুরিয়ারে ২-৩ দিনের মধ্যে হোম ডেলিভারি (১২০৳)।</span>
+                      <span><strong>Inside Dhaka:</strong> 24 to 48 hours delivery with Cash on Delivery available.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>ডেলিভারি ম্যানের সামনে প্রোডাক্ট যাচাই করে নেওয়ার সুবিধা।</span>
+                      <span><strong>Outside Dhaka:</strong> 2 to 3 days home delivery via leading couriers.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>Option to inspect package before signing with courier.</span>
                     </li>
                   </ul>
                 </div>
@@ -584,22 +621,22 @@ export const ProductDetail: React.FC = () => {
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-gray-900">ওয়ারেন্টি ও রিটার্ন পলিসি</h4>
+                      <h4 className="text-sm font-bold text-gray-900">Warranty & Return Policy</h4>
                       <p className="text-xs text-gray-500">Official authentic guarantee</p>
                     </div>
                   </div>
                   <ul className="space-y-2.5 text-xs text-gray-700">
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <span><strong>৭ দিনের রিপ্লেসমেন্ট:</strong> টেকনিক্যাল কোনো সমস্যা থাকলে সম্পূর্ণ ফ্রি রিপ্লেসমেন্ট।</span>
+                      <span><strong>7-Day Replacement:</strong> Free instant replacement for manufacturing defects.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <span><strong>১০০% জেনুইন প্রডাক্ট:</strong> কোনো ক্লোন বা কপি পণ্য বিক্রয় করা হয় না।</span>
+                      <span><strong>100% Genuine Products:</strong> No clones or copies; verified original hardware only.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <span>যেকোনো প্রয়োজনে সরাসরি আমাদের হোয়াটসঅ্যাপ সাপোর্ট ডেস্কে যোগাযোগ করুন।</span>
+                      <span>Direct dedicated support via our WhatsApp and helpline desk.</span>
                     </li>
                   </ul>
                 </div>

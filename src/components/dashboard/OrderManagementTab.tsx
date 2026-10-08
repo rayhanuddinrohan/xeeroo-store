@@ -125,7 +125,7 @@ export const OrderManagementTab: React.FC = () => {
       try {
         data = JSON.parse(rawText);
       } catch {
-        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+        throw new Error('Unexpected response received from server. Please try again.');
       }
 
       if (!res.ok || data.error) {
@@ -186,7 +186,7 @@ export const OrderManagementTab: React.FC = () => {
       try {
         data = JSON.parse(rawText);
       } catch {
-        throw new Error('সার্ভার থেকে অপ্রত্যাশিত প্রতিক্রিয়া এসেছে। অনুগ্রহ করে পুনরায় চেষ্টা করুন।');
+        throw new Error('Unexpected response from server. Please try again.');
       }
 
       if (!res.ok || data.error) {
@@ -405,7 +405,7 @@ export const OrderManagementTab: React.FC = () => {
                                 <p className="text-gray-600 leading-relaxed mb-2">
                                   <strong>Deliver to:</strong> {order.shippingAddress.fullName}
                                   <br />
-                                  {order.shippingAddress.street}, {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.postalCode}
+                                  {order.shippingAddress.street}, {order.shippingAddress.thana || order.shippingAddress.state}, {order.shippingAddress.district || order.shippingAddress.city}
                                   <br />
                                   Phone: {order.shippingAddress.phone}
                                 </p>
@@ -415,7 +415,7 @@ export const OrderManagementTab: React.FC = () => {
 
                                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
                                   <span className="text-[11px] text-gray-500 font-medium">
-                                    ডেলিভারি ও ড্রপশিপিং:
+                                    Dropshipping Fulfillment:
                                   </span>
                                   <button
                                     type="button"
@@ -423,7 +423,7 @@ export const OrderManagementTab: React.FC = () => {
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer transition-colors"
                                   >
                                     <Send className="w-3.5 h-3.5" />
-                                    <span>Business Koro-তে অর্ডার পাঠান</span>
+                                    <span>Forward to Business Koro</span>
                                   </button>
                                 </div>
                               </div>
@@ -465,7 +465,7 @@ export const OrderManagementTab: React.FC = () => {
                 </span>
               </div>
               <h3 className="text-lg font-black text-white">
-                Business Koro-তে অর্ডার সাবমিট করুন
+                Submit Order to Business Koro
               </h3>
               <p className="text-xs text-slate-300 mt-1">
                 POST https://api.businesskoro.com/api/v1/storefront/orders
@@ -512,7 +512,7 @@ export const OrderManagementTab: React.FC = () => {
                     className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-gray-300 focus:outline-none focus:border-emerald-600 bg-white text-gray-900"
                   />
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    অর্ডার লাইনে থাকা প্রোডাক্টের আইডি।
+                    Original Product ID assigned in Business Koro catalog.
                   </p>
                 </div>
 
@@ -520,7 +520,7 @@ export const OrderManagementTab: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold text-gray-700 mb-1">
-                      Customer Name (কাস্টমারের নাম) *
+                      Customer Name *
                     </label>
                     <input
                       type="text"
@@ -532,7 +532,7 @@ export const OrderManagementTab: React.FC = () => {
                   </div>
                   <div>
                     <label className="block font-bold text-gray-700 mb-1">
-                      Customer Phone (কাস্টমার মোবাইল) *
+                      Customer Phone *
                     </label>
                     <input
                       type="tel"
@@ -548,7 +548,7 @@ export const OrderManagementTab: React.FC = () => {
                 {/* Customer Address */}
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
-                    Customer Address (সম্পূর্ণ ঠিকানা) *
+                    Customer Full Address *
                   </label>
                   <textarea
                     required
@@ -610,7 +610,7 @@ export const OrderManagementTab: React.FC = () => {
                 {/* Selling Price */}
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
-                    Selling Price (বিক্রয় মূল্য ৳) *
+                    Selling Price (BDT ৳) *
                   </label>
                   <input
                     type="number"
@@ -621,7 +621,7 @@ export const OrderManagementTab: React.FC = () => {
                     className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-gray-300 focus:outline-none focus:border-emerald-600 bg-white text-gray-900"
                   />
                   <p className="text-[11px] text-gray-400 mt-0.5">
-                    আপনি যে দামে বিক্রি করেছেন সেটাই পাঠাবেন। ঠিক ওই দামেই অর্ডারটি Business Koro-তে বসবে। দাম প্রোডাক্ট কস্টের চেয়ে বেশি হতে হবে।
+                    Reseller selling price charged to customer.
                   </p>
                 </div>
 
@@ -635,11 +635,11 @@ export const OrderManagementTab: React.FC = () => {
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                     />
                     <span className="font-semibold text-gray-800">
-                      কাস্টমার ডেলিভারি চার্জ দেবে (deliveryChargePaidByCustomer: {bkDeliveryPaidByCust ? 'true' : 'false'})
+                      Customer pays delivery charge (deliveryChargePaidByCustomer: {bkDeliveryPaidByCust ? 'true' : 'false'})
                     </span>
                   </label>
                   <p className="text-[11px] text-gray-500 pl-6">
-                    true হলে ডেলিভারির সময় কাস্টমার দেবে, false হলে আপনি বহন করবেন।
+                    When true, customer pays at delivery; when false, reseller absorbs the delivery charge.
                   </p>
 
                   <label className="flex items-center gap-2 cursor-pointer pt-1">
@@ -650,7 +650,7 @@ export const OrderManagementTab: React.FC = () => {
                       className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                     />
                     <span className="font-semibold text-gray-800">
-                      কাস্টমার আগেই ডেলিভারি চার্জ দিয়ে দিয়েছে (CUSTOMER_PAID_RESELLER_UPFRONT)
+                      Customer paid delivery charge upfront (CUSTOMER_PAID_RESELLER_UPFRONT)
                     </span>
                   </label>
                 </div>
@@ -658,13 +658,13 @@ export const OrderManagementTab: React.FC = () => {
                 {/* Note */}
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
-                    Customer Note (যদি থাকে)
+                    Customer Note (Optional)
                   </label>
                   <input
                     type="text"
                     value={bkCustomerNote}
                     onChange={e => setBkCustomerNote(e.target.value)}
-                    placeholder="বিশেষ কোনো নির্দেশ বা সাইজ/কালার থাকলে..."
+                    placeholder="Special instructions or size/color variant..."
                     className="w-full px-3 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:border-emerald-600 bg-white text-gray-900"
                   />
                 </div>
@@ -675,7 +675,7 @@ export const OrderManagementTab: React.FC = () => {
                     onClick={() => setBkModalOrder(null)}
                     className="px-4 py-2 text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer"
                   >
-                    বন্ধ করুন
+                    Close
                   </button>
                   <button
                     type="submit"
@@ -685,12 +685,12 @@ export const OrderManagementTab: React.FC = () => {
                     {isSubmittingBk ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>অর্ডার পাঠানো হচ্ছে...</span>
+                        <span>Submitting order...</span>
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        <span>অর্ডার সাবমিট করুন (Send to BK)</span>
+                        <span>Submit Order (Send to BK)</span>
                       </>
                     )}
                   </button>
@@ -718,7 +718,7 @@ export const OrderManagementTab: React.FC = () => {
               </button>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <ShoppingBag className="w-4 h-4 text-emerald-400" />
-                <span>Business Koro অর্ডারের অবস্থা দেখুন</span>
+                <span>Check Business Koro Order Status</span>
               </h3>
               <p className="text-xs text-slate-300 mt-1">
                 GET https://api.businesskoro.com/api/v1/storefront/orders/&#123;orderId&#125;
@@ -737,7 +737,7 @@ export const OrderManagementTab: React.FC = () => {
                       required
                       value={statusOrderIdInput}
                       onChange={e => setStatusOrderIdInput(e.target.value)}
-                      placeholder="অর্ডার আইডি দিন (e.g. 64f1a2b...)"
+                      placeholder="Enter Order ID (e.g. 64f1a2b...)"
                       className="flex-1 px-3 py-2 text-xs font-mono rounded-xl border border-gray-300 focus:outline-none focus:border-emerald-600 bg-white text-gray-900"
                     />
                     <button
@@ -746,7 +746,7 @@ export const OrderManagementTab: React.FC = () => {
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-sm disabled:opacity-60 flex items-center gap-1.5"
                     >
                       {isCheckingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
-                      <span>চেক করুন</span>
+                      <span>Check</span>
                     </button>
                   </div>
                 </div>
@@ -762,7 +762,7 @@ export const OrderManagementTab: React.FC = () => {
               {checkedStatusResult && (
                 <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-2">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-200">
-                    <span className="font-bold text-gray-800">অর্ডারের লাইভ তথ্য:</span>
+                    <span className="font-bold text-gray-800">Live Order Status:</span>
                     <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 font-mono text-[10px]">
                       {checkedStatusResult.status || checkedStatusResult.data?.status || 'Active'}
                     </span>

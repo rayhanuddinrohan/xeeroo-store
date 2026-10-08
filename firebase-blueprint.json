@@ -37,26 +37,36 @@
     },
     "Order": {
       "title": "Order",
-      "description": "Customer order",
+      "description": "Customer online order details",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
         "totalAmount": { "type": "number" },
-        "status": { "type": "string" }
+        "status": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "shippingAddress": { "type": "object" },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["id", "totalAmount"]
+      "required": ["id", "totalAmount", "userId", "userEmail"]
     },
     "User": {
       "title": "User",
-      "description": "User profile",
+      "description": "User and Customer profile",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "email": { "type": "string" },
-        "name": { "type": "string" },
-        "role": { "type": "string" }
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string" },
+        "approvalStatus": { "type": "string" },
+        "createdAt": { "type": "string" }
       },
-      "required": ["email"]
+      "required": ["email", "fullName"]
     },
     "Banner": {
       "title": "Banner",
@@ -94,6 +104,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "Registered users"
+    },
+    "/customers/{customerId}": {
+      "schema": "User",
+      "description": "Registered customers"
     },
     "/banners/{bannerId}": {
       "schema": "Banner",

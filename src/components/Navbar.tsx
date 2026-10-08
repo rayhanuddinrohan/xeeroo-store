@@ -315,7 +315,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             {isSearchFocused && searchQuery.trim().length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                 <div className="p-3 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-700">
-                  <span>অনুসন্ধানের ফলাফল ({matchingProducts.length} টি পণ্য পাওয়া গেছে)</span>
+                  <span>Search Results ({matchingProducts.length} products found)</span>
                   <span className="text-[10px] text-gray-400 font-normal">Real-time Search</span>
                 </div>
 
@@ -340,11 +340,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                               </span>
                               {isOutOfStock ? (
                                 <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700">
-                                  স্টক আউট
+                                  Out of Stock
                                 </span>
                               ) : (
                                 <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-100 text-emerald-700">
-                                  ইন স্টক ({product.stockQuantity})
+                                  In Stock ({product.stockQuantity})
                                 </span>
                               )}
                             </div>
@@ -360,7 +360,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                               {formatBDT(product.price)}
                             </span>
                             <span className="text-[10px] font-semibold text-blue-600 group-hover:underline">
-                              দেখুন →
+                              View →
                             </span>
                           </div>
                         </div>
@@ -368,7 +368,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                     })
                   ) : (
                     <div className="p-6 text-center text-xs text-gray-500">
-                      "{searchQuery}" এর সাথে মিলে এমন কোনো পণ্য পাওয়া যায়নি
+                      No products found matching "{searchQuery}"
                     </div>
                   )}
                 </div>
@@ -380,7 +380,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                       onClick={handleViewAllSearchResults}
                       className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                     >
-                      সবগুলো ফলাফল দেখুন ({matchingProducts.length} টি পণ্য) →
+                      View all results ({matchingProducts.length} products) →
                     </button>
                   </div>
                 )}
@@ -417,17 +417,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               </button>
             )}
 
-            {/* Admin Login Button for Store Owner (No Customer Login) */}
+            {/* Unified Login Button */}
             {!isLoggedIn ? (
               <div className="flex items-center">
                 <button
-                  id="nav-admin-access-btn"
+                  id="nav-login-btn"
                   onClick={openLoginModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-colors cursor-pointer border border-slate-700"
-                  title="Store Administrator Panel Access"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
+                  title="Sign In to Your Account"
                 >
-                  <Shield className="w-3.5 h-3.5 text-purple-400" />
-                  <span>Admin Login</span>
+                  <LogIn className="w-3.5 h-3.5 text-white" />
+                  <span>Login</span>
                 </button>
               </div>
             ) : (
@@ -637,7 +637,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   );
                 })
               ) : (
-                <div className="p-4 text-center text-xs text-gray-400">কোন প্রোডাক্ট পাওয়া যায়নি</div>
+                <div className="p-4 text-center text-xs text-gray-400">No products found</div>
               )}
             </div>
           )}

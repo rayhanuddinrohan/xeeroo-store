@@ -41,8 +41,11 @@ import {
   fetchFirestoreCategories,
   saveFirestoreOrder,
   fetchFirestoreOrders,
+  subscribeToFirestoreOrders,
+  subscribeToFirestoreUsers,
   syncAllDataToFirestore,
   testFirestoreConnection,
+  signInWithGooglePopup,
 } from '../lib/firebase';
 
 interface StoreContextType {
@@ -59,7 +62,14 @@ interface StoreContextType {
     phone?: string;
     uid?: string;
   }) => { success: boolean; message: string; user?: User };
-  register: (data: { fullName: string; email: string; phone: string; password: string }) => { success: boolean; message: string; user?: User };
+  loginWithGooglePopup: () => Promise<{ success: boolean; message: string; user?: User }>;
+  register: (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    address?: ShippingAddress;
+  }) => Promise<{ success: boolean; message: string; user?: User }>;
   logout: () => void;
   switchUserRole: (role: UserRole) => void;
   setUserById: (userId: string) => void;
@@ -86,8 +96,8 @@ interface StoreContextType {
   // Auth Modal State
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
-  authModalTab: 'login' | 'register' | 'forgot-password' | 'verify-otp';
-  setAuthModalTab: (tab: 'login' | 'register' | 'forgot-password' | 'verify-otp') => void;
+  authModalTab: 'login' | 'register' | 'forgot-password' | 'verify-otp' | 'admin-login';
+  setAuthModalTab: (tab: 'login' | 'register' | 'forgot-password' | 'verify-otp' | 'admin-login') => void;
   openLoginModal: () => void;
   openRegisterModal: () => void;
   openForgotPasswordModal: () => void;
@@ -156,7 +166,7 @@ interface StoreContextType {
   toggleBannerActive: (id: string) => boolean;
   reorderBanners: (orderedIds: string[]) => boolean;
 
-  // Cart
+  // Cart & Checkout
   cart: CartItem[];
   addToCart: (product: Product, quantity?: number) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
@@ -165,11 +175,19 @@ interface StoreContextType {
   cartTotalCount: number;
   cartSubtotal: number;
   cartTax: number;
+  deliveryCharge: number;
   cartTotal: number;
+  isCheckoutOpen: boolean;
+  setIsCheckoutOpen: (open: boolean) => void;
+  openCheckoutModal: () => void;
 
   // Orders
   orders: Order[];
-  createOrder: (shippingAddress: ShippingAddress, paymentMethod: 'card' | 'paypal' | 'cod') => Order | null;
+  createOrder: (
+    shippingAddress: ShippingAddress,
+    paymentMethod: 'card' | 'paypal' | 'cod',
+    optionalEmail?: string
+  ) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => boolean;
   userOrders: Order[];
 
@@ -240,7 +258,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Auth modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp'>('login');
+  const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp' | 'admin-login'>('login');
+
+  // Checkout modal state
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const openCheckoutModal = () => setIsCheckoutOpen(true);
 
   // Pending OTP registration state
   const [pendingRegistration, setPendingRegistration] = useState<{
@@ -375,6 +397,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     let isMounted = true;
     let unsubscribeProducts: (() => void) | null = null;
+    let unsubscribeOrders: (() => void) | null = null;
+    let unsubscribeUsers: (() => void) | null = null;
 
     const initDatabase = async () => {
       try {
@@ -431,15 +455,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }));
 
           // Attach real-time Firestore listener for products
-          // Whenever an admin adds, edits or deletes a product, ALL browsers and customers update instantly!
           unsubscribeProducts = subscribeToFirestoreProducts((liveProducts) => {
             if (!isMounted) return;
-            // Always update to match live database, even when products are deleted!
             setProducts(liveProducts);
             setDbStatus(prev => ({
               ...prev,
               isConnected: true,
               productCount: liveProducts.length,
+              lastSyncedAt: new Date().toLocaleTimeString(),
+            }));
+          });
+
+          // Attach real-time Firestore listener for orders
+          unsubscribeOrders = subscribeToFirestoreOrders((liveOrders) => {
+            if (!isMounted) return;
+            setOrders(liveOrders);
+            setDbStatus(prev => ({
+              ...prev,
+              isConnected: true,
+              orderCount: liveOrders.length,
+              lastSyncedAt: new Date().toLocaleTimeString(),
+            }));
+          });
+
+          // Attach real-time Firestore listener for users & customers
+          unsubscribeUsers = subscribeToFirestoreUsers((liveUsers) => {
+            if (!isMounted) return;
+            setUsers(prev => {
+              const map = new Map<string, User>();
+              prev.forEach(u => map.set(u.id, u));
+              liveUsers.forEach(u => map.set(u.id, u));
+              return Array.from(map.values());
+            });
+            setDbStatus(prev => ({
+              ...prev,
+              isConnected: true,
+              userCount: liveUsers.length,
               lastSyncedAt: new Date().toLocaleTimeString(),
             }));
           });
@@ -459,6 +510,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => {
       isMounted = false;
       if (unsubscribeProducts) unsubscribeProducts();
+      if (unsubscribeOrders) unsubscribeOrders();
+      if (unsubscribeUsers) unsubscribeUsers();
     };
   }, []);
 
@@ -768,7 +821,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, admin.id);
     setIsAuthModalOpen(false);
     setViewMode('dashboard');
-    addToast('স্বাগতম! আপনি Master Admin হিসেবে সফলভাবে প্রবেশ করেছেন।', 'success');
+    addToast('Welcome! You have signed in as Administrator.', 'success');
   };
 
   const loginWithGoogle = (googleData: {
@@ -825,6 +878,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsAuthModalOpen(false);
     addToast(`Account created and signed in with Google! Welcome, ${newUser.fullName}.`, 'success');
     return { success: true, message: 'Signed in with Google', user: newUser };
+  };
+
+  const loginWithGooglePopup = async (): Promise<{ success: boolean; message: string; user?: User }> => {
+    try {
+      const res = await signInWithGooglePopup();
+      if (res.success && res.user) {
+        const fbUser = res.user;
+        const gRes = loginWithGoogle({
+          email: fbUser.email || '',
+          fullName: fbUser.displayName || 'Google Customer',
+          avatarUrl: fbUser.photoURL || undefined,
+          phone: fbUser.phoneNumber || undefined,
+          uid: fbUser.uid,
+        });
+        return gRes;
+      }
+      return { success: false, message: res.error || 'Google login was cancelled.' };
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      return { success: false, message: error.message || 'Google sign-in error.' };
+    }
   };
 
   // 2-Step OTP Registration for Customers
@@ -1137,54 +1211,61 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, message: 'Instructions sent' };
   };
 
-  const register = (data: { fullName: string; email: string; phone: string; password: string }) => {
+  const register = async (data: {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+    address?: ShippingAddress;
+  }): Promise<{ success: boolean; message: string; user?: User }> => {
     const cleanEmail = data.email.trim().toLowerCase();
     const cleanDigits = data.phone.replace(/[^0-9]/g, '');
 
     if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
-      addToast('An account with this email already exists. Please login.', 'error');
-      return { success: false, message: 'Email already registered' };
+      addToast('An account with this email already exists. Please log in.', 'error');
+      return { success: false, message: 'An account with this email already exists.' };
     }
 
     if (
       cleanDigits.length >= 8 &&
       users.some(u => (u.phone || '').replace(/[^0-9]/g, '') === cleanDigits)
     ) {
-      addToast('An account with this phone number already exists. Please login.', 'error');
-      return { success: false, message: 'Phone number already registered' };
+      addToast('An account with this phone number already exists. Please log in.', 'error');
+      return { success: false, message: 'An account with this phone number already exists.' };
     }
 
     const newUser: User = {
       id: `usr-cust-${Date.now()}`,
-      email: data.email.trim(),
+      email: data.email.trim().toLowerCase(),
       fullName: data.fullName.trim(),
       phone: data.phone.trim(),
       password: data.password,
       role: 'customer',
       approvalStatus: 'approved',
+      isVerified: true,
       avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
       createdAt: new Date().toISOString(),
       isBanned: false,
-      address: {
+      address: data.address || {
         fullName: data.fullName.trim(),
         street: '',
         city: 'Dhaka',
         state: 'Dhaka',
-        postalCode: '1200',
         country: 'Bangladesh',
         phone: data.phone.trim(),
       },
     };
 
     setUsers(prev => [...prev, newUser]);
-    // Save to Firestore collections
-    saveFirestoreCustomer(newUser);
+    // Save to Firestore collections 'users' and 'customers'
+    await saveFirestoreCustomer(newUser);
 
     setCurrentUserId(newUser.id);
+    localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newUser.id);
     setIsAuthModalOpen(false);
 
-    addToast('Registration successful! Welcome to XEEROO Store.', 'success');
-    return { success: true, message: 'Registered successfully', user: newUser };
+    addToast(`Welcome ${newUser.fullName}! Your customer account has been created successfully.`, 'success');
+    return { success: true, message: 'Registration successful!', user: newUser };
   };
 
   const logout = () => {
@@ -1628,39 +1709,75 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   }, [cart]);
 
-  const cartTax = useMemo(() => {
-    // 5% standard VAT/Tax
-    return Math.round(cartSubtotal * 0.05);
-  }, [cartSubtotal]);
+  // Standard delivery charge for Bangladesh (150 BDT)
+  const deliveryCharge = 150;
+
+  const cartTax = 0;
 
   const cartTotal = useMemo(() => {
-    return cartSubtotal + cartTax;
-  }, [cartSubtotal, cartTax]);
+    if (cart.length === 0) return 0;
+    return cartSubtotal + deliveryCharge;
+  }, [cart, cartSubtotal, deliveryCharge]);
 
   // Order creation & Inventory Deduction
-  const createOrder = (
+  const createOrder = async (
     shippingAddress: ShippingAddress,
-    paymentMethod: 'card' | 'paypal' | 'cod'
-  ): Order | null => {
-    if (!currentUser) {
-      addToast('Please login or register to place your order.', 'error');
-      openLoginModal();
-      return null;
-    }
-
-    // Customer Approval Check
-    if (currentUser.role === 'customer' && currentUser.approvalStatus !== 'approved') {
-      addToast('Your account is pending XEEROO Admin approval. Placing orders is locked until approved.', 'error');
-      return null;
-    }
-
-    if (currentUser.isBanned) {
-      addToast('Account suspended: Cannot place orders.', 'error');
-      return null;
-    }
-
+    paymentMethod: 'card' | 'paypal' | 'cod',
+    optionalEmail?: string
+  ): Promise<Order | null> => {
     if (cart.length === 0) {
       addToast('Cannot checkout an empty cart.', 'warning');
+      return null;
+    }
+
+    const nowIso = new Date().toISOString();
+    let orderCustomer = currentUser;
+
+    // If customer is not currently logged in, seamlessly create or link customer account
+    if (!orderCustomer) {
+      const cleanPhone = (shippingAddress.phone || '').trim();
+      const phoneDigits = cleanPhone.replace(/[^0-9]/g, '');
+      const cleanName = (shippingAddress.fullName || '').trim() || 'Online Customer';
+      const cleanEmail = (optionalEmail || '').trim().toLowerCase();
+
+      // Look up existing customer by email or phone number
+      const existingUser = users.find(u => {
+        const emailMatch = cleanEmail && u.email.toLowerCase() === cleanEmail;
+        const phoneMatch = u.phone && phoneDigits.length >= 8 && u.phone.replace(/[^0-9]/g, '') === phoneDigits;
+        return emailMatch || phoneMatch;
+      });
+
+      if (existingUser) {
+        orderCustomer = existingUser;
+        setCurrentUserId(existingUser.id);
+        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, existingUser.id);
+      } else {
+        const newCustId = `usr-cust-${Date.now()}`;
+        const newCustEmail = cleanEmail || `${phoneDigits || Date.now()}@customer.xeeroo.com`;
+        const newCustomer: User = {
+          id: newCustId,
+          email: newCustEmail,
+          fullName: cleanName,
+          phone: cleanPhone,
+          role: 'customer',
+          approvalStatus: 'approved',
+          isVerified: true,
+          isBanned: false,
+          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+          createdAt: nowIso,
+          address: shippingAddress,
+        };
+
+        setUsers(prev => [...prev, newCustomer]);
+        await saveFirestoreCustomer(newCustomer);
+        setCurrentUserId(newCustomer.id);
+        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newCustomer.id);
+        orderCustomer = newCustomer;
+      }
+    }
+
+    if (orderCustomer.isBanned) {
+      addToast('Account suspended: Cannot place orders.', 'error');
       return null;
     }
 
@@ -1677,12 +1794,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
-    const nowIso = new Date().toISOString();
 
     const newOrder: Order = {
       id: orderId,
-      userId: currentUser.id,
-      userEmail: currentUser.email,
+      userId: orderCustomer.id,
+      userEmail: orderCustomer.email,
       status: 'pending',
       totalAmount: cartTotal,
       shippingAddress,
@@ -1701,27 +1817,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })),
     };
 
-    // Deduct stock
-    setProducts(prev =>
-      prev.map(p => {
-        const orderedItem = cart.find(ci => ci.product.id === p.id);
-        if (orderedItem) {
-          return {
-            ...p,
-            stockQuantity: Math.max(0, p.stockQuantity - orderedItem.quantity),
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return p;
-      })
-    );
+    // Deduct stock locally and in Firestore database
+    const updatedProductsList = products.map(p => {
+      const orderedItem = cart.find(ci => ci.product.id === p.id);
+      if (orderedItem) {
+        const updatedProd = {
+          ...p,
+          stockQuantity: Math.max(0, p.stockQuantity - orderedItem.quantity),
+          updatedAt: new Date().toISOString(),
+        };
+        // Persist stock update in Firestore
+        saveFirestoreProduct(updatedProd);
+        return updatedProd;
+      }
+      return p;
+    });
 
+    setProducts(updatedProductsList);
     setOrders(prev => [newOrder, ...prev]);
     setCart([]);
-    // Save order directly to Firestore database!
-    saveFirestoreOrder(newOrder);
 
-    addToast(`Order #${orderId} confirmed successfully and saved to Database!`, 'success');
+    // Save order directly to Firestore database!
+    await saveFirestoreOrder(newOrder);
+
+    addToast(`Order #${orderId} placed successfully and saved to database!`, 'success');
     return newOrder;
   };
 
@@ -1773,6 +1892,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     login,
     loginAsAdmin,
     loginWithGoogle,
+    loginWithGooglePopup,
     register,
     logout,
     switchUserRole,
@@ -1849,7 +1969,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     cartTotalCount,
     cartSubtotal,
     cartTax,
+    deliveryCharge,
     cartTotal,
+    isCheckoutOpen,
+    setIsCheckoutOpen,
+    openCheckoutModal,
 
     orders,
     createOrder,

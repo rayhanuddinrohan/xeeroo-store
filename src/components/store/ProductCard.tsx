@@ -19,6 +19,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     setSelectedProductId,
     setViewMode,
     addToCart,
+    openCheckoutModal,
     categories,
     currentUser,
     setDashboardTab,
@@ -35,13 +36,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       : `https://xeeroo.com/?product=${product.id}`;
 
   const whatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
-    `আসসালামু আলাইকুম! আমি এই প্রোডাক্টটি অর্ডার করতে চাই:
-📦 পণ্য: ${product.title}
-💰 দাম: ${formatBDT(product.price)}
+    `Hello! I would like to order this product:
+📦 Product: ${product.title}
+💰 Price: ${formatBDT(product.price)}
 🏷️ SKU: ${product.sku}
-🔗 লিংক: ${productUrl}
+🔗 Link: ${productUrl}
 
-আমার নাম ও ডেলিভারি ঠিকানা:`
+My Delivery Address:`
   )}`;
 
   const handleCardClick = () => {
@@ -54,6 +55,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     e.stopPropagation();
     if (!isOutOfStock) {
       addToCart(product, 1);
+    }
+  };
+
+  const handleQuickBuy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOutOfStock) {
+      addToCart(product, 1);
+      openCheckoutModal();
     }
   };
 
@@ -157,31 +166,44 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </span>
           </div>
 
-          <div>
+          <div className="flex items-center gap-1.5">
             {isOutOfStock ? (
-              <button
-                type="button"
-                disabled
-                onClick={e => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gray-100 text-gray-400 font-bold text-xs border border-gray-200 cursor-not-allowed select-none opacity-70 pointer-events-none"
-                title="স্টক শেষ - অর্ডার গ্রহণ বন্ধ"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-gray-400 shrink-0 opacity-50" />
-                <span>স্টক আউট</span>
-              </button>
+              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-400 font-semibold text-xs border border-gray-200">
+                Out of Stock
+              </span>
             ) : (
-              <a
-                id={`whatsapp-order-btn-${product.id}`}
-                href={whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={e => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-sm transition-all cursor-pointer hover:scale-102 active:scale-98"
-                title="হোয়াটসঅ্যাপে অর্ডার করুন"
-              >
-                <WhatsAppIcon className="w-4 h-4 text-white shrink-0" />
-                <span>হোয়াটসঅ্যাপ অর্ডার</span>
-              </a>
+              <>
+                <button
+                  id={`quick-order-btn-${product.id}`}
+                  type="button"
+                  onClick={handleQuickBuy}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  title="Direct Online Order"
+                >
+                  <span>Order Now</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="p-1.5 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer"
+                  title="Add to Cart"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-gray-600" />
+                </button>
+
+                <a
+                  id={`whatsapp-order-btn-${product.id}`}
+                  href={whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  className="p-1.5 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 transition-all cursor-pointer"
+                  title="Order via WhatsApp"
+                >
+                  <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                </a>
+              </>
             )}
           </div>
         </div>
