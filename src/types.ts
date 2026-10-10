@@ -96,7 +96,11 @@ export interface Order {
   totalAmount: number;
   shippingAddress: ShippingAddress;
   items: OrderItem[];
-  paymentMethod: 'card' | 'paypal' | 'cod';
+  paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash';
+  paymentDetails?: {
+    bkashNumber?: string;
+    trxId?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
