@@ -10,6 +10,7 @@ export const XEEROO_CONTACT = {
   phone: '+8801570243005',
   displayPhone: '+880 1570-243005',
   email: 'xeeroo.0@outlook.com',
+  bkashNumber: '01780417575',
   whatsapp: 'https://wa.me/8801570243005',
   whatsappDisplay: '+880 1570-243005',
   whatsappPng: '/whatsapp.png',
@@ -33,13 +34,13 @@ export const DEFAULT_ADMIN_USER: User = {
   email: 'admin@xeeroo.com',
   fullName: 'Master Administrator',
   role: 'admin',
+  gender: 'male',
   phone: '+880 1570-243005',
   password: 'admin',
   approvalStatus: 'approved',
   isVerified: true,
   isBanned: false,
   createdAt: '2026-01-01T00:00:00Z',
-  avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=120&q=80',
 };
 
 export const DEFAULT_MODERATOR_USER: User = {
@@ -47,13 +48,13 @@ export const DEFAULT_MODERATOR_USER: User = {
   email: 'staff@xeeroo.com',
   fullName: 'Staff Moderator',
   role: 'moderator',
+  gender: 'male',
   phone: '+880 1700-112233',
   password: 'staff',
   approvalStatus: 'approved',
   isVerified: true,
   isBanned: false,
   createdAt: '2026-01-01T00:00:00Z',
-  avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80',
 };
 
 export const INITIAL_USERS: User[] = [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];

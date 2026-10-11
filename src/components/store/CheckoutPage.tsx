@@ -57,7 +57,7 @@ export const CheckoutPage: React.FC = () => {
     (currentUser?.address?.district || currentUser?.address?.city)
   );
 
-  const officialBkashNumber = '01570243005';
+  const officialBkashNumber = '01780417575';
 
   const handleCopyBkash = () => {
     navigator.clipboard.writeText(officialBkashNumber);

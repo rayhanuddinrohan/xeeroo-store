@@ -129,17 +129,16 @@ export const ProductListing: React.FC = () => {
               onClick={(e) => {
                 e.preventDefault();
                 setSelectedCategory('all');
-                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
               }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                 selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-600/30 scale-[1.02]'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-[1.02]'
               }`}
             >
               <span>All Products</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-colors ${
                   selectedCategory === 'all'
                     ? 'bg-blue-700 text-white'
                     : 'bg-gray-200 text-gray-600'
@@ -155,17 +154,16 @@ export const ProductListing: React.FC = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   setSelectedCategory(cat.id);
-                  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-600/30 scale-[1.02]'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-[1.02]'
                 }`}
               >
                 <span>{cat.name}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-colors ${
                     selectedCategory === cat.id
                       ? 'bg-blue-700 text-white'
                       : 'bg-gray-200 text-gray-600'
@@ -247,9 +245,12 @@ export const ProductListing: React.FC = () => {
         </div>
       </div>
 
-      {/* Products Grid */}
+      {/* Products Grid with Lively Transition */}
       {filteredProducts.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div
+          key={`${selectedCategory}-${sortBy}`}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in-50 zoom-in-[0.99] duration-300"
+        >
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} />
           ))}

@@ -16,6 +16,7 @@ import {
   ShippingAddress,
   User,
   UserRole,
+  UserGender,
   ViewMode,
 } from '../types';
 import {
@@ -74,10 +75,10 @@ interface StoreContextType {
   logout: () => void;
   switchUserRole: (role: UserRole) => void;
   setUserById: (userId: string) => void;
-  updateUserRole: (userId: string, newRole: UserRole) => boolean;
+  updateUserRole: (userId: string, newRole: UserRole) => Promise<boolean>;
   toggleUserBan: (userId: string) => boolean;
-  approveUser: (userId: string) => boolean;
-  rejectUser: (userId: string) => boolean;
+  approveUser: (userId: string) => Promise<boolean>;
+  rejectUser: (userId: string) => Promise<boolean>;
 
   // Cloud Database Synchronization & Status
   dbStatus: {
@@ -124,6 +125,7 @@ interface StoreContextType {
     email?: string;
     phone?: string;
     password?: string;
+    gender?: UserGender;
     address?: ShippingAddress;
   }) => boolean;
 
@@ -1261,7 +1263,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       role: 'customer',
       approvalStatus: 'approved',
       isVerified: true,
-      avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
+      gender: 'male',
       createdAt: new Date().toISOString(),
       isBanned: false,
       address: data.address || {
@@ -1295,35 +1297,65 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Approval System
-  const approveUser = (userId: string): boolean => {
+  const approveUser = async (userId: string): Promise<boolean> => {
     if (!canManageUsers) {
       addToast('Only Admin can approve customer accounts.', 'error');
       return false;
     }
 
-    const user = users.find(u => u.id === userId);
-    if (!user) return false;
+    let updatedUser: User | null = null;
+    setUsers(prev => {
+      const next = prev.map(u => {
+        if (u.id === userId) {
+          const updated: User = { ...u, approvalStatus: 'approved' };
+          updatedUser = updated;
+          return updated;
+        }
+        return u;
+      });
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(next));
+      return next;
+    });
 
-    setUsers(prev =>
-      prev.map(u => (u.id === userId ? { ...u, approvalStatus: 'approved' } : u))
-    );
-    addToast(`Customer account for ${user.fullName} has been approved!`, 'success');
+    if (updatedUser) {
+      await saveFirestoreCustomer(updatedUser);
+      await saveFirestoreUserProfile((updatedUser as User).id, {
+        approvalStatus: 'approved',
+      });
+    }
+
+    addToast(`Customer account for ${(updatedUser as any)?.fullName || 'user'} has been approved!`, 'success');
     return true;
   };
 
-  const rejectUser = (userId: string): boolean => {
+  const rejectUser = async (userId: string): Promise<boolean> => {
     if (!canManageUsers) {
       addToast('Only Admin can reject customer accounts.', 'error');
       return false;
     }
 
-    const user = users.find(u => u.id === userId);
-    if (!user) return false;
+    let updatedUser: User | null = null;
+    setUsers(prev => {
+      const next = prev.map(u => {
+        if (u.id === userId) {
+          const updated: User = { ...u, approvalStatus: 'rejected' };
+          updatedUser = updated;
+          return updated;
+        }
+        return u;
+      });
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(next));
+      return next;
+    });
 
-    setUsers(prev =>
-      prev.map(u => (u.id === userId ? { ...u, approvalStatus: 'rejected' } : u))
-    );
-    addToast(`Customer account for ${user.fullName} has been rejected.`, 'warning');
+    if (updatedUser) {
+      await saveFirestoreCustomer(updatedUser);
+      await saveFirestoreUserProfile((updatedUser as User).id, {
+        approvalStatus: 'rejected',
+      });
+    }
+
+    addToast(`Customer account for ${(updatedUser as any)?.fullName || 'user'} has been rejected.`, 'warning');
     return true;
   };
 
@@ -1350,23 +1382,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // User Management (Admin Only)
-  const updateUserRole = (userId: string, newRole: UserRole): boolean => {
+  // User Management (Admin Only) - Persists to Cloud Database & LocalStorage
+  const updateUserRole = async (userId: string, newRole: UserRole): Promise<boolean> => {
     if (!canManageUsers) {
       addToast('RBAC Error: Only Admins can modify user roles.', 'error');
       return false;
     }
-    setUsers(prev =>
-      prev.map(u => {
+
+    const updatedStatus = newRole !== 'customer' ? 'approved' : 'approved';
+    let updatedUser: User | null = null;
+
+    setUsers(prev => {
+      const next = prev.map(u => {
         if (u.id === userId) {
-          // If promoting to moderator or admin, ensure approved status
-          const updatedStatus = newRole !== 'customer' ? 'approved' : u.approvalStatus || 'approved';
-          return { ...u, role: newRole, approvalStatus: updatedStatus };
+          const updated: User = { ...u, role: newRole, approvalStatus: updatedStatus };
+          updatedUser = updated;
+          return updated;
         }
         return u;
-      })
-    );
-    addToast(`User role updated to ${newRole.toUpperCase()}`, 'success');
+      });
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(next));
+      return next;
+    });
+
+    if (updatedUser) {
+      await saveFirestoreCustomer(updatedUser);
+      await saveFirestoreUserProfile((updatedUser as User).id, {
+        role: newRole,
+        approvalStatus: updatedStatus,
+      });
+    }
+
+    addToast(`User role updated to ${newRole.toUpperCase()}! Permissions and dashboard access are now active.`, 'success');
     return true;
   };
 
@@ -1376,6 +1423,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     email?: string;
     phone?: string;
     password?: string;
+    gender?: UserGender;
     address?: ShippingAddress;
   }): boolean => {
     if (!currentUser) {
@@ -1385,14 +1433,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     let updatedUserProfile: User | null = null;
 
-    setUsers(prev =>
-      prev.map(u => {
+    setUsers(prev => {
+      const next = prev.map(u => {
         if (u.id === currentUser.id) {
           const updated: User = {
             ...u,
             ...(updates.fullName !== undefined && { fullName: updates.fullName.trim() }),
             ...(updates.email !== undefined && { email: updates.email.trim() }),
             ...(updates.phone !== undefined && { phone: updates.phone.trim() }),
+            ...(updates.gender !== undefined && { gender: updates.gender }),
             ...(updates.password !== undefined && updates.password.trim() !== '' && { password: updates.password }),
             ...(updates.address !== undefined && { address: updates.address }),
           };
@@ -1400,15 +1449,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return updated;
         }
         return u;
-      })
-    );
+      });
+      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(next));
+      return next;
+    });
 
-    // Persist full customer profile with address to Firestore
+    // Persist full customer profile with address & gender to Firestore
     if (updatedUserProfile) {
       saveFirestoreCustomer(updatedUserProfile);
     }
 
-    addToast('Profile & shipping address updated and saved to Database!', 'success');
+    addToast('Profile & preferences updated and saved to Database!', 'success');
     return true;
   };
 

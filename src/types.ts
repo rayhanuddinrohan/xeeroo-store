@@ -7,6 +7,8 @@ export type UserRole = 'customer' | 'moderator' | 'admin';
 
 export type UserApprovalStatus = 'approved' | 'pending' | 'rejected';
 
+export type UserGender = 'male' | 'female' | 'other';
+
 export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface User {
@@ -14,6 +16,7 @@ export interface User {
   email: string;
   role: UserRole;
   fullName: string;
+  gender?: UserGender;
   avatarUrl?: string;
   createdAt: string;
   phone?: string;
