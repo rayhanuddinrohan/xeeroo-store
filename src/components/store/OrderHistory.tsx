@@ -293,7 +293,16 @@ export const OrderHistory: React.FC = () => {
                           Payment & Billing
                         </span>
                         <p className="text-gray-600 leading-relaxed">
-                          Method: <strong className="uppercase">{order.paymentMethod}</strong>
+                          Method:{' '}
+                          <strong className={`uppercase ${order.paymentMethod === 'bkash' ? 'text-[#D12053]' : ''}`}>
+                            {order.paymentMethod === 'bkash' ? 'bKash MFS' : order.paymentMethod}
+                          </strong>
+                          {order.paymentDetails?.trxId && (
+                            <>
+                              <br />
+                              TrxID: <span className="font-mono text-gray-900 font-bold bg-pink-50 px-1.5 py-0.5 rounded border border-pink-200">{order.paymentDetails.trxId}</span>
+                            </>
+                          )}
                           <br />
                           Status: <span className="text-emerald-600 font-medium">Authorized & Verified</span>
                           <br />

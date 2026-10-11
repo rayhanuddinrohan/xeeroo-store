@@ -12,6 +12,7 @@ import { ProductListing } from './components/store/ProductListing';
 import { ProductDetail } from './components/store/ProductDetail';
 import { CartDrawer } from './components/store/CartDrawer';
 import { CheckoutModal } from './components/store/CheckoutModal';
+import { CheckoutPage } from './components/store/CheckoutPage';
 import { OrderHistory } from './components/store/OrderHistory';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { SchemaDocsModal } from './components/dashboard/SchemaDocsModal';
@@ -44,6 +45,8 @@ const AppContent: React.FC = () => {
     isCheckoutOpen,
     setIsCheckoutOpen,
     cartTotalCount,
+    openLoginModal,
+    addToast,
   } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -54,7 +57,13 @@ const AppContent: React.FC = () => {
 
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
-    setIsCheckoutOpen(true);
+    if (!currentUser) {
+      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
+      openLoginModal();
+      return;
+    }
+    setViewMode('checkout');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   return (
@@ -72,6 +81,8 @@ const AppContent: React.FC = () => {
         )}
 
         {viewMode === 'product-detail' && <ProductDetail />}
+
+        {viewMode === 'checkout' && <CheckoutPage />}
 
         {viewMode === 'orders' && <OrderHistory />}
 

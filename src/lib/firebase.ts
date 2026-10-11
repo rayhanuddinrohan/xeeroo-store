@@ -400,6 +400,7 @@ export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
       shippingAddress: order.shippingAddress,
       items: order.items,
       paymentMethod: order.paymentMethod,
+      ...(order.paymentDetails ? { paymentDetails: order.paymentDetails } : {}),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     }, { merge: true });
@@ -435,6 +436,7 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
           },
           items: data.items || [],
           paymentMethod: data.paymentMethod || 'cod',
+          paymentDetails: data.paymentDetails || undefined,
           createdAt: data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt || new Date().toISOString(),
         });
@@ -476,6 +478,7 @@ export const subscribeToFirestoreOrders = (
             },
             items: Array.isArray(data.items) ? data.items : [],
             paymentMethod: data.paymentMethod || 'cod',
+            paymentDetails: data.paymentDetails || undefined,
             createdAt: data.createdAt || new Date().toISOString(),
             updatedAt: data.updatedAt || new Date().toISOString(),
           });

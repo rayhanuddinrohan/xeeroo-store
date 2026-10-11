@@ -41,6 +41,8 @@ export const ProductDetail: React.FC = () => {
     categories,
     addToCart,
     openCheckoutModal,
+    openLoginModal,
+    addToast,
     currentUser,
     setDashboardTab,
   } = useStore();
@@ -91,12 +93,22 @@ export const ProductDetail: React.FC = () => {
   };
 
   const handleAddToCart = () => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to add items to your cart.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!isOutOfStock) {
       addToCart(product, selectedQuantity);
     }
   };
 
   const handleBuyNow = () => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!isOutOfStock) {
       addToCart(product, selectedQuantity);
       openCheckoutModal();

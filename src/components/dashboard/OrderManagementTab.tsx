@@ -410,7 +410,16 @@ export const OrderManagementTab: React.FC = () => {
                                   Phone: {order.shippingAddress.phone}
                                 </p>
                                 <p className="text-gray-600">
-                                  Payment Method: <strong className="uppercase">{order.paymentMethod}</strong>
+                                  Payment Method:{' '}
+                                  <strong className={`uppercase font-mono ${order.paymentMethod === 'bkash' ? 'text-[#D12053]' : ''}`}>
+                                    {order.paymentMethod === 'bkash' ? 'bKash (MFS)' : order.paymentMethod}
+                                  </strong>
+                                  {order.paymentDetails?.trxId && (
+                                    <span className="block mt-1 text-[11px] font-mono text-gray-800 bg-pink-50 p-1.5 rounded border border-pink-200">
+                                      bKash TrxID: <strong className="text-[#D12053]">{order.paymentDetails.trxId}</strong>
+                                      {order.paymentDetails.bkashNumber && ` | Sender: ${order.paymentDetails.bkashNumber}`}
+                                    </span>
+                                  )}
                                 </p>
 
                                 <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">

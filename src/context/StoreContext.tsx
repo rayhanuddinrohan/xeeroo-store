@@ -117,7 +117,8 @@ interface StoreContextType {
   // Customer Settings Modal
   isSettingsModalOpen: boolean;
   setIsSettingsModalOpen: (open: boolean) => void;
-  openSettingsModal: () => void;
+  settingsModalInitialTab: 'profile' | 'address' | 'security';
+  openSettingsModal: (tab?: 'profile' | 'address' | 'security') => void;
   updateUserProfile: (updates: {
     fullName?: string;
     email?: string;
@@ -186,8 +187,9 @@ interface StoreContextType {
   orders: Order[];
   createOrder: (
     shippingAddress: ShippingAddress,
-    paymentMethod: 'card' | 'paypal' | 'cod',
-    optionalEmail?: string
+    paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash',
+    optionalEmail?: string,
+    paymentDetails?: { bkashNumber?: string; trxId?: string }
   ) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => boolean;
   userOrders: Order[];
@@ -262,9 +264,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp' | 'admin-login'>('login');
 
-  // Checkout modal state
+  // Checkout modal & page state
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const openCheckoutModal = () => setIsCheckoutOpen(true);
+  const openCheckoutModal = () => {
+    if (!currentUserId) {
+      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
+      setAuthModalTab('login');
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setViewMode('checkout');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
 
   // Pending OTP registration state
   const [pendingRegistration, setPendingRegistration] = useState<{
@@ -534,10 +545,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Customer Settings Modal state
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const openSettingsModal = () => {
+  const [settingsModalInitialTab, setSettingsModalInitialTab] = useState<'profile' | 'address' | 'security'>('profile');
+  const openSettingsModal = (initialTab: 'profile' | 'address' | 'security' = 'profile') => {
     if (!currentUser) {
       openLoginModal();
     } else {
+      setSettingsModalInitialTab(initialTab);
       setIsSettingsModalOpen(true);
     }
   };
@@ -1653,6 +1666,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart operations
   const addToCart = (product: Product, quantity: number = 1) => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to add items to your cart.', 'warning');
+      setAuthModalTab('login');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     if (product.stockQuantity <= 0) {
       addToast(`Sorry, "${product.title}" is currently out of stock.`, 'warning');
       return;
@@ -1727,8 +1747,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Order creation & Inventory Deduction
   const createOrder = async (
     shippingAddress: ShippingAddress,
-    paymentMethod: 'card' | 'paypal' | 'cod',
-    optionalEmail?: string
+    paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash',
+    optionalEmail?: string,
+    paymentDetails?: { bkashNumber?: string; trxId?: string }
   ): Promise<Order | null> => {
     if (cart.length === 0) {
       addToast('Cannot checkout an empty cart.', 'warning');
@@ -1808,6 +1829,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       totalAmount: cartTotal,
       shippingAddress,
       paymentMethod,
+      ...(paymentDetails ? { paymentDetails } : {}),
       createdAt: nowIso,
       updatedAt: nowIso,
       items: cart.map(item => ({
@@ -1927,6 +1949,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     isSettingsModalOpen,
     setIsSettingsModalOpen,
+    settingsModalInitialTab,
     openSettingsModal,
     updateUserProfile,
 

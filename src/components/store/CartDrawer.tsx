@@ -30,7 +30,19 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     deliveryCharge,
     cartTotal,
     setViewMode,
+    currentUser,
+    openLoginModal,
+    addToast,
   } = useStore();
+
+  const handleProceedClick = () => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
+      openLoginModal();
+      return;
+    }
+    onProceedToCheckout();
+  };
 
   const cartItemsText = cart
     .map(
@@ -203,7 +215,7 @@ My Delivery Address:`
               <button
                 id="btn-proceed-online-checkout"
                 type="button"
-                onClick={onProceedToCheckout}
+                onClick={handleProceedClick}
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
               >
                 <span>Proceed to Checkout • {formatBDT(cartTotal)}</span>

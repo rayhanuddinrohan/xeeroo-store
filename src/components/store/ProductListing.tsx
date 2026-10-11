@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { ProductCard } from './ProductCard';
 import { formatBDT } from '../../utils/currency';
@@ -80,6 +80,35 @@ export const ProductListing: React.FC = () => {
     setSortBy('featured');
   };
 
+  // Only display categories in the category bar if they have products in stock
+  const categoriesWithStock = useMemo(() => {
+    return categories
+      .map(cat => {
+        const inStockCount = products.filter(
+          p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
+        ).length;
+        return {
+          ...cat,
+          inStockCount,
+        };
+      })
+      .filter(cat => cat.inStockCount > 0);
+  }, [categories, products, isStaff]);
+
+  const totalInStockCount = useMemo(() => {
+    return products.filter(p => (isStaff || p.isPublished) && p.stockQuantity > 0).length;
+  }, [products, isStaff]);
+
+  // If currently selected category has 0 in-stock products, automatically reset to 'all'
+  useEffect(() => {
+    if (selectedCategory !== 'all') {
+      const exists = categoriesWithStock.some(c => c.id === selectedCategory);
+      if (!exists) {
+        setSelectedCategory('all');
+      }
+    }
+  }, [selectedCategory, categoriesWithStock, setSelectedCategory]);
+
   const hasActiveFilters =
     searchQuery !== '' ||
     selectedCategory !== 'all' ||
@@ -102,46 +131,50 @@ export const ProductListing: React.FC = () => {
                 setSelectedCategory('all');
                 window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
               }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedCategory === 'all'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              All Products
+              <span>All Products</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                  selectedCategory === 'all'
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-gray-200 text-gray-600'
+                }`}
+              >
+                {totalInStockCount}
+              </span>
             </button>
-            {categories.map(cat => {
-              const count = products.filter(
-                p => p.categoryId === cat.id && (isStaff || p.isPublished)
-              ).length;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setSelectedCategory(cat.id);
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-                  }}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+            {categoriesWithStock.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedCategory(cat.id);
+                  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                }}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                  selectedCategory === cat.id
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <span>{cat.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                     selectedCategory === cat.id
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-gray-200 text-gray-600'
                   }`}
                 >
-                  <span>{cat.name}</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                      selectedCategory === cat.id
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                  {cat.inStockCount}
+                </span>
+              </button>
+            ))}
           </div>
 
           {/* Sort & Quick In-Stock Toggle */}

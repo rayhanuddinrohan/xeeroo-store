@@ -28,10 +28,17 @@ export const CustomerSettingsModal: React.FC = () => {
     currentUser,
     isSettingsModalOpen,
     setIsSettingsModalOpen,
+    settingsModalInitialTab,
     updateUserProfile,
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'address' | 'security'>('profile');
+
+  useEffect(() => {
+    if (isSettingsModalOpen && settingsModalInitialTab) {
+      setActiveTab(settingsModalInitialTab);
+    }
+  }, [isSettingsModalOpen, settingsModalInitialTab]);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -97,7 +104,7 @@ export const CustomerSettingsModal: React.FC = () => {
         }
         setCountry(currentUser.address.country || 'Bangladesh');
       } else {
-        setStreet('House 12, Road 4, Sector 7');
+        setStreet('');
         setSelectedDistrict('Dhaka');
         setSelectedThana('Uttara East');
         setCountry('Bangladesh');
