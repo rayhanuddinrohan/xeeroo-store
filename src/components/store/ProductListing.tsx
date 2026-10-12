@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useEffect } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { ProductCard } from './ProductCard';
 import { formatBDT } from '../../utils/currency';
@@ -40,7 +40,7 @@ export const ProductListing: React.FC = () => {
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesTitle = product.title.toLowerCase().includes(query);
-        const matchesSku = product.sku.toLowerCase().includes(query);
+        const matchesSku = product.sku ? product.sku.toLowerCase().includes(query) : false;
         const matchesDesc = product.description.toLowerCase().includes(query);
         const matchesBrand = product.brand.toLowerCase().includes(query);
         if (!matchesTitle && !matchesSku && !matchesDesc && !matchesBrand) {
@@ -117,23 +117,37 @@ export const ProductListing: React.FC = () => {
     priceRange[1] < 1000 ||
     sortBy !== 'featured';
 
+  const listingContainerRef = useRef<HTMLDivElement | null>(null);
+
+  const handleSelectCategory = (catId: string) => {
+    if (selectedCategory === catId) return;
+    setSelectedCategory(catId);
+    // If scrolled past the category controls on desktop, gently align to listing top instead of jumping to page top
+    if (listingContainerRef.current) {
+      const rect = listingContainerRef.current.getBoundingClientRect();
+      if (rect.top < 40) {
+        listingContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
   return (
-    <div className="w-full">
+    <div ref={listingContainerRef} id="product-listing-section" className="w-full scroll-mt-20">
       {/* Listing controls & active filters header (Sticky category bar on mobile) */}
       <div className="sticky top-0 md:static z-30 bg-white/95 md:bg-white backdrop-blur-md md:backdrop-blur-none border-b md:border border-gray-200 -mx-4 px-4 py-2.5 sm:mx-0 sm:px-4 sm:rounded-xl mb-6 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Categories Tab Pill Strip - Horizontally scrollable */}
+          {/* Categories Tab Pill Strip - Horizontally scrollable with lively animation */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 touch-pan-x">
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                setSelectedCategory('all');
+                handleSelectCategory('all');
               }}
-              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-300 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                 selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-600/30 scale-[1.02]'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-[1.02]'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-500/40 scale-105'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 hover:scale-102'
               }`}
             >
               <span>All Products</span>
@@ -153,12 +167,12 @@ export const ProductListing: React.FC = () => {
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
-                  setSelectedCategory(cat.id);
+                  handleSelectCategory(cat.id);
                 }}
-                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-300 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 ring-2 ring-blue-600/30 scale-[1.02]'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:scale-[1.02]'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-500/40 scale-105'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 hover:scale-102'
                 }`}
               >
                 <span>{cat.name}</span>
@@ -245,17 +259,21 @@ export const ProductListing: React.FC = () => {
         </div>
       </div>
 
-      {/* Products Grid with Lively Transition */}
-      {filteredProducts.length > 0 ? (
-        <div
-          key={`${selectedCategory}-${sortBy}`}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in-50 zoom-in-[0.99] duration-300"
-        >
-          {filteredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      ) : (
+      {/* Products Grid with Lively Transition - Stable min-height prevents scroll jumps */}
+      <div className="min-h-[480px] transition-all duration-300">
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.map((product, idx) => (
+              <div
+                key={product.id}
+                className="animate-in fade-in zoom-in-[0.98] duration-300 fill-mode-both"
+                style={{ animationDelay: `${Math.min(idx * 30, 240)}ms` }}
+              >
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center max-w-lg mx-auto shadow-xs">
           <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-4">
             <Filter className="w-6 h-6" />
@@ -272,6 +290,7 @@ export const ProductListing: React.FC = () => {
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 };

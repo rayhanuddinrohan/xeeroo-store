@@ -8,7 +8,7 @@ import { Product } from '../../types';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
-import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, Package, Image as ImageIcon } from 'lucide-react';
+import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, Package, Image as ImageIcon, Flame } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -41,7 +41,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     `Hello! I would like to order this product:
 📦 Product: ${product.title}
 💰 Price: ${formatBDT(product.price)}
-🏷️ SKU: ${product.sku}
 🔗 Link: ${productUrl}
 
 My Delivery Address:`
@@ -129,16 +128,16 @@ My Delivery Address:`
         {/* Stock Status Badge */}
         <div className="absolute top-2.5 right-2.5 z-10">
           {isOutOfStock ? (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-900/80 backdrop-blur-xs text-white">
-              Out of Stock
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-900/85 backdrop-blur-xs text-white">
+              0 pcs (Out of Stock)
             </span>
           ) : isLowStock ? (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-600 text-white shadow-xs">
-              Only {product.stockQuantity} left
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-xs">
+              Only {product.stockQuantity} pcs left
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-600 text-white shadow-xs">
-              In Stock ({product.stockQuantity})
+            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-600 text-white shadow-xs">
+              {product.stockQuantity} pcs in stock
             </span>
           )}
         </div>
@@ -159,22 +158,62 @@ My Delivery Address:`
       {/* Card Content */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-            <span className="font-mono text-[11px] text-gray-400">SKU: {product.sku}</span>
-            <div className="flex items-center gap-1 text-amber-500">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span className="font-semibold text-gray-700">{product.rating.toFixed(1)}</span>
-              <span className="text-gray-400">({product.reviewsCount})</span>
-            </div>
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5 gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+              <Flame className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+              <span>{product.soldCount || 0} pcs sold</span>
+            </span>
+            {product.reviewsCount > 0 ? (
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedProductId(product.id);
+                  setViewMode('product-detail');
+                }}
+                className="flex items-center gap-1 text-amber-500 cursor-pointer hover:opacity-80 transition-opacity"
+                title="View customer reviews"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                <span className="font-bold text-gray-800 text-xs">{product.rating.toFixed(1)}</span>
+                <span className="text-gray-400 text-[11px]">({product.reviewsCount})</span>
+              </div>
+            ) : (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedProductId(product.id);
+                  setViewMode('product-detail');
+                }}
+                className="text-[11px] text-gray-400 italic cursor-pointer hover:text-blue-600 transition-colors"
+                title="Rate this product"
+              >
+                No ratings yet
+              </span>
+            )}
           </div>
 
           <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2">
             {product.title}
           </h3>
 
-          <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-3">
-            {product.description}
-          </p>
+          {/* Stock Quantity in Pieces - Description removed per request */}
+          <div className="flex items-center justify-between text-xs mb-3 py-1.5 px-2.5 rounded-lg bg-slate-50 border border-slate-100">
+            <span className="text-gray-500 font-medium flex items-center gap-1.5">
+              <Package className="w-3.5 h-3.5 text-blue-600" />
+              <span>Stock:</span>
+            </span>
+            <span
+              className={`font-mono font-bold ${
+                isOutOfStock
+                  ? 'text-rose-600'
+                  : isLowStock
+                  ? 'text-amber-600'
+                  : 'text-emerald-700'
+              }`}
+            >
+              {product.stockQuantity > 0 ? `${product.stockQuantity} pcs` : '0 pcs (Out of stock)'}
+            </span>
+          </div>
         </div>
 
         <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 mt-auto">

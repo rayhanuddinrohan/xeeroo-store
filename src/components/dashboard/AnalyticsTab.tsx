@@ -232,7 +232,7 @@ export const AnalyticsTab: React.FC = () => {
               <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
                 <tr>
                   <th className="py-2.5 px-3 font-semibold">Product Title</th>
-                  <th className="py-2.5 px-3 font-semibold">SKU</th>
+                  <th className="py-2.5 px-3 font-semibold">Units Sold</th>
                   <th className="py-2.5 px-3 font-semibold">Unit Price</th>
                   <th className="py-2.5 px-3 font-semibold">Units Left</th>
                   <th className="py-2.5 px-3 font-semibold">Status</th>
@@ -242,7 +242,7 @@ export const AnalyticsTab: React.FC = () => {
                 {lowStockProducts.map(p => (
                   <tr key={p.id} className="hover:bg-gray-50/50">
                     <td className="py-2.5 px-3 font-semibold text-gray-900">{p.title}</td>
-                    <td className="py-2.5 px-3 font-mono text-gray-500">{p.sku}</td>
+                    <td className="py-2.5 px-3 font-bold text-emerald-700 font-mono">{p.soldCount || 0} pcs</td>
                     <td className="py-2.5 px-3 font-bold text-gray-900 font-mono">{formatBDT(p.price)}</td>
                     <td className="py-2.5 px-3 font-bold text-rose-600">{p.stockQuantity}</td>
                     <td className="py-2.5 px-3">

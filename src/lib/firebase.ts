@@ -17,6 +17,8 @@ import {
   getDocFromServer,
   writeBatch,
   onSnapshot,
+  query,
+  where,
 } from "firebase/firestore";
 import { Product, User, Category, Order, BannerSlide } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
@@ -116,7 +118,11 @@ export const signInWithGooglePopup = async () => {
   } catch (err: unknown) {
     const error = err as { code?: string; message?: string };
     console.warn("Google Sign-In Popup notice:", error);
-    return { success: false, error: error.message || 'Google authentication was not completed.' };
+    return {
+      success: false,
+      code: error.code || 'unknown',
+      error: error.message || 'Google authentication was not completed.',
+    };
   }
 };
 
@@ -143,7 +149,9 @@ export const saveFirestoreCustomer = async (user: User): Promise<boolean> => {
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      gender: user.gender || 'male',
       phone: user.phone || '',
+      password: user.password || '',
       approvalStatus: user.approvalStatus || 'approved',
       isVerified: user.isVerified ?? true,
       isBanned: user.isBanned ?? false,
@@ -187,6 +195,33 @@ export const saveFirestoreUserProfile = async (uid: string, data: Record<string,
   }
 };
 
+// Sync user role across any doc matching user ID or email
+export const updateFirestoreUserRoleByEmailAndId = async (
+  userId: string,
+  email: string,
+  newRole: string,
+  approvalStatus: string = 'approved'
+): Promise<boolean> => {
+  try {
+    // 1. Direct update to doc by userId
+    const userDocRef = doc(db, 'users', userId);
+    await setDoc(userDocRef, { role: newRole, approvalStatus }, { merge: true });
+
+    // 2. Query any documents matching the email in users collection
+    if (email && email.includes('@')) {
+      const q = query(collection(db, 'users'), where('email', '==', email.toLowerCase().trim()));
+      const snap = await getDocs(q);
+      snap.forEach(async (d) => {
+        await setDoc(doc(db, 'users', d.id), { role: newRole, approvalStatus }, { merge: true });
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('Firestore update role error:', err);
+    return false;
+  }
+};
+
 // Fetch all users / customers from Firestore
 export const fetchFirestoreUsers = async (): Promise<User[]> => {
   try {
@@ -201,6 +236,7 @@ export const fetchFirestoreUsers = async (): Promise<User[]> => {
           email: data.email,
           role: data.role || 'customer',
           fullName: data.fullName || 'Customer',
+          gender: (data.gender as any) || 'male',
           phone: data.phone || '',
           avatarUrl: data.avatarUrl || '',
           createdAt: data.createdAt || new Date().toISOString(),
@@ -231,6 +267,7 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       description: product.description || '',
       price: Number(product.price),
       stockQuantity: Number(product.stockQuantity),
+      soldCount: Number(product.soldCount) || 0,
       sku: product.sku || '',
       categoryId: product.categoryId || '',
       images: Array.isArray(product.images) ? product.images : [],
@@ -238,8 +275,9 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       createdAt: product.createdAt || new Date().toISOString(),
       updatedAt: product.updatedAt || new Date().toISOString(),
       updatedBy: product.updatedBy || 'admin',
-      rating: product.rating || 5.0,
-      reviewsCount: product.reviewsCount || 0,
+      rating: Number(product.rating) || 0,
+      reviewsCount: Number(product.reviewsCount) || 0,
+      reviews: Array.isArray(product.reviews) ? product.reviews : [],
       brand: product.brand || 'XEEROO',
       features: product.features || [],
     }, { merge: true });
@@ -277,6 +315,11 @@ export const subscribeToFirestoreProducts = (
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         if (data && data.title) {
+          const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
+          const calculatedRating = reviewsList.length > 0
+            ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
+            : 0;
+
           list.push({
             id: data.id || docSnap.id,
             title: data.title,
@@ -284,6 +327,7 @@ export const subscribeToFirestoreProducts = (
             description: data.description || '',
             price: Number(data.price) || 0,
             stockQuantity: Number(data.stockQuantity) || 0,
+            soldCount: Number(data.soldCount) || 0,
             sku: data.sku || '',
             categoryId: data.categoryId || 'cat-audio',
             images: Array.isArray(data.images) ? data.images : [],
@@ -291,8 +335,9 @@ export const subscribeToFirestoreProducts = (
             createdAt: data.createdAt || new Date().toISOString(),
             updatedAt: data.updatedAt || new Date().toISOString(),
             updatedBy: data.updatedBy || 'admin',
-            rating: Number(data.rating) || 5.0,
-            reviewsCount: Number(data.reviewsCount) || 1,
+            rating: calculatedRating,
+            reviewsCount: reviewsList.length || Number(data.reviewsCount) || 0,
+            reviews: reviewsList,
             brand: data.brand || 'XEEROO',
             features: Array.isArray(data.features) ? data.features : [],
           });
@@ -315,6 +360,11 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
       if (data && data.title) {
+        const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
+        const calculatedRating = reviewsList.length > 0
+          ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
+          : 0;
+
         list.push({
           id: data.id || docSnap.id,
           title: data.title,
@@ -322,6 +372,7 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           description: data.description || '',
           price: Number(data.price) || 0,
           stockQuantity: Number(data.stockQuantity) || 0,
+          soldCount: Number(data.soldCount) || 0,
           sku: data.sku || '',
           categoryId: data.categoryId || 'cat-audio',
           images: Array.isArray(data.images) ? data.images : [],
@@ -329,8 +380,9 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           createdAt: data.createdAt || new Date().toISOString(),
           updatedAt: data.updatedAt || new Date().toISOString(),
           updatedBy: data.updatedBy || 'admin',
-          rating: Number(data.rating) || 5.0,
-          reviewsCount: Number(data.reviewsCount) || 1,
+          rating: calculatedRating,
+          reviewsCount: reviewsList.length || Number(data.reviewsCount) || 0,
+          reviews: reviewsList,
           brand: data.brand || 'XEEROO',
           features: Array.isArray(data.features) ? data.features : [],
         });
@@ -512,6 +564,7 @@ export const subscribeToFirestoreUsers = (
             email: data.email,
             role: data.role || 'customer',
             fullName: data.fullName || 'Customer',
+            gender: (data.gender as any) || 'male',
             phone: data.phone || '',
             password: data.password || '',
             avatarUrl: data.avatarUrl || '',

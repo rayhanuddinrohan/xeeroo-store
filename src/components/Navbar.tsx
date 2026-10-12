@@ -7,6 +7,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../context/StoreContext';
 import { XEEROO_CONTACT } from '../data/mockData';
 import { BrandLogo } from './common/BrandLogo';
+import { UserAvatar } from './common/UserAvatar';
 import { ContactModal } from './ContactModal';
 import { formatBDT } from '../utils/currency';
 import {
@@ -58,6 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     openSettingsModal,
     products,
     setSelectedProductId,
+    setDashboardTab,
   } = useStore();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -157,6 +159,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   };
 
   const handleDashboardClick = () => {
+    if (currentUser?.role === 'moderator') {
+      setDashboardTab('orders');
+    }
     setViewMode('dashboard');
   };
 
@@ -193,7 +198,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               {canAccessDashboard && (
                 <button
                   id="nav-link-dashboard"
-                  onClick={() => setViewMode('dashboard')}
+                  onClick={handleDashboardClick}
                   className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
                     viewMode === 'dashboard'
                       ? currentUser?.role === 'moderator'
@@ -203,7 +208,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   }`}
                 >
                   <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
-                  <span>{currentUser?.role === 'moderator' ? 'Staff Dashboard' : 'Admin Dashboard'}</span>
+                  <span>{currentUser?.role === 'moderator' ? 'Staff Operations (Orders)' : 'Admin Dashboard'}</span>
                 </button>
               )}
               <button
@@ -292,8 +297,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                             <h4 className="text-xs font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                               {product.title}
                             </h4>
-                            <p className="text-[11px] text-gray-400 font-mono">
-                              SKU: {product.sku}
+                            <p className="text-[11px] text-emerald-700 font-medium">
+                              {product.soldCount || 0} pcs sold • {product.stockQuantity} pcs in stock
                             </p>
                           </div>
                           <div className="text-right shrink-0">
@@ -403,18 +408,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 <button
                   id="nav-user-menu-btn"
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors bg-white cursor-pointer"
+                  className="flex items-center gap-2 p-1 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors bg-white cursor-pointer"
                   title={`${currentUser?.fullName} (${currentUser?.role})`}
                 >
-                  <img
-                    src={
-                      currentUser?.avatarUrl ||
-                      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80'
-                    }
-                    alt={currentUser?.fullName || 'User'}
-                    className={`w-7 h-7 rounded-full object-cover ring-2 ${
-                      currentUser?.role === 'admin' ? 'ring-purple-500' : 'ring-blue-500'
-                    }`}
+                  <UserAvatar
+                    user={currentUser}
+                    gender={currentUser?.gender}
+                    role={currentUser?.role}
+                    size="xs"
+                    showSignBadge={true}
                   />
                   <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
                 </button>
@@ -426,33 +428,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                       onClick={() => setUserDropdownOpen(false)}
                     ></div>
                     <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 py-3 z-50 animate-in fade-in zoom-in-95 duration-100">
-                      {/* User Info Header */}
+                      {/* User Info Header with UserAvatar */}
                       <div className="px-4 pb-3 border-b border-gray-100">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-bold text-gray-900 truncate">
-                            {currentUser?.fullName}
-                          </p>
-                          {currentUser?.role === 'admin' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-purple-100 text-purple-700">
-                              <Crown className="w-2.5 h-2.5" />
-                              ADMIN
-                            </span>
-                          ) : currentUser?.role === 'moderator' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-amber-100 text-amber-800">
-                              <Shield className="w-2.5 h-2.5" />
-                              STAFF / MODERATOR
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-blue-100 text-blue-700">
-                              <UserIcon className="w-2.5 h-2.5" />
-                              CUSTOMER
-                            </span>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <UserAvatar
+                            user={currentUser}
+                            gender={currentUser?.gender}
+                            role={currentUser?.role}
+                            size="md"
+                            showSignBadge={true}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-bold text-gray-900 truncate">
+                                {currentUser?.fullName}
+                              </p>
+                              {currentUser?.role === 'admin' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-purple-100 text-purple-700">
+                                  <Crown className="w-2.5 h-2.5" />
+                                  ADMIN
+                                </span>
+                              ) : currentUser?.role === 'moderator' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-amber-100 text-amber-800">
+                                  <Shield className="w-2.5 h-2.5" />
+                                  STAFF
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase font-mono tracking-wider bg-blue-100 text-blue-700">
+                                  <UserIcon className="w-2.5 h-2.5" />
+                                  CUSTOMER
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser?.email}</p>
+                            {currentUser?.phone && (
+                              <p className="text-xs text-gray-500 truncate mt-0.5 font-mono">{currentUser.phone}</p>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500 truncate mt-0.5">{currentUser?.email}</p>
-                        {currentUser?.phone && (
-                          <p className="text-xs text-gray-500 truncate mt-0.5 font-mono">{currentUser.phone}</p>
-                        )}
 
                         {/* Customer Approval Badge if customer */}
                         {currentUser?.role === 'customer' && (
@@ -479,16 +492,30 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                       {/* Dropdown Navigation Links */}
                       <div className="py-2 px-2 space-y-1">
                         {canAccessDashboard && (
-                          <button
-                            onClick={() => {
-                              setViewMode('dashboard');
-                              setUserDropdownOpen(false);
-                            }}
-                            className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
-                          >
-                            <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
-                            <span>{currentUser?.role === 'moderator' ? 'Staff Dashboard' : 'Admin Dashboard'}</span>
-                          </button>
+                          <>
+                            <button
+                              onClick={() => {
+                                setDashboardTab('orders');
+                                setViewMode('dashboard');
+                                setUserDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer font-bold border border-amber-200/60"
+                            >
+                              <ShoppingBag className="w-4 h-4 text-amber-700" />
+                              <span>Order Fulfillment & Processing</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                handleDashboardClick();
+                                setUserDropdownOpen(false);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
+                            >
+                              <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
+                              <span>{currentUser?.role === 'moderator' ? 'Staff Operations Console' : 'Master Admin Dashboard'}</span>
+                            </button>
+                          </>
                         )}
 
                         <button

@@ -48,6 +48,7 @@ import {
   syncAllDataToFirestore,
   testFirestoreConnection,
   signInWithGooglePopup,
+  updateFirestoreUserRoleByEmailAndId,
 } from '../lib/firebase';
 
 interface StoreContextType {
@@ -157,6 +158,10 @@ interface StoreContextType {
   updateProductStock: (id: string, newStock: number) => boolean;
   deleteProduct: (id: string) => boolean;
   toggleProductPublish: (id: string) => boolean;
+  addProductReview: (
+    productId: string,
+    review: { rating: number; comment: string; reviewerName?: string; userGender?: UserGender }
+  ) => Promise<boolean>;
 
   // Categories (Admin)
   addCategory: (name: string, description?: string) => boolean;
@@ -499,8 +504,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setUsers(prev => {
               const map = new Map<string, User>();
               prev.forEach(u => map.set(u.id, u));
-              liveUsers.forEach(u => map.set(u.id, u));
-              return Array.from(map.values());
+
+              liveUsers.forEach(live => {
+                // Match by existing ID or by email
+                const existingById = map.get(live.id);
+                const existingByEmail = Array.from(map.values()).find(
+                  u => u.email && live.email && u.email.toLowerCase() === live.email.toLowerCase()
+                );
+
+                if (existingById) {
+                  map.set(live.id, {
+                    ...existingById,
+                    ...live,
+                    role: live.role, // role from Firestore is authoritative
+                    approvalStatus: live.approvalStatus,
+                    gender: live.gender || existingById.gender || 'male',
+                  });
+                } else if (existingByEmail) {
+                  // Merge while preserving existing local ID so current user auth session doesn't disconnect
+                  const merged: User = {
+                    ...existingByEmail,
+                    ...live,
+                    id: existingByEmail.id,
+                    role: live.role,
+                    approvalStatus: live.approvalStatus,
+                    gender: live.gender || existingByEmail.gender || 'male',
+                  };
+                  map.set(existingByEmail.id, merged);
+                } else {
+                  map.set(live.id, live);
+                }
+              });
+
+              const updatedList = Array.from(map.values());
+              try {
+                localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedList));
+              } catch {
+                // ignore
+              }
+              return updatedList;
             });
             setDbStatus(prev => ({
               ...prev,
@@ -569,11 +611,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 3. Products state
   const [products, setProducts] = useState<Product[]>(() => {
+    const sanitizeWithRating = (list: Product[]): Product[] => {
+      return list.map(p => {
+        const revs = Array.isArray(p.reviews) ? p.reviews : [];
+        const reviewsCount = revs.length;
+        const rating = reviewsCount > 0
+          ? Number((revs.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / reviewsCount).toFixed(1))
+          : 0;
+        return {
+          ...p,
+          reviews: revs,
+          reviewsCount,
+          rating,
+          soldCount: Number(p.soldCount) || 0,
+        };
+      });
+    };
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY_PRODUCTS);
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return sanitizeWithRating(parsed);
+        }
+      }
+      return sanitizeWithRating(INITIAL_PRODUCTS);
     } catch {
-      return INITIAL_PRODUCTS;
+      return sanitizeWithRating(INITIAL_PRODUCTS);
     }
   });
 
@@ -777,7 +842,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             phone: (firestoreProfile?.phone as string) || fbUser.phoneNumber || '',
             approvalStatus: 'approved',
             isVerified: true,
-            avatarUrl: fbUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+            avatarUrl: fbUser.photoURL || '',
+            gender: 'male',
             createdAt: new Date().toISOString(),
             isBanned: false,
           };
@@ -817,11 +883,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { success: false, message: 'Account suspended' };
     }
 
+    // If user found locally, check if remote role in Firestore was upgraded
+    if (user && user.email && user.email.includes('@')) {
+      try {
+        const remoteProfile = await fetchFirestoreUserProfile(user.id);
+        if (remoteProfile && remoteProfile.role && remoteProfile.role !== user.role) {
+          user = {
+            ...user,
+            role: remoteProfile.role as UserRole,
+            approvalStatus: remoteProfile.approvalStatus || user.approvalStatus,
+          };
+          setUsers(prev => prev.map(u => u.id === user!.id ? user! : u));
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     setCurrentUserId(user.id);
     setIsAuthModalOpen(false);
 
-    if (user.role === 'admin' || user.role === 'moderator') {
+    if (user.role === 'admin') {
       addToast(`Welcome back, Administrator ${user.fullName}!`, 'success');
+    } else if (user.role === 'moderator') {
+      setDashboardTab('orders');
+      addToast(`Welcome back, Staff Moderator ${user.fullName}! Order Fulfillment & Operations are active.`, 'success');
     } else if (user.role === 'customer' && user.approvalStatus === 'pending') {
       addToast(`Logged in as ${user.fullName}. Note: Account is pending admin approval.`, 'warning');
     } else {
@@ -852,6 +938,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     uid?: string;
   }) => {
     const cleanEmail = googleData.email.trim().toLowerCase();
+    if (!cleanEmail) {
+      addToast('Please provide a valid Google email address.', 'error');
+      return { success: false, message: 'Email address is required' };
+    }
+
     const existing = users.find(u => u.email.toLowerCase() === cleanEmail);
 
     if (existing) {
@@ -860,27 +951,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return { success: false, message: 'Account suspended' };
       }
       setCurrentUserId(existing.id);
+      try {
+        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, existing.id);
+      } catch {
+        // ignore
+      }
       setIsAuthModalOpen(false);
-      addToast(`Signed in with Google! Welcome, ${existing.fullName}.`, 'success');
+
+      if (existing.role === 'admin' || existing.role === 'moderator') {
+        setViewMode('dashboard');
+        if (existing.role === 'moderator') {
+          setDashboardTab('orders');
+        }
+        addToast(`Signed in with Google! Welcome back, ${existing.fullName} (${existing.role.toUpperCase()}).`, 'success');
+      } else {
+        addToast(`Signed in with Google! Welcome, ${existing.fullName}.`, 'success');
+      }
       return { success: true, message: 'Logged in successfully with Google', user: existing };
     }
 
     // Auto-register new Google user with pre-approved status
+    const userFullName = googleData.fullName.trim() || cleanEmail.split('@')[0] || 'Google User';
     const newUser: User = {
       id: googleData.uid ? `usr-g-${googleData.uid}` : `usr-g-${Date.now()}`,
-      email: googleData.email.trim(),
-      fullName: googleData.fullName.trim() || 'Google User',
+      email: cleanEmail,
+      fullName: userFullName,
       phone: googleData.phone || '',
       role: 'customer',
       approvalStatus: 'approved',
       isVerified: true,
-      avatarUrl:
-        googleData.avatarUrl ||
-        'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      gender: 'male',
+      avatarUrl: googleData.avatarUrl || '',
       createdAt: new Date().toISOString(),
       isBanned: false,
       address: {
-        fullName: googleData.fullName.trim() || 'Google User',
+        fullName: userFullName,
         street: '',
         city: 'Dhaka',
         state: 'Dhaka',
@@ -895,6 +1000,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveFirestoreCustomer(newUser);
 
     setCurrentUserId(newUser.id);
+    try {
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newUser.id);
+    } catch {
+      // ignore
+    }
     setIsAuthModalOpen(false);
     addToast(`Account created and signed in with Google! Welcome, ${newUser.fullName}.`, 'success');
     return { success: true, message: 'Signed in with Google', user: newUser };
@@ -995,7 +1105,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       role: 'customer',
       approvalStatus: 'approved',
       isVerified: true,
-      avatarUrl: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`,
+      gender: 'male',
+      avatarUrl: '',
       createdAt: new Date().toISOString(),
       isBanned: false,
       address: {
@@ -1390,13 +1501,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const updatedStatus = newRole !== 'customer' ? 'approved' : 'approved';
-    let updatedUser: User | null = null;
+    let targetUser = users.find(u => u.id === userId) || null;
+    const targetEmail = targetUser?.email ? targetUser.email.toLowerCase().trim() : '';
 
     setUsers(prev => {
       const next = prev.map(u => {
-        if (u.id === userId) {
+        const idMatches = u.id === userId;
+        const emailMatches = Boolean(targetEmail && u.email && u.email.toLowerCase().trim() === targetEmail);
+        if (idMatches || emailMatches) {
           const updated: User = { ...u, role: newRole, approvalStatus: updatedStatus };
-          updatedUser = updated;
+          targetUser = updated;
           return updated;
         }
         return u;
@@ -1405,15 +1519,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return next;
     });
 
-    if (updatedUser) {
-      await saveFirestoreCustomer(updatedUser);
-      await saveFirestoreUserProfile((updatedUser as User).id, {
+    if (targetUser) {
+      await saveFirestoreCustomer(targetUser);
+      await saveFirestoreUserProfile((targetUser as User).id, {
         role: newRole,
         approvalStatus: updatedStatus,
       });
+      if (targetEmail) {
+        await updateFirestoreUserRoleByEmailAndId(userId, targetEmail, newRole, updatedStatus);
+      }
     }
 
-    addToast(`User role updated to ${newRole.toUpperCase()}! Permissions and dashboard access are now active.`, 'success');
+    addToast(`User role updated to ${newRole.toUpperCase()}! Back-office permissions and order processing are now live.`, 'success');
     return true;
   };
 
@@ -1579,8 +1696,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser?.id || 'admin',
-      rating: 5.0,
-      reviewsCount: 1,
+      rating: 0,
+      reviewsCount: 0,
+      reviews: [],
+      soldCount: 0,
     };
 
     setProducts(prev => [newProduct, ...prev]);
@@ -1674,6 +1793,71 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return p;
       })
     );
+    return true;
+  };
+
+  // Dynamic Product Review & Rating System
+  const addProductReview = async (
+    productId: string,
+    reviewData: {
+      rating: number;
+      comment: string;
+      reviewerName?: string;
+      userGender?: UserGender;
+    }
+  ): Promise<boolean> => {
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+      addToast('Product not found in catalog.', 'error');
+      return false;
+    }
+
+    if (!reviewData.comment.trim()) {
+      addToast('Please write a review comment.', 'warning');
+      return false;
+    }
+
+    const validRating = Math.max(1, Math.min(5, Math.round(reviewData.rating)));
+    const nowIso = new Date().toISOString();
+    const reviewerName = (reviewData.reviewerName || currentUser?.fullName || 'Verified Buyer').trim();
+    const gender = reviewData.userGender || currentUser?.gender || 'male';
+
+    const newReview = {
+      id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      productId,
+      userId: currentUser?.id || 'guest',
+      userName: reviewerName,
+      userGender: gender,
+      rating: validRating,
+      comment: reviewData.comment.trim(),
+      createdAt: nowIso,
+    };
+
+    const existingReviews = product.reviews || [];
+    const updatedReviews = [newReview, ...existingReviews];
+    const totalScore = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
+    const calculatedRating = Number((totalScore / updatedReviews.length).toFixed(1));
+
+    const updatedProduct: Product = {
+      ...product,
+      reviews: updatedReviews,
+      rating: calculatedRating,
+      reviewsCount: updatedReviews.length,
+      updatedAt: nowIso,
+    };
+
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updatedProduct : p));
+      try {
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(next));
+      } catch (err) {
+        console.warn('LocalStorage save error:', err);
+      }
+      return next;
+    });
+    await saveFirestoreProduct(updatedProduct);
+
+    addToast(`Thank you, ${reviewerName}! Your rating & review has been added.`, 'success');
     return true;
   };
 
@@ -1895,13 +2079,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       })),
     };
 
-    // Deduct stock locally and in Firestore database
+    // Deduct stock locally and in Firestore database, and increment soldCount
     const updatedProductsList = products.map(p => {
       const orderedItem = cart.find(ci => ci.product.id === p.id);
       if (orderedItem) {
         const updatedProd = {
           ...p,
           stockQuantity: Math.max(0, p.stockQuantity - orderedItem.quantity),
+          soldCount: (p.soldCount || 0) + orderedItem.quantity,
           updatedAt: new Date().toISOString(),
         };
         // Persist stock update in Firestore
@@ -2029,6 +2214,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateProductStock,
     deleteProduct,
     toggleProductPublish,
+    addProductReview,
 
     addCategory,
     deleteCategory,

@@ -48,6 +48,17 @@ export interface Category {
   itemCount?: number;
 }
 
+export interface ProductReview {
+  id: string;
+  productId: string;
+  userId?: string;
+  userName: string;
+  userGender?: UserGender;
+  rating: number; // 1 to 5 stars
+  comment: string;
+  createdAt: string;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -55,7 +66,8 @@ export interface Product {
   description: string;
   price: number;
   stockQuantity: number;
-  sku: string;
+  soldCount?: number;
+  sku?: string;
   categoryId: string;
   images: string[];
   isPublished: boolean;
@@ -64,6 +76,7 @@ export interface Product {
   updatedBy?: string;
   rating: number;
   reviewsCount: number;
+  reviews?: ProductReview[];
   brand: string;
   features?: string[];
 }

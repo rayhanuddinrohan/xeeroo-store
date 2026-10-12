@@ -4,132 +4,122 @@
  */
 
 import React from 'react';
-import { User, UserGender } from '../../types';
+import { User, UserGender, UserRole } from '../../types';
 
 interface UserAvatarProps {
   user?: Partial<User> | null;
   gender?: UserGender;
+  role?: UserRole;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   showSignBadge?: boolean;
 }
 
-const sizeClasses = {
-  xs: 'w-6 h-6 text-[10px]',
-  sm: 'w-8 h-8 text-xs',
-  md: 'w-10 h-10 text-sm',
-  lg: 'w-14 h-14 text-base',
-  xl: 'w-20 h-20 text-xl',
-};
-
-const badgeSizeClasses = {
-  xs: 'w-2.5 h-2.5 text-[8px] -bottom-0.5 -right-0.5',
-  sm: 'w-3.5 h-3.5 text-[9px] -bottom-0.5 -right-0.5',
-  md: 'w-4 h-4 text-[10px] -bottom-0.5 -right-0.5',
-  lg: 'w-5 h-5 text-xs -bottom-1 -right-1',
-  xl: 'w-6 h-6 text-sm -bottom-1 -right-1',
+const sizeClasses: Record<string, { container: string; icon: string; badge: string; signText: string }> = {
+  xs: { container: 'w-6 h-6', icon: 'w-3.5 h-3.5', badge: 'w-2.5 h-2.5 -bottom-0.5 -right-0.5 text-[8px]', signText: 'text-[8px]' },
+  sm: { container: 'w-8 h-8', icon: 'w-4 h-4', badge: 'w-3.5 h-3.5 -bottom-0.5 -right-0.5 text-[9px]', signText: 'text-[9px]' },
+  md: { container: 'w-10 h-10', icon: 'w-5 h-5', badge: 'w-4 h-4 -bottom-0.5 -right-0.5 text-[10px]', signText: 'text-[10px]' },
+  lg: { container: 'w-14 h-14', icon: 'w-7 h-7', badge: 'w-5 h-5 -bottom-1 -right-1 text-xs', signText: 'text-xs' },
+  xl: { container: 'w-20 h-20', icon: 'w-10 h-10', badge: 'w-6 h-6 -bottom-1 -right-1 text-sm', signText: 'text-sm' },
 };
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({
   user,
   gender: propGender,
+  role: propRole,
   size = 'md',
   className = '',
   showSignBadge = true,
 }) => {
-  const gender: UserGender | undefined = propGender || user?.gender;
-  const fullName = user?.fullName || 'User';
+  const activeGender = propGender || user?.gender || 'male';
+  const activeRole = propRole || user?.role || 'customer';
+  const customAvatar = user?.avatarUrl && !user.avatarUrl.includes('unsplash.com') ? user.avatarUrl : null;
+  const { container, icon, badge, signText } = sizeClasses[size] || sizeClasses.md;
 
-  const initials = fullName
-    .split(' ')
-    .filter(Boolean)
-    .map(n => n[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'U';
+  // Ring color depending on role
+  const roleRing =
+    activeRole === 'admin'
+      ? 'ring-purple-500'
+      : activeRole === 'moderator'
+      ? 'ring-amber-500'
+      : 'ring-blue-500';
 
-  // If female
-  if (gender === 'female') {
-    return (
-      <div className={`relative shrink-0 inline-flex select-none ${className}`}>
-        <div
-          className={`${sizeClasses[size]} rounded-full bg-linear-to-tr from-pink-500 via-rose-500 to-purple-500 text-white font-bold flex items-center justify-center shadow-xs ring-2 ring-pink-100 overflow-hidden`}
-          title={`${fullName} (Female)`}
-        >
-          {/* Female Silhouette / Styling */}
-          <svg
-            className="w-[65%] h-[65%] text-white drop-shadow-xs"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {/* Woman head with hair curve */}
-            <circle cx="12" cy="7" r="4" />
-            <path d="M5.5 21c0-4 3-7 6.5-7s6.5 3 6.5 7" />
-            <path d="M8 8c0 3 1.8 4 4 4s4-1 4-4" />
-          </svg>
-        </div>
+  // Palette based on gender
+  const isFemale = activeGender === 'female';
+  const isMale = activeGender === 'male';
 
-        {showSignBadge && (
-          <span
-            className={`absolute ${badgeSizeClasses[size]} rounded-full bg-pink-600 text-white font-black flex items-center justify-center border-2 border-white shadow-xs`}
-            title="Female (মহিলা)"
-          >
-            ♀
-          </span>
-        )}
-      </div>
-    );
-  }
+  const bgGradient = isFemale
+    ? 'bg-gradient-to-tr from-pink-500 to-rose-400 text-white shadow-pink-500/20'
+    : isMale
+    ? 'bg-gradient-to-tr from-blue-600 to-indigo-500 text-white shadow-blue-500/20'
+    : 'bg-gradient-to-tr from-slate-600 to-slate-500 text-white shadow-slate-500/20';
 
-  // If male
-  if (gender === 'male') {
-    return (
-      <div className={`relative shrink-0 inline-flex select-none ${className}`}>
-        <div
-          className={`${sizeClasses[size]} rounded-full bg-linear-to-tr from-blue-600 via-indigo-600 to-cyan-500 text-white font-bold flex items-center justify-center shadow-xs ring-2 ring-blue-100 overflow-hidden`}
-          title={`${fullName} (Male)`}
-        >
-          {/* Male Silhouette / Styling */}
-          <svg
-            className="w-[65%] h-[65%] text-white drop-shadow-xs"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            {/* Man head with neat hairline */}
-            <circle cx="12" cy="7" r="4" />
-            <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
-          </svg>
-        </div>
+  const badgeBg = isFemale
+    ? 'bg-pink-600 text-white border-white ring-1 ring-pink-300'
+    : isMale
+    ? 'bg-blue-600 text-white border-white ring-1 ring-blue-300'
+    : 'bg-slate-700 text-white border-white ring-1 ring-slate-400';
 
-        {showSignBadge && (
-          <span
-            className={`absolute ${badgeSizeClasses[size]} rounded-full bg-blue-600 text-white font-black flex items-center justify-center border-2 border-white shadow-xs`}
-            title="Male (পুরুষ)"
-          >
-            ♂
-          </span>
-        )}
-      </div>
-    );
-  }
+  const genderSignSymbol = isFemale ? '♀' : isMale ? '♂' : '👤';
 
-  // Neutral / Not specified yet
   return (
-    <div className={`relative shrink-0 inline-flex select-none ${className}`}>
-      <div
-        className={`${sizeClasses[size]} rounded-full bg-linear-to-tr from-slate-700 via-slate-800 to-slate-900 text-white font-bold flex items-center justify-center shadow-xs ring-2 ring-slate-100 overflow-hidden`}
-        title={fullName}
-      >
-        <span className="font-mono tracking-wider">{initials}</span>
-      </div>
+    <div className={`relative inline-flex shrink-0 select-none ${container} ${className}`}>
+      {customAvatar ? (
+        <img
+          src={customAvatar}
+          alt={user?.fullName || 'User'}
+          className={`w-full h-full rounded-full object-cover ring-2 ${roleRing}`}
+        />
+      ) : (
+        <div
+          className={`w-full h-full rounded-full flex items-center justify-center font-bold shadow-xs ring-2 ${roleRing} ${bgGradient}`}
+          title={`${user?.fullName || 'User'} (${activeGender === 'female' ? 'Female ♀' : activeGender === 'male' ? 'Male ♂' : 'Other'})`}
+        >
+          {/* Gender-specific Avatar Vector SVG */}
+          {isFemale ? (
+            <svg
+              className={`${icon} fill-current`}
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Female Silhouette */}
+              <circle cx="12" cy="7" r="4" />
+              <path d="M12 13c-3.87 0-7 2.13-7 4.75V20h14v-2.25c0-2.62-3.13-4.75-7-4.75z" />
+            </svg>
+          ) : isMale ? (
+            <svg
+              className={`${icon} fill-current`}
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Male Silhouette */}
+              <circle cx="12" cy="7" r="4" />
+              <path d="M12 13c-4.42 0-8 2.24-8 5v2h16v-2c0-2.76-3.58-5-8-5z" />
+            </svg>
+          ) : (
+            <svg
+              className={`${icon} fill-current`}
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="12" cy="7" r="4" />
+              <path d="M12 13c-4.42 0-8 2.24-8 5v2h16v-2c0-2.76-3.58-5-8-5z" />
+            </svg>
+          )}
+        </div>
+      )}
+
+      {/* Gender Sign Badge Overlay (♂ Male / ♀ Female) */}
+      {showSignBadge && (
+        <span
+          className={`absolute flex items-center justify-center rounded-full font-black border-2 leading-none shadow-xs transition-transform ${badge} ${badgeBg}`}
+          title={isFemale ? 'Female ♀' : isMale ? 'Male ♂' : 'User'}
+        >
+          <span className={`${signText} font-serif leading-none select-none`}>
+            {genderSignSymbol}
+          </span>
+        </span>
+      )}
     </div>
   );
 };

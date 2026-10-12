@@ -6,6 +6,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../context/StoreContext';
 import { BANGLADESH_DISTRICTS } from '../data/bangladeshDistricts';
+import { UserGender } from '../types';
+import { UserAvatar } from './common/UserAvatar';
 import {
   X,
   User as UserIcon,
@@ -44,6 +46,7 @@ export const CustomerSettingsModal: React.FC = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<UserGender>('male');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -84,6 +87,7 @@ export const CustomerSettingsModal: React.FC = () => {
       setFullName(currentUser.fullName || '');
       setEmail(currentUser.email || '');
       setPhone(currentUser.phone || '');
+      setGender(currentUser.gender || 'male');
       setNewPassword('');
       setConfirmPassword('');
       setErrorMsg('');
@@ -160,6 +164,7 @@ export const CustomerSettingsModal: React.FC = () => {
       fullName: fullName.trim(),
       email: email.trim(),
       phone: phone.trim(),
+      gender,
       ...(newPassword ? { password: newPassword } : {}),
       address: updatedAddress,
     });
@@ -284,6 +289,86 @@ export const CustomerSettingsModal: React.FC = () => {
           {/* TAB 1: Profile & Contact */}
           {activeTab === 'profile' && (
             <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Live Avatar Preview with Gender Sign */}
+              <div className="flex items-center gap-4 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <UserAvatar
+                  user={{ ...currentUser, fullName, gender }}
+                  gender={gender}
+                  role={currentUser.role}
+                  size="lg"
+                  showSignBadge={true}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-bold text-gray-900 truncate">{fullName || 'Your Name'}</h4>
+                    <span
+                      className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded uppercase ${
+                        gender === 'female'
+                          ? 'bg-pink-100 text-pink-700'
+                          : gender === 'male'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {gender === 'female' ? 'Female (♀)' : gender === 'male' ? 'Male (♂)' : 'Other'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Select your gender below. The corresponding profile sign (♂ / ♀) will be displayed on your account.
+                  </p>
+                </div>
+              </div>
+
+              {/* Gender Selection Grid */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                  Account Gender & Sign <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setGender('male')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      gender === 'male'
+                        ? 'bg-blue-50 border-blue-600 text-blue-900 font-bold ring-2 ring-blue-500/20 shadow-xs'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-xl leading-none font-bold text-blue-600">♂</span>
+                    <span className="text-xs font-bold">Male (♂)</span>
+                    <span className="text-[10px] text-gray-500">Male Sign Avatar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGender('female')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      gender === 'female'
+                        ? 'bg-pink-50 border-pink-600 text-pink-900 font-bold ring-2 ring-pink-500/20 shadow-xs'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-xl leading-none font-bold text-pink-600">♀</span>
+                    <span className="text-xs font-bold">Female (♀)</span>
+                    <span className="text-[10px] text-gray-500">Female Sign Avatar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setGender('other')}
+                    className={`p-3 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
+                      gender === 'other'
+                        ? 'bg-slate-100 border-slate-600 text-slate-900 font-bold ring-2 ring-slate-500/20 shadow-xs'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="text-xl leading-none font-bold text-slate-600">👤</span>
+                    <span className="text-xs font-bold">Other</span>
+                    <span className="text-[10px] text-gray-500">Neutral Avatar</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-gray-700 mb-1">
                   Full Name

@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { UserRole } from '../../types';
+import { UserAvatar } from '../common/UserAvatar';
 import {
   Users,
   ShieldCheck,
@@ -22,6 +23,7 @@ import {
   Shield,
   UserCog,
   ArrowRight,
+  LogIn,
 } from 'lucide-react';
 
 export const UserManagementTab: React.FC = () => {
@@ -32,6 +34,7 @@ export const UserManagementTab: React.FC = () => {
     rejectUser,
     toggleUserBan,
     updateUserRole,
+    setUserById,
     canManageUsers,
   } = useStore();
 
@@ -114,15 +117,12 @@ export const UserManagementTab: React.FC = () => {
               className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-gray-50/50 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <img
-                  src={
-                    member.avatarUrl ||
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80'
-                  }
-                  alt={member.fullName}
-                  className={`w-10 h-10 rounded-full object-cover ring-2 ${
-                    member.role === 'admin' ? 'ring-purple-600' : 'ring-blue-600'
-                  }`}
+                <UserAvatar
+                  user={member}
+                  gender={member.gender}
+                  role={member.role}
+                  size="md"
+                  showSignBadge={true}
                 />
                 <div>
                   <div className="flex items-center gap-2">
@@ -131,10 +131,10 @@ export const UserManagementTab: React.FC = () => {
                       className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase ${
                         member.role === 'admin'
                           ? 'bg-purple-100 text-purple-800'
-                          : 'bg-blue-100 text-blue-800'
+                          : 'bg-amber-100 text-amber-800'
                       }`}
                     >
-                      {member.role}
+                      {member.role === 'moderator' ? 'Staff Moderator' : 'Master Admin'}
                     </span>
                     {member.id === currentUser?.id && (
                       <span className="text-[10px] text-gray-400 font-mono">(You)</span>
@@ -158,14 +158,25 @@ export const UserManagementTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Role Change Control for Staff */}
-              <div className="flex items-center gap-3 self-end sm:self-center">
+              {/* Role Change Control & Switch Test for Staff */}
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                {member.id !== currentUser?.id && (
+                  <button
+                    type="button"
+                    onClick={() => setUserById(member.id)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+                    title={`Test dashboard as ${member.fullName} (${member.role})`}
+                  >
+                    <LogIn className="w-3 h-3 text-blue-600" />
+                    <span>Test Access</span>
+                  </button>
+                )}
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-gray-500 font-medium">Role:</span>
                   <select
                     value={member.role}
                     disabled={member.id === currentUser?.id && member.role === 'admin'}
-                    onChange={e => updateUserRole(member.id, e.target.value as UserRole)}
+                    onChange={e => updateUserRole(member.id, e.target.value as any)}
                     className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 font-bold font-mono focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                   >
                     <option value="admin">Admin</option>
@@ -262,13 +273,12 @@ export const UserManagementTab: React.FC = () => {
                       {/* Customer Info */}
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={
-                              customer.avatarUrl ||
-                              'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80'
-                            }
-                            alt={customer.fullName}
-                            className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                          <UserAvatar
+                            user={customer}
+                            gender={customer.gender}
+                            role={customer.role}
+                            size="sm"
+                            showSignBadge={true}
                           />
                           <div>
                             <span className="font-bold text-gray-900 block">
@@ -339,6 +349,15 @@ export const UserManagementTab: React.FC = () => {
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setUserById(customer.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold text-[11px] transition-colors cursor-pointer"
+                            title="Switch and test session as this user"
+                          >
+                            <LogIn className="w-3 h-3 text-blue-600" />
+                            <span className="hidden sm:inline">Test</span>
+                          </button>
                           {status !== 'approved' && (
                             <button
                               onClick={() => approveUser(customer.id)}

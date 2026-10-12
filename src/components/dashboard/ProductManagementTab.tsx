@@ -509,8 +509,8 @@ export const ProductManagementTab: React.FC = () => {
                             <span className="font-semibold text-gray-900 block truncate max-w-xs">
                               {product.title}
                             </span>
-                            <span className="font-mono text-[11px] text-gray-400">
-                              SKU: {product.sku}
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                              {product.soldCount || 0} pcs sold
                             </span>
                           </div>
                         </div>

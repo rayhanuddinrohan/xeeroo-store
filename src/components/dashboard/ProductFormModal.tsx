@@ -312,10 +312,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || !sku.trim() || price <= 0) {
-      addToast('Please provide valid title, SKU, and positive price.', 'error');
+    if (!title.trim() || price <= 0) {
+      addToast('Please provide a valid product title and price.', 'error');
       return;
     }
+
+    const finalSku = sku.trim() || `PROD-${Date.now().toString(36).toUpperCase()}`;
 
     // Assemble all images: primary thumbnail + gallery images
     const allImages: string[] = [];
@@ -330,9 +332,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
     });
 
-    // Collect all valid images - keep empty if user provided none
-    // Do not forcibly append headphone image
-
     const features = featuresText
       .split('\n')
       .map(f => f.trim())
@@ -345,7 +344,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         description: description.trim(),
         price: Number(price),
         stockQuantity: Number(stockQuantity),
-        sku: sku.trim(),
+        sku: finalSku,
         categoryId,
         images: allImages,
         isPublished,
@@ -360,13 +359,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         description: description.trim(),
         price: Number(price),
         stockQuantity: Number(stockQuantity),
-        sku: sku.trim(),
+        sku: finalSku,
         categoryId,
         images: allImages,
         isPublished,
         brand: brand.trim(),
-        rating: 5.0,
-        reviewsCount: 1,
+        rating: 0,
+        reviewsCount: 0,
+        reviews: [],
+        soldCount: 0,
         features,
         updatedBy: currentUser?.id || 'usr-admin-xeeroo',
       });
@@ -487,19 +488,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
             </div>
 
-            {/* SKU */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                SKU (Stock Keeping Unit) *
-              </label>
-              <input
-                type="text"
-                required
-                value={sku}
-                onChange={e => setSku(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              />
-            </div>
 
             {/* Category */}
             <div>

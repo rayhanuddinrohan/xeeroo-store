@@ -16,6 +16,7 @@ import { ProductImportTab } from './ProductImportTab';
 import { DatabaseManagementTab } from './DatabaseManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
 import { BrandLogo } from '../common/BrandLogo';
+import { UserAvatar } from '../common/UserAvatar';
 import {
   BarChart3,
   Package,
@@ -54,9 +55,9 @@ export const DashboardLayout: React.FC = () => {
   const isModerator = currentUser?.role === 'moderator';
   const isAdmin = currentUser?.role === 'admin';
 
-  // Ensure moderators automatically land on staff tabs (orders or products)
+  // Ensure moderators automatically land on staff tabs (orders by default)
   useEffect(() => {
-    if (isModerator && ['analytics', 'users', 'database', 'docs'].includes(dashboardTab)) {
+    if (isModerator && ['analytics', 'users', 'database', 'docs', 'importer'].includes(dashboardTab)) {
       setDashboardTab('orders');
     }
   }, [isModerator, dashboardTab, setDashboardTab]);
@@ -114,17 +115,26 @@ export const DashboardLayout: React.FC = () => {
                 {isModerator ? 'Staff Dashboard' : 'Admin Console'}
               </h2>
             </div>
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-gray-600 truncate font-medium">
-                {currentUser?.fullName || (isModerator ? 'Staff Member' : 'Administrator')}
-              </p>
-              <span
-                className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase font-mono ${
-                  isModerator ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
-                }`}
-              >
-                {isModerator ? 'Staff Moderator' : 'Master Admin'}
-              </span>
+            <div className="flex items-center gap-2.5 pt-1">
+              <UserAvatar
+                user={currentUser}
+                gender={currentUser?.gender}
+                role={currentUser?.role}
+                size="sm"
+                showSignBadge={true}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-bold text-gray-900 truncate">
+                  {currentUser?.fullName || (isModerator ? 'Staff Member' : 'Administrator')}
+                </p>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase font-mono ${
+                    isModerator ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                  }`}
+                >
+                  {isModerator ? 'Staff Moderator' : 'Master Admin'}
+                </span>
+              </div>
             </div>
           </div>
 
