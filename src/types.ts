@@ -52,11 +52,31 @@ export interface ProductReview {
   id: string;
   productId: string;
   userId?: string;
+  userEmail?: string;
   userName: string;
   userGender?: UserGender;
   rating: number; // 1 to 5 stars
   comment: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export type NotificationType = 'order_placed' | 'order_status' | 'review_request' | 'system';
+
+export interface AppNotification {
+  id: string;
+  userId?: string;
+  userEmail?: string;
+  targetRole?: UserRole | 'staff' | 'all';
+  type: NotificationType;
+  title: string;
+  message: string;
+  orderId?: string;
+  productId?: string;
+  productTitle?: string;
+  isRead: boolean;
+  createdAt: string;
+  link?: string;
 }
 
 export interface Product {

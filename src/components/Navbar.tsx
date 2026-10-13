@@ -9,6 +9,7 @@ import { XEEROO_CONTACT } from '../data/mockData';
 import { BrandLogo } from './common/BrandLogo';
 import { UserAvatar } from './common/UserAvatar';
 import { ContactModal } from './ContactModal';
+import { NotificationBell } from './NotificationBell';
 import { formatBDT } from '../utils/currency';
 import {
   ShoppingBag,
@@ -100,7 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
       return (
         p.title.toLowerCase().includes(q) ||
         p.brand.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
+        (p.sku ? p.sku.toLowerCase().includes(q) : false) ||
         p.description.toLowerCase().includes(q)
       );
     });
@@ -389,6 +390,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               </div>
               <span className="hidden sm:inline">Cart</span>
             </button>
+
+            {/* Real-time Notification Bell */}
+            <NotificationBell />
 
             {/* Unified Login Button */}
             {!isLoggedIn ? (

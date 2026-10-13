@@ -9,6 +9,7 @@ import { formatBDT } from '../../utils/currency';
 import { XEEROO_CONTACT } from '../../data/mockData';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { UserAvatar } from '../common/UserAvatar';
+import { ProductReview } from '../../types';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -35,6 +36,9 @@ import {
   ThumbsUp,
   Send,
   MessageSquarePlus,
+  Pencil,
+  Trash2,
+  LogIn,
 } from 'lucide-react';
 
 export const ProductDetail: React.FC = () => {
@@ -51,6 +55,8 @@ export const ProductDetail: React.FC = () => {
     currentUser,
     setDashboardTab,
     addProductReview,
+    updateProductReview,
+    deleteProductReview,
   } = useStore();
 
   const product = products.find(p => p.id === selectedProductId) || products[0];
@@ -69,8 +75,30 @@ export const ProductDetail: React.FC = () => {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
 
+  // Edit & Delete review state
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState<number>(5);
+  const [editHoverRating, setEditHoverRating] = useState<number>(0);
+  const [editComment, setEditComment] = useState<string>('');
+  const [isUpdatingReview, setIsUpdatingReview] = useState(false);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+
+  const handleOpenReviewForm = () => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to write a review.', 'warning');
+      openLoginModal();
+      return;
+    }
+    setShowReviewForm(prev => !prev);
+  };
+
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser) {
+      addToast('Please sign in or create an account to write a review.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!reviewComment.trim()) {
       addToast('Please write a comment for your review.', 'warning');
       return;
@@ -89,6 +117,49 @@ export const ProductDetail: React.FC = () => {
       }
     } finally {
       setIsSubmittingReview(false);
+    }
+  };
+
+  const startEditReview = (rev: ProductReview) => {
+    setEditingReviewId(rev.id);
+    setEditRating(rev.rating);
+    setEditHoverRating(0);
+    setEditComment(rev.comment);
+  };
+
+  const cancelEditReview = () => {
+    setEditingReviewId(null);
+    setEditRating(5);
+    setEditComment('');
+  };
+
+  const handleSaveEditReview = async (reviewId: string) => {
+    if (!editComment.trim()) {
+      addToast('Review comment cannot be empty.', 'warning');
+      return;
+    }
+    setIsUpdatingReview(true);
+    try {
+      const ok = await updateProductReview(product.id, reviewId, {
+        rating: editRating,
+        comment: editComment,
+      });
+      if (ok) {
+        setEditingReviewId(null);
+      }
+    } finally {
+      setIsUpdatingReview(false);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    if (window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      setDeletingReviewId(reviewId);
+      try {
+        await deleteProductReview(product.id, reviewId);
+      } finally {
+        setDeletingReviewId(null);
+      }
     }
   };
 
@@ -741,7 +812,7 @@ My Delivery Address:`
                   <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full lg:w-auto">
                     <button
                       type="button"
-                      onClick={() => setShowReviewForm(!showReviewForm)}
+                      onClick={handleOpenReviewForm}
                       className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md transition-all cursor-pointer flex items-center gap-2 hover:scale-102 active:scale-98"
                     >
                       <MessageSquarePlus className="w-4 h-4" />
@@ -751,8 +822,33 @@ My Delivery Address:`
                 </div>
               </div>
 
-              {/* Interactive Write Review Form */}
-              {showReviewForm && (
+              {/* Login Required Notice Banner when logged out */}
+              {!currentUser && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <LogIn className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-amber-950">Login Required to Submit Reviews</h4>
+                      <p className="text-[11px] sm:text-xs text-amber-800 mt-0.5">
+                        Please sign in or create an account to post your rating, review, and feedback on this product.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={openLoginModal}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span>Sign In to Review</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Interactive Write Review Form (Only for logged in users) */}
+              {showReviewForm && currentUser && (
                 <div className="bg-white rounded-2xl p-6 sm:p-8 border border-blue-200 shadow-md animate-in fade-in duration-200 space-y-4">
                   <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                     <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
@@ -880,7 +976,7 @@ My Delivery Address:`
                     </p>
                     <button
                       type="button"
-                      onClick={() => setShowReviewForm(true)}
+                      onClick={handleOpenReviewForm}
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
                     >
                       Write the First Review
@@ -888,59 +984,156 @@ My Delivery Address:`
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {product.reviews.map(rev => (
-                      <div
-                        key={rev.id}
-                        className="p-5 rounded-2xl border border-gray-200 bg-white shadow-xs space-y-3 hover:border-gray-300 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <UserAvatar
-                              user={{ fullName: rev.userName, gender: rev.userGender }}
-                              gender={rev.userGender}
-                              size="md"
-                            />
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs text-gray-900">{rev.userName}</span>
-                                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                                  <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
-                                  <span>Verified Buyer</span>
+                    {product.reviews.map(rev => {
+                      const isOwner =
+                        Boolean(currentUser) &&
+                        (rev.userId === currentUser?.id ||
+                          (Boolean(currentUser?.email) && rev.userEmail === currentUser?.email) ||
+                          currentUser?.role === 'admin');
+                      const isEditingThis = editingReviewId === rev.id;
+
+                      return (
+                        <div
+                          key={rev.id}
+                          className="p-5 rounded-2xl border border-gray-200 bg-white shadow-xs space-y-3 hover:border-gray-300 transition-colors"
+                        >
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div className="flex items-center gap-3">
+                              <UserAvatar
+                                user={{ fullName: rev.userName, gender: rev.userGender }}
+                                gender={rev.userGender}
+                                size="md"
+                              />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-xs text-gray-900">{rev.userName}</span>
+                                  {isOwner && (
+                                    <span className="text-[10px] bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded-full border border-blue-200">
+                                      Your Review
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                                    <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>Verified Buyer</span>
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-gray-400">
+                                  {new Date(rev.createdAt).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric',
+                                  })}
+                                  {rev.updatedAt && ' (edited)'}
                                 </span>
                               </div>
-                              <span className="text-[11px] text-gray-400">
-                                {new Date(rev.createdAt).toLocaleDateString('en-US', {
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </span>
+                            </div>
+
+                            {/* Right: Star Rating & Edit/Delete actions */}
+                            <div className="flex items-center gap-3">
+                              {/* Star Rating Display */}
+                              <div className="flex items-center gap-1 text-amber-500">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3.5 h-3.5 ${
+                                      i < Math.floor(rev.rating)
+                                        ? 'fill-amber-400 text-amber-400'
+                                        : 'text-gray-200'
+                                    }`}
+                                  />
+                                ))}
+                                <span className="text-xs font-bold text-gray-700 ml-1">
+                                  {Number(rev.rating).toFixed(1)}
+                                </span>
+                              </div>
+
+                              {/* Owner Edit / Delete controls */}
+                              {isOwner && !isEditingThis && (
+                                <div className="flex items-center gap-1 pl-2 border-l border-gray-200">
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditReview(rev)}
+                                    className="p-1.5 rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                                    title="Edit your review"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deletingReviewId === rev.id}
+                                    onClick={() => handleDeleteReview(rev.id)}
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer disabled:opacity-50"
+                                    title="Delete your review"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Star Rating Display */}
-                          <div className="flex items-center gap-1 text-amber-500">
-                            {[...Array(5)].map((_, i) => (
-                              <Star
-                                key={i}
-                                className={`w-3.5 h-3.5 ${
-                                  i < Math.floor(rev.rating)
-                                    ? 'fill-amber-400 text-amber-400'
-                                    : 'text-gray-200'
-                                }`}
-                              />
-                            ))}
-                            <span className="text-xs font-bold text-gray-700 ml-1">
-                              {Number(rev.rating).toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
+                          {/* Review Content or Inline Edit Form */}
+                          {isEditingThis ? (
+                            <div className="mt-3 p-4 rounded-xl bg-blue-50/60 border border-blue-200 space-y-3 animate-in fade-in duration-150">
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <span className="text-xs font-bold text-blue-950">Edit Your Rating & Review</span>
+                                <div className="flex items-center gap-1">
+                                  {[1, 2, 3, 4, 5].map(starNum => {
+                                    const isFilled = (editHoverRating || editRating) >= starNum;
+                                    return (
+                                      <button
+                                        key={starNum}
+                                        type="button"
+                                        onClick={() => setEditRating(starNum)}
+                                        onMouseEnter={() => setEditHoverRating(starNum)}
+                                        onMouseLeave={() => setEditHoverRating(0)}
+                                        className="p-0.5 cursor-pointer hover:scale-110 transition-transform"
+                                      >
+                                        <Star
+                                          className={`w-5 h-5 ${
+                                            isFilled ? 'fill-amber-400 text-amber-400' : 'text-gray-300'
+                                          }`}
+                                        />
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
 
-                        <p className="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-line pl-1">
-                          {rev.comment}
-                        </p>
-                      </div>
-                    ))}
+                              <textarea
+                                rows={3}
+                                value={editComment}
+                                onChange={e => setEditComment(e.target.value)}
+                                className="w-full p-3 text-xs bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none leading-relaxed text-gray-900"
+                                placeholder="Update your review comment..."
+                              />
+
+                              <div className="flex items-center gap-2 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={cancelEditReview}
+                                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100 text-xs font-semibold cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isUpdatingReview || !editComment.trim()}
+                                  onClick={() => handleSaveEditReview(rev.id)}
+                                  className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                                >
+                                  {isUpdatingReview ? 'Saving...' : 'Save Changes'}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-xs sm:text-sm text-gray-700 leading-relaxed whitespace-pre-line pl-1">
+                              {rev.comment}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1028,7 +1221,7 @@ My Delivery Address:`
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             {relatedProducts.map(relProduct => (
               <div
                 key={relProduct.id}

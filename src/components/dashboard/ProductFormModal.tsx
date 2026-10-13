@@ -178,7 +178,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setDescription(productToEdit.description);
       setPrice(productToEdit.price);
       setStockQuantity(productToEdit.stockQuantity);
-      setSku(productToEdit.sku);
+      setSku(productToEdit.sku || '');
       setCategoryId(productToEdit.categoryId);
       setIsPublished(productToEdit.isPublished);
       setBrand(productToEdit.brand || '');

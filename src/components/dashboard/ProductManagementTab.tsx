@@ -154,7 +154,7 @@ export const ProductManagementTab: React.FC = () => {
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchesTitle = p.title.toLowerCase().includes(q);
-      const matchesSku = p.sku.toLowerCase().includes(q);
+      const matchesSku = p.sku ? p.sku.toLowerCase().includes(q) : false;
       if (!matchesTitle && !matchesSku) return false;
     }
     if (selectedCat !== 'all' && p.categoryId !== selectedCat) return false;

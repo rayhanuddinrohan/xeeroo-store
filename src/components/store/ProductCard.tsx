@@ -22,12 +22,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     openCheckoutModal,
     openLoginModal,
     addToast,
-    categories,
     currentUser,
     setDashboardTab,
   } = useStore();
 
-  const category = categories.find(c => c.id === product.categoryId);
   const isOutOfStock = product.stockQuantity <= 0;
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
@@ -110,37 +108,14 @@ My Delivery Address:`
           </div>
         )}
 
-        {/* Top badges */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start z-10">
-          {category && (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white/90 backdrop-blur-xs text-gray-800 shadow-xs">
-              {category.name}
-            </span>
-          )}
-
-          {!product.isPublished && (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-500 text-white shadow-xs uppercase tracking-wide">
+        {/* Staff Draft Badge if unpublished */}
+        {!product.isPublished && (
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-500 text-white shadow-xs uppercase tracking-wide">
               Draft (Staff View)
             </span>
-          )}
-        </div>
-
-        {/* Stock Status Badge */}
-        <div className="absolute top-2.5 right-2.5 z-10">
-          {isOutOfStock ? (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-900/85 backdrop-blur-xs text-white">
-              0 pcs (Out of Stock)
-            </span>
-          ) : isLowStock ? (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-600 text-white shadow-xs">
-              Only {product.stockQuantity} pcs left
-            </span>
-          ) : (
-            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-600 text-white shadow-xs">
-              {product.stockQuantity} pcs in stock
-            </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Staff Quick Edit Overlay Button */}
         {isStaff && (
@@ -156,12 +131,12 @@ My Delivery Address:`
       </div>
 
       {/* Card Content */}
-      <div className="p-4 flex-1 flex flex-col justify-between">
+      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5 gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full shadow-2xs">
+          <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5 gap-1 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 sm:px-2.5 py-0.5 rounded-full shadow-2xs">
               <Flame className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
-              <span>{product.soldCount || 0} pcs sold</span>
+              <span>{product.soldCount || 0} sold</span>
             </span>
             {product.reviewsCount > 0 ? (
               <div
@@ -173,9 +148,9 @@ My Delivery Address:`
                 className="flex items-center gap-1 text-amber-500 cursor-pointer hover:opacity-80 transition-opacity"
                 title="View customer reviews"
               >
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-                <span className="font-bold text-gray-800 text-xs">{product.rating.toFixed(1)}</span>
-                <span className="text-gray-400 text-[11px]">({product.reviewsCount})</span>
+                <Star className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400 text-amber-400 shrink-0" />
+                <span className="font-bold text-gray-800 text-[11px] sm:text-xs">{product.rating.toFixed(1)}</span>
+                <span className="text-gray-400 text-[10px] sm:text-[11px]">({product.reviewsCount})</span>
               </div>
             ) : (
               <span
@@ -184,22 +159,22 @@ My Delivery Address:`
                   setSelectedProductId(product.id);
                   setViewMode('product-detail');
                 }}
-                className="text-[11px] text-gray-400 italic cursor-pointer hover:text-blue-600 transition-colors"
+                className="text-[10px] sm:text-[11px] text-gray-400 italic cursor-pointer hover:text-blue-600 transition-colors"
                 title="Rate this product"
               >
-                No ratings yet
+                No ratings
               </span>
             )}
           </div>
 
-          <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2">
             {product.title}
           </h3>
 
-          {/* Stock Quantity in Pieces - Description removed per request */}
-          <div className="flex items-center justify-between text-xs mb-3 py-1.5 px-2.5 rounded-lg bg-slate-50 border border-slate-100">
-            <span className="text-gray-500 font-medium flex items-center gap-1.5">
-              <Package className="w-3.5 h-3.5 text-blue-600" />
+          {/* Stock Quantity in Pieces - Keep only under title */}
+          <div className="flex items-center justify-between text-[11px] sm:text-xs mb-2.5 sm:mb-3 py-1 sm:py-1.5 px-2 sm:px-2.5 rounded-lg bg-slate-50 border border-slate-100">
+            <span className="text-gray-500 font-medium flex items-center gap-1">
+              <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" />
               <span>Stock:</span>
             </span>
             <span
@@ -211,23 +186,23 @@ My Delivery Address:`
                   : 'text-emerald-700'
               }`}
             >
-              {product.stockQuantity > 0 ? `${product.stockQuantity} pcs` : '0 pcs (Out of stock)'}
+              {product.stockQuantity > 0 ? `${product.stockQuantity} pcs` : 'Out of stock'}
             </span>
           </div>
         </div>
 
-        <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 mt-auto">
+        <div className="pt-2 sm:pt-3 border-t border-gray-100 flex items-center justify-between gap-1 sm:gap-2 mt-auto">
           <div>
-            <span className="text-xs text-gray-400 block font-medium">Price</span>
-            <span className="text-lg font-bold text-gray-900 font-mono">
+            <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">Price</span>
+            <span className="text-sm sm:text-lg font-bold text-gray-900 font-mono">
               {formatBDT(product.price)}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {isOutOfStock ? (
-              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-gray-100 text-gray-400 font-semibold text-xs border border-gray-200">
-                Out of Stock
+              <span className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-gray-100 text-gray-400 font-semibold text-[11px] sm:text-xs border border-gray-200">
+                Sold Out
               </span>
             ) : (
               <>
@@ -235,21 +210,20 @@ My Delivery Address:`
                   id={`quick-order-btn-${product.id}`}
                   type="button"
                   onClick={handleQuickBuy}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98"
+                  className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] sm:text-xs shadow-xs transition-all cursor-pointer hover:scale-102 active:scale-98"
                   title="Direct Online Order"
                 >
-                  <span>Order Now</span>
+                  <span>Order</span>
                 </button>
 
                 <button
                   id={`add-to-cart-btn-${product.id}`}
                   type="button"
                   onClick={handleAddToCart}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 text-gray-700 font-medium text-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center p-1 sm:px-2 sm:py-1.5 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-blue-50 hover:text-blue-600 text-gray-700 font-medium text-xs transition-colors cursor-pointer"
                   title="Add to Shopping Cart"
                 >
                   <ShoppingBag className="w-3.5 h-3.5 text-gray-600" />
-                  <span className="hidden xs:inline">Cart</span>
                 </button>
 
                 <a

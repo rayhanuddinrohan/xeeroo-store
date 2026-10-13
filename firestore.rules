@@ -37,5 +37,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if true;
     }
+
+    // Real-time Notifications: allow read, write
+    match /notifications/{notificationId} {
+      allow read, write: if true;
+    }
   }
 }

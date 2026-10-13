@@ -18,10 +18,19 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  Star,
 } from 'lucide-react';
 
 export const OrderHistory: React.FC = () => {
-  const { userOrders, currentUser, setViewMode, setDashboardTab, canUpdateOrderStatus, openLoginModal } = useStore();
+  const {
+    userOrders,
+    currentUser,
+    setViewMode,
+    setDashboardTab,
+    canUpdateOrderStatus,
+    openLoginModal,
+    setSelectedProductId,
+  } = useStore();
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   if (!currentUser) {
@@ -263,9 +272,26 @@ export const OrderHistory: React.FC = () => {
                               </div>
                             </div>
 
-                            <span className="text-xs font-bold text-gray-900 font-mono">
-                              {formatBDT(item.quantity * item.unitPrice)}
-                            </span>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              {order.status === 'delivered' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProductId(item.productId);
+                                    setViewMode('product-detail');
+                                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 font-bold text-[11px] shadow-2xs transition-colors cursor-pointer"
+                                  title="Rate & Review this delivered product"
+                                >
+                                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                  <span>Review</span>
+                                </button>
+                              )}
+                              <span className="text-xs font-bold text-gray-900 font-mono">
+                                {formatBDT(item.quantity * item.unitPrice)}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>

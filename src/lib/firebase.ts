@@ -20,7 +20,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { Product, User, Category, Order, BannerSlide } from "../types";
+import { Product, User, Category, Order, BannerSlide, AppNotification } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -710,5 +710,134 @@ export const syncAllDataToFirestore = async (
       counts: { products: 0, categories: 0, users: 0, orders: 0 },
       message: error.message || 'Failed to synchronize with Firestore.',
     };
+  }
+};
+
+// ==========================================
+// 8. Notifications Collection (Real-time Sync)
+// ==========================================
+export const saveFirestoreNotification = async (notification: AppNotification): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'notifications', notification.id);
+    const cleanData: Record<string, any> = {
+      id: notification.id,
+      title: notification.title || '',
+      message: notification.message || '',
+      type: notification.type || 'system',
+      isRead: Boolean(notification.isRead),
+      createdAt: notification.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    if (notification.userId) cleanData.userId = notification.userId;
+    if (notification.userEmail) cleanData.userEmail = notification.userEmail;
+    if (notification.targetRole) cleanData.targetRole = notification.targetRole;
+    if (notification.orderId) cleanData.orderId = notification.orderId;
+    if (notification.productId) cleanData.productId = notification.productId;
+    if (notification.productTitle) cleanData.productTitle = notification.productTitle;
+    if (notification.link) cleanData.link = notification.link;
+
+    await setDoc(docRef, cleanData, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Failed to save notification to Firestore:', err);
+    return false;
+  }
+};
+
+export const subscribeToFirestoreNotifications = (
+  onNotificationsUpdate: (notifications: AppNotification[]) => void,
+  onError?: (err: unknown) => void
+) => {
+  const colRef = collection(db, 'notifications');
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: AppNotification[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data && data.title) {
+          list.push({
+            id: data.id || docSnap.id,
+            userId: data.userId || '',
+            userEmail: data.userEmail || '',
+            targetRole: data.targetRole || 'all',
+            type: data.type || 'system',
+            title: data.title || '',
+            message: data.message || '',
+            orderId: data.orderId || '',
+            productId: data.productId || '',
+            productTitle: data.productTitle || '',
+            isRead: Boolean(data.isRead),
+            createdAt: data.createdAt || new Date().toISOString(),
+            link: data.link || '',
+          });
+        }
+      });
+      // Sort newest first
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      onNotificationsUpdate(list);
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot notifications error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+export const fetchFirestoreNotifications = async (): Promise<AppNotification[]> => {
+  try {
+    const colRef = collection(db, 'notifications');
+    const snapshot = await getDocs(colRef);
+    const list: AppNotification[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      if (data && data.title) {
+        list.push({
+          id: data.id || docSnap.id,
+          userId: data.userId || '',
+          userEmail: data.userEmail || '',
+          targetRole: data.targetRole || 'all',
+          type: data.type || 'system',
+          title: data.title || '',
+          message: data.message || '',
+          orderId: data.orderId || '',
+          productId: data.productId || '',
+          productTitle: data.productTitle || '',
+          isRead: Boolean(data.isRead),
+          createdAt: data.createdAt || new Date().toISOString(),
+          link: data.link || '',
+        });
+      }
+    });
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return list;
+  } catch (err) {
+    console.warn('Firestore fetch notifications error:', err);
+    return [];
+  }
+};
+
+export const updateFirestoreNotification = async (
+  id: string,
+  updates: Partial<AppNotification>
+): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'notifications', id);
+    await setDoc(docRef, updates, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Failed to update notification in Firestore:', err);
+    return false;
+  }
+};
+
+export const deleteFirestoreNotification = async (id: string): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'notifications', id);
+    await deleteDoc(docRef);
+    return true;
+  } catch (err) {
+    console.warn('Failed to delete notification in Firestore:', err);
+    return false;
   }
 };

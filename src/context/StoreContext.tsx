@@ -18,6 +18,7 @@ import {
   UserRole,
   UserGender,
   ViewMode,
+  AppNotification,
 } from '../types';
 import {
   INITIAL_BANNERS,
@@ -49,7 +50,13 @@ import {
   testFirestoreConnection,
   signInWithGooglePopup,
   updateFirestoreUserRoleByEmailAndId,
+  saveFirestoreNotification,
+  subscribeToFirestoreNotifications,
+  fetchFirestoreNotifications,
+  updateFirestoreNotification,
+  deleteFirestoreNotification,
 } from '../lib/firebase';
+import { formatBDT } from '../utils/currency';
 
 interface StoreContextType {
   // Current user & Auth state
@@ -162,6 +169,23 @@ interface StoreContextType {
     productId: string,
     review: { rating: number; comment: string; reviewerName?: string; userGender?: UserGender }
   ) => Promise<boolean>;
+  updateProductReview: (
+    productId: string,
+    reviewId: string,
+    updates: { rating: number; comment: string }
+  ) => Promise<boolean>;
+  deleteProductReview: (productId: string, reviewId: string) => Promise<boolean>;
+
+  // Notifications (Real-time system)
+  notifications: AppNotification[];
+  unreadNotificationsCount: number;
+  addNotification: (
+    notification: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>
+  ) => Promise<boolean>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsAsRead: () => Promise<void>;
+  deleteNotification: (notificationId: string) => Promise<void>;
+  clearAllNotifications: () => Promise<void>;
 
   // Categories (Admin)
   addCategory: (name: string, description?: string) => boolean;
@@ -226,6 +250,7 @@ const STORAGE_KEY_USERS = 'xeeroo_store_users_v3';
 const STORAGE_KEY_CART = 'xeeroo_store_cart_v3';
 const STORAGE_KEY_BANNERS = 'xeeroo_store_banners_v3';
 const STORAGE_KEY_CURRENT_USER_ID = 'xeeroo_store_current_user_id_v3';
+const STORAGE_KEY_NOTIFICATIONS = 'xeeroo_store_notifications_v3';
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // 1. Users state
@@ -419,6 +444,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let unsubscribeProducts: (() => void) | null = null;
     let unsubscribeOrders: (() => void) | null = null;
     let unsubscribeUsers: (() => void) | null = null;
+    let unsubscribeNotifications: (() => void) | null = null;
 
     const initDatabase = async () => {
       try {
@@ -551,6 +577,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               lastSyncedAt: new Date().toLocaleTimeString(),
             }));
           });
+
+          // Attach real-time Firestore listener for notifications
+          unsubscribeNotifications = subscribeToFirestoreNotifications((liveNotifs) => {
+            if (!isMounted) return;
+            setNotifications(liveNotifs);
+            try {
+              localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(liveNotifs));
+            } catch {
+              // ignore
+            }
+          });
         } else {
           setDbStatus(prev => ({
             ...prev,
@@ -569,6 +606,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (unsubscribeProducts) unsubscribeProducts();
       if (unsubscribeOrders) unsubscribeOrders();
       if (unsubscribeUsers) unsubscribeUsers();
+      if (unsubscribeNotifications) unsubscribeNotifications();
     };
   }, []);
 
@@ -672,6 +710,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CART);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Notifications state (Real-time synced with Firestore)
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -1806,6 +1854,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       userGender?: UserGender;
     }
   ): Promise<boolean> => {
+    if (!currentUser) {
+      addToast('Please sign in or create an account to post a review.', 'warning');
+      openLoginModal();
+      return false;
+    }
+
     const product = products.find(p => p.id === productId);
     if (!product) {
       addToast('Product not found in catalog.', 'error');
@@ -1819,13 +1873,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const validRating = Math.max(1, Math.min(5, Math.round(reviewData.rating)));
     const nowIso = new Date().toISOString();
-    const reviewerName = (reviewData.reviewerName || currentUser?.fullName || 'Verified Buyer').trim();
-    const gender = reviewData.userGender || currentUser?.gender || 'male';
+    const reviewerName = (reviewData.reviewerName || currentUser.fullName || 'Verified Customer').trim();
+    const gender = reviewData.userGender || currentUser.gender || 'male';
 
     const newReview = {
       id: `rev-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       productId,
-      userId: currentUser?.id || 'guest',
+      userId: currentUser.id,
+      userEmail: currentUser.email,
       userName: reviewerName,
       userGender: gender,
       rating: validRating,
@@ -1858,6 +1913,140 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     await saveFirestoreProduct(updatedProduct);
 
     addToast(`Thank you, ${reviewerName}! Your rating & review has been added.`, 'success');
+    return true;
+  };
+
+  const updateProductReview = async (
+    productId: string,
+    reviewId: string,
+    updates: { rating: number; comment: string }
+  ): Promise<boolean> => {
+    if (!currentUser) {
+      addToast('Please sign in to update your review.', 'warning');
+      openLoginModal();
+      return false;
+    }
+
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+      addToast('Product not found in catalog.', 'error');
+      return false;
+    }
+
+    const existingReviews = product.reviews || [];
+    const targetRev = existingReviews.find(r => r.id === reviewId);
+    if (!targetRev) {
+      addToast('Review not found.', 'error');
+      return false;
+    }
+
+    const isOwner =
+      targetRev.userId === currentUser.id ||
+      (currentUser.email && targetRev.userEmail === currentUser.email) ||
+      currentUser.role === 'admin';
+
+    if (!isOwner) {
+      addToast('Access Denied: You can only edit your own reviews.', 'error');
+      return false;
+    }
+
+    const validRating = Math.max(1, Math.min(5, Math.round(updates.rating)));
+    const nowIso = new Date().toISOString();
+
+    const updatedReviews = existingReviews.map(r => {
+      if (r.id === reviewId) {
+        return {
+          ...r,
+          rating: validRating,
+          comment: updates.comment.trim(),
+          updatedAt: nowIso,
+        };
+      }
+      return r;
+    });
+
+    const totalScore = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
+    const calculatedRating = Number((totalScore / updatedReviews.length).toFixed(1));
+
+    const updatedProduct: Product = {
+      ...product,
+      reviews: updatedReviews,
+      rating: calculatedRating,
+      reviewsCount: updatedReviews.length,
+      updatedAt: nowIso,
+    };
+
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updatedProduct : p));
+      try {
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(next));
+      } catch (err) {
+        console.warn('LocalStorage save error:', err);
+      }
+      return next;
+    });
+    await saveFirestoreProduct(updatedProduct);
+
+    addToast('Your review has been updated successfully!', 'success');
+    return true;
+  };
+
+  const deleteProductReview = async (productId: string, reviewId: string): Promise<boolean> => {
+    if (!currentUser) {
+      addToast('Please sign in to delete your review.', 'warning');
+      openLoginModal();
+      return false;
+    }
+
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+      addToast('Product not found in catalog.', 'error');
+      return false;
+    }
+
+    const existingReviews = product.reviews || [];
+    const targetRev = existingReviews.find(r => r.id === reviewId);
+    if (!targetRev) {
+      addToast('Review not found.', 'error');
+      return false;
+    }
+
+    const isOwner =
+      targetRev.userId === currentUser.id ||
+      (currentUser.email && targetRev.userEmail === currentUser.email) ||
+      currentUser.role === 'admin';
+
+    if (!isOwner) {
+      addToast('Access Denied: You can only delete your own reviews.', 'error');
+      return false;
+    }
+
+    const updatedReviews = existingReviews.filter(r => r.id !== reviewId);
+    const totalScore = updatedReviews.reduce((sum, r) => sum + r.rating, 0);
+    const calculatedRating =
+      updatedReviews.length > 0 ? Number((totalScore / updatedReviews.length).toFixed(1)) : 0;
+
+    const nowIso = new Date().toISOString();
+    const updatedProduct: Product = {
+      ...product,
+      reviews: updatedReviews,
+      rating: calculatedRating,
+      reviewsCount: updatedReviews.length,
+      updatedAt: nowIso,
+    };
+
+    setProducts(prev => {
+      const next = prev.map(p => (p.id === productId ? updatedProduct : p));
+      try {
+        localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(next));
+      } catch (err) {
+        console.warn('LocalStorage save error:', err);
+      }
+      return next;
+    });
+    await saveFirestoreProduct(updatedProduct);
+
+    addToast('Review deleted successfully.', 'info');
     return true;
   };
 
@@ -2103,6 +2292,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save order directly to Firestore database!
     await saveFirestoreOrder(newOrder);
 
+    // Notify Admin/Staff in real-time
+    addNotification({
+      targetRole: 'staff',
+      type: 'order_placed',
+      title: 'New Customer Order Received',
+      message: `Order #${orderId} was placed by ${orderCustomer.fullName || orderCustomer.email} for ${formatBDT(cartTotal)} (${cart.length} items).`,
+      orderId,
+    });
+
     addToast(`Order #${orderId} placed successfully and saved to database!`, 'success');
     return newOrder;
   };
@@ -2112,6 +2310,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addToast('Access Denied: Only Staff can update order status.', 'error');
       return false;
     }
+
+    const targetOrder = orders.find(o => o.id === orderId);
 
     setOrders(prev =>
       prev.map(o => {
@@ -2123,9 +2323,146 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return o;
       })
     );
+
+    // Notify Customer about order status change
+    if (targetOrder?.userId || targetOrder?.userEmail) {
+      addNotification({
+        userId: targetOrder.userId || undefined,
+        userEmail: targetOrder.userEmail || undefined,
+        type: 'order_status',
+        title: `Order Status: ${status.toUpperCase()}`,
+        message: `Your order #${orderId} status has been updated to "${status.toUpperCase()}".`,
+        orderId,
+      });
+
+      // Auto-trigger: Send a "Review Request" notification when status is 'delivered'
+      if (status === 'delivered' && targetOrder.items && targetOrder.items.length > 0) {
+        targetOrder.items.forEach(item => {
+          addNotification({
+            userId: targetOrder.userId || undefined,
+            userEmail: targetOrder.userEmail || undefined,
+            type: 'review_request',
+            orderId,
+            productId: item.productId,
+            productTitle: item.productTitle,
+            title: `Review Request: ${item.productTitle}`,
+            message: `Your order #${orderId} has been delivered! How was your experience with ${item.productTitle}? Tap to leave a rating & review.`,
+          });
+        });
+      }
+    }
+
     addToast(`Order #${orderId} marked as ${status.toUpperCase()}`, 'success');
     return true;
   };
+
+  // Notification helper methods (Real-time Firestore)
+  const addNotification = async (
+    data: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>
+  ): Promise<boolean> => {
+    const newNotification: AppNotification = {
+      ...data,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    setNotifications(prev => {
+      const next = [newNotification, ...prev];
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+      }
+      return next;
+    });
+
+    await saveFirestoreNotification(newNotification);
+    return true;
+  };
+
+  const markNotificationAsRead = async (notificationId: string) => {
+    setNotifications(prev => {
+      const next = prev.map(n => (n.id === notificationId ? { ...n, isRead: true } : n));
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+      }
+      return next;
+    });
+    await updateFirestoreNotification(notificationId, { isRead: true });
+  };
+
+  const markAllNotificationsAsRead = async () => {
+    const unreadIds = visibleNotifications.filter(n => !n.isRead).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    setNotifications(prev => {
+      const next = prev.map(n => (unreadIds.includes(n.id) ? { ...n, isRead: true } : n));
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+      }
+      return next;
+    });
+    await Promise.all(unreadIds.map(id => updateFirestoreNotification(id, { isRead: true })));
+    addToast('All notifications marked as read', 'info');
+  };
+
+  const deleteNotification = async (notificationId: string) => {
+    setNotifications(prev => {
+      const next = prev.filter(n => n.id !== notificationId);
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+      }
+      return next;
+    });
+    await deleteFirestoreNotification(notificationId);
+  };
+
+  const clearAllNotifications = async () => {
+    const idsToClear = visibleNotifications.map(n => n.id);
+    setNotifications(prev => {
+      const next = prev.filter(n => !idsToClear.includes(n.id));
+      try {
+        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+      } catch (e) {
+        console.warn('LocalStorage error:', e);
+      }
+      return next;
+    });
+    await Promise.all(idsToClear.map(id => deleteFirestoreNotification(id)));
+    addToast('All notifications cleared', 'info');
+  };
+
+  const visibleNotifications = useMemo(() => {
+    if (!currentUser) {
+      return notifications.filter(n => n.targetRole === 'all');
+    }
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'moderator';
+    return notifications.filter(n => {
+      if (isStaff) {
+        return (
+          n.targetRole === 'staff' ||
+          n.targetRole === 'all' ||
+          n.userId === currentUser.id ||
+          (currentUser.email && n.userEmail === currentUser.email)
+        );
+      }
+      return (
+        n.userId === currentUser.id ||
+        (currentUser.email && n.userEmail === currentUser.email) ||
+        n.targetRole === 'all'
+      );
+    });
+  }, [notifications, currentUser]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return visibleNotifications.filter(n => !n.isRead).length;
+  }, [visibleNotifications]);
 
   // User-specific orders
   const userOrders = useMemo(() => {
@@ -2215,6 +2552,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     deleteProduct,
     toggleProductPublish,
     addProductReview,
+    updateProductReview,
+    deleteProductReview,
+
+    // Real-time Notifications
+    notifications: visibleNotifications,
+    unreadNotificationsCount,
+    addNotification,
+    markNotificationAsRead,
+    markAllNotificationsAsRead,
+    deleteNotification,
+    clearAllNotifications,
 
     addCategory,
     deleteCategory,
