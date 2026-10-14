@@ -39,17 +39,12 @@ export const CheckoutPage: React.FC = () => {
     addToast,
   } = useStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<'bkash' | 'cod' | 'card'>('bkash');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'bkash'>('cod');
   const [bkashNumber, setBkashNumber] = useState(currentUser?.phone || '');
   const [bkashTrxId, setBkashTrxId] = useState('');
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<Order | null>(null);
-
-  // Card payment simulation states
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('888');
 
   // Check if customer has a valid shipping address saved in Account Settings
   const hasShippingAddress = Boolean(
@@ -423,8 +418,28 @@ Please confirm and dispatch my order. Thank you!`;
             </div>
 
             {/* Payment Method Selector Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* bKash MFS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* 1. Cash on Delivery (Default) */}
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('cod')}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
+                  paymentMethod === 'cod'
+                    ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20 shadow-xs'
+                    : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <Truck className="w-5 h-5 text-emerald-600" />
+                  {paymentMethod === 'cod' && (
+                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                  )}
+                </div>
+                <span className="text-xs font-bold text-gray-900 block">Cash on Delivery</span>
+                <span className="text-[11px] text-gray-500 block">Pay at Doorstep with Cash</span>
+              </button>
+
+              {/* 2. bKash (MFS) */}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('bkash')}
@@ -443,47 +458,7 @@ Please confirm and dispatch my order. Thank you!`;
                   )}
                 </div>
                 <span className="text-xs font-bold text-gray-900 block">bKash (MFS)</span>
-                <span className="text-[11px] text-gray-500 block">Instant Send Money</span>
-              </button>
-
-              {/* Cash on Delivery */}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('cod')}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
-                  paymentMethod === 'cod'
-                    ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20 shadow-xs'
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <Truck className="w-4 h-4 text-emerald-600" />
-                  {paymentMethod === 'cod' && (
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <span className="text-xs font-bold text-gray-900 block">Cash on Delivery</span>
-                <span className="text-[11px] text-gray-500 block">Pay at Doorstep</span>
-              </button>
-
-              {/* Debit / Credit Card */}
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('card')}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
-                  paymentMethod === 'card'
-                    ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20 shadow-xs'
-                    : 'border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <CreditCard className="w-4 h-4 text-blue-600" />
-                  {paymentMethod === 'card' && (
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <span className="text-xs font-bold text-gray-900 block">Card Payment</span>
-                <span className="text-[11px] text-gray-500 block">Visa, Mastercard</span>
+                <span className="text-[11px] text-gray-500 block">Instant Send Money to Official Account</span>
               </button>
             </div>
 
@@ -594,40 +569,6 @@ Please confirm and dispatch my order. Thank you!`;
               </div>
             )}
 
-            {/* SIMULATED CARD FORM */}
-            {paymentMethod === 'card' && (
-              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Card Number</label>
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={e => setCardNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">Expiry</label>
-                    <input
-                      type="text"
-                      value={cardExpiry}
-                      onChange={e => setCardExpiry(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-700 mb-1">CVC / CVV</label>
-                    <input
-                      type="password"
-                      value={cardCvc}
-                      onChange={e => setCardCvc(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* SUBMIT ORDER BUTTONS */}
             <div className="pt-2 space-y-3">

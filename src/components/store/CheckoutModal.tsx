@@ -108,10 +108,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal' | 'cod'>('cod');
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [cardExpiry, setCardExpiry] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('888');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'paypal'>('cod');
 
   if (!isOpen) return null;
 
@@ -162,9 +159,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const paymentLabel =
         paymentMethod === 'cod'
           ? 'Cash on Delivery'
-          : paymentMethod === 'paypal'
-          ? 'bKash / Nagad (MFS)'
-          : 'Credit / Debit Card';
+          : 'bKash / Nagad (MFS)';
 
       const orderMsg = `Hello! I would like to confirm my order:
 
@@ -474,7 +469,7 @@ Please confirm and dispatch the order. Thank you!`;
                 Select Payment Method
               </label>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setPaymentMethod('cod')}
@@ -494,65 +489,16 @@ Please confirm and dispatch the order. Thank you!`;
                   onClick={() => setPaymentMethod('paypal')}
                   className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
                     paymentMethod === 'paypal'
-                      ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold ring-2 ring-blue-100'
+                      ? 'border-[#D12053] bg-pink-50/50 text-[#D12053] font-bold ring-2 ring-[#D12053]/20'
                       : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <span className="text-base font-extrabold text-pink-600 block mb-0.5">MFS</span>
+                  <span className="text-base font-extrabold text-[#D12053] block mb-0.5">bKash</span>
                   <span className="text-xs block font-semibold">bKash / Nagad</span>
                   <span className="text-[10px] text-gray-500 block">Mobile Wallet</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('card')}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                    paymentMethod === 'card'
-                      ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold ring-2 ring-blue-100'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5 mx-auto mb-1 text-blue-600" />
-                  <span className="text-xs block font-semibold">Debit / Credit</span>
-                  <span className="text-[10px] text-gray-500 block">Visa, Mastercard</span>
-                </button>
               </div>
             </div>
-
-            {/* Simulated Card Form */}
-            {paymentMethod === 'card' && (
-              <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 space-y-2.5">
-                <div>
-                  <label className="block text-[11px] font-medium text-gray-600 mb-1">Card Number</label>
-                  <input
-                    type="text"
-                    value={cardNumber}
-                    onChange={e => setCardNumber(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg font-mono text-gray-900"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-medium text-gray-600 mb-1">Expiry Date</label>
-                    <input
-                      type="text"
-                      value={cardExpiry}
-                      onChange={e => setCardExpiry(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg font-mono text-gray-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-medium text-gray-600 mb-1">CVC Code</label>
-                    <input
-                      type="text"
-                      value={cardCvc}
-                      onChange={e => setCardCvc(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg font-mono text-gray-900"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Order Price Breakdown with 150 BDT Delivery Charge */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs space-y-2">
@@ -672,7 +618,7 @@ Please confirm and dispatch the order. Thank you!`;
               <div className="flex justify-between text-gray-600">
                 <span>Payment Method:</span>
                 <span className="font-semibold text-gray-900 uppercase">
-                  {createdOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : createdOrder.paymentMethod === 'paypal' ? 'bKash / Nagad' : 'Card'}
+                  {createdOrder.paymentMethod === 'cod' ? 'Cash on Delivery' : 'bKash / Nagad'}
                 </span>
               </div>
               <div className="flex justify-between text-gray-600">
