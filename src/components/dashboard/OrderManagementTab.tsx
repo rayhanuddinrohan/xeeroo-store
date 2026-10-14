@@ -24,7 +24,10 @@ import {
   X,
   Check,
   RotateCcw,
+  Bot,
 } from 'lucide-react';
+import { TelegramSettingsModal } from './TelegramSettingsModal';
+import { getStoredTelegramConfig } from '../../utils/telegram';
 
 export const OrderManagementTab: React.FC = () => {
   const { orders, updateOrderStatus, canUpdateOrderStatus, addToast } = useStore();
@@ -55,6 +58,10 @@ export const OrderManagementTab: React.FC = () => {
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [checkedStatusResult, setCheckedStatusResult] = useState<any | null>(null);
   const [checkedStatusError, setCheckedStatusError] = useState<string | null>(null);
+
+  // Telegram Order Alerts Modal State
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [telegramConfig, setTelegramConfig] = useState(getStoredTelegramConfig());
 
   const toggleExpand = (id: string) => {
     setExpandedOrderId(prev => (prev === id ? null : id));
@@ -142,7 +149,7 @@ export const OrderManagementTab: React.FC = () => {
       addToast(`Order forwarded to Business Koro! BK Order ID: #${returnedOrderId}`, 'success');
       // Optionally mark local order as processing
       if (bkModalOrder) {
-        updateOrderStatus(bkModalOrder.id, 'processing');
+        await updateOrderStatus(bkModalOrder.id, 'processing');
       }
     } catch (err: any) {
       setBkSubmitResult({
@@ -213,12 +220,12 @@ export const OrderManagementTab: React.FC = () => {
     return true;
   });
 
-  const handleStatusChange = (orderId: string, newStatus: OrderStatus) => {
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     if (!canUpdateOrderStatus) {
       addToast('RBAC Access Denied: You do not have permission to modify order statuses.', 'error');
       return;
     }
-    updateOrderStatus(orderId, newStatus);
+    await updateOrderStatus(orderId, newStatus);
   };
 
   return (
@@ -251,7 +258,27 @@ export const OrderManagementTab: React.FC = () => {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Telegram Order Alerts Button */}
+          <button
+            type="button"
+            onClick={() => setIsTelegramModalOpen(true)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+              telegramConfig.enabled && telegramConfig.botToken
+                ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-xs'
+                : 'bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200'
+            }`}
+            title="Configure Telegram Bot to receive instant notifications on new orders"
+          >
+            <Bot className="w-3.5 h-3.5 text-sky-200" />
+            <span>Telegram Bot Alerts</span>
+            {telegramConfig.enabled && telegramConfig.botToken ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" title="Active"></span>
+            ) : (
+              <span className="px-1.5 py-0.2 bg-sky-200/60 rounded text-[10px] font-normal text-sky-900">Setup</span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -785,6 +812,15 @@ export const OrderManagementTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Telegram Order Alerts Settings Modal */}
+      <TelegramSettingsModal
+        isOpen={isTelegramModalOpen}
+        onClose={() => {
+          setIsTelegramModalOpen(false);
+          setTelegramConfig(getStoredTelegramConfig());
+        }}
+      />
     </div>
   );
 };

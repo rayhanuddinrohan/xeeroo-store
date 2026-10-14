@@ -29,35 +29,7 @@ export const XEEROO_CONTACT = {
   faviconUrl: '/favicon.png',
 };
 
-export const DEFAULT_ADMIN_USER: User = {
-  id: 'usr-admin-master',
-  email: 'admin@xeeroo.com',
-  fullName: 'Master Administrator',
-  role: 'admin',
-  gender: 'male',
-  phone: '+880 1570-243005',
-  password: 'admin',
-  approvalStatus: 'approved',
-  isVerified: true,
-  isBanned: false,
-  createdAt: '2026-01-01T00:00:00Z',
-};
-
-export const DEFAULT_MODERATOR_USER: User = {
-  id: 'usr-mod-staff',
-  email: 'staff@xeeroo.com',
-  fullName: 'Staff Moderator',
-  role: 'moderator',
-  gender: 'male',
-  phone: '+880 1700-112233',
-  password: 'staff',
-  approvalStatus: 'approved',
-  isVerified: true,
-  isBanned: false,
-  createdAt: '2026-01-01T00:00:00Z',
-};
-
-export const INITIAL_USERS: User[] = [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
+export const INITIAL_USERS: User[] = [];
 
 export const INITIAL_BANNERS: BannerSlide[] = [
   {

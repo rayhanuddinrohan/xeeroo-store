@@ -3,6 +3,7 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   sendPasswordResetEmail,
   signInWithPopup,
 } from "firebase/auth";
@@ -20,7 +21,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { Product, User, Category, Order, BannerSlide, AppNotification } from "../types";
+import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -107,7 +108,37 @@ export const signInFirebaseUser = async (email: string, pass: string) => {
     return { success: true, user: userCredential.user };
   } catch (err: unknown) {
     const error = err as { code?: string; message?: string };
-    return { success: false, error: error.code || error.message || 'Authentication failed' };
+    let friendlyMessage = 'Authentication failed. Please check your credentials.';
+    if (
+      error.code === 'auth/wrong-password' ||
+      error.code === 'auth/invalid-credential' ||
+      error.code === 'auth/invalid-login-credentials'
+    ) {
+      friendlyMessage = 'Incorrect password entered. Please check your credentials and try again.';
+    } else if (error.code === 'auth/user-not-found') {
+      friendlyMessage = 'No registered account found with this email.';
+    } else if (error.code === 'auth/user-disabled') {
+      friendlyMessage = 'This account has been disabled. Please contact customer support.';
+    } else if (error.code === 'auth/too-many-requests') {
+      friendlyMessage = 'Access to this account has been temporarily disabled due to many failed login attempts. Please reset your password or try again later.';
+    } else if (error.code === 'auth/invalid-email') {
+      friendlyMessage = 'Invalid email address format.';
+    }
+    return {
+      success: false,
+      code: error.code || 'auth/unknown',
+      error: friendlyMessage,
+    };
+  }
+};
+
+export const registerFirebaseUser = async (email: string, pass: string) => {
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    return { success: true, user: userCredential.user };
+  } catch (err: unknown) {
+    const error = err as { code?: string; message?: string };
+    return { success: false, code: error.code || 'auth/unknown', error: error.message || 'Registration failed' };
   }
 };
 
@@ -222,6 +253,14 @@ export const updateFirestoreUserRoleByEmailAndId = async (
   }
 };
 
+export const normalizeUserRole = (rawRole: any, isAdminField?: boolean): UserRole => {
+  if (isAdminField === true) return 'admin';
+  const r = (rawRole || '').toString().toLowerCase().trim();
+  if (r === 'admin' || r === 'administrator' || r === 'owner') return 'admin';
+  if (r === 'moderator' || r === 'staff' || r === 'manager') return 'moderator';
+  return 'customer';
+};
+
 // Fetch all users / customers from Firestore
 export const fetchFirestoreUsers = async (): Promise<User[]> => {
   try {
@@ -230,14 +269,25 @@ export const fetchFirestoreUsers = async (): Promise<User[]> => {
     const users: User[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && data.email) {
+      if (data && (data.email || data.phone)) {
+        // Discard legacy mock admin/staff if present
+        if (
+          data.email === 'admin@xeeroo.com' ||
+          data.email === 'staff@xeeroo.com' ||
+          docSnap.id === 'usr-admin-master' ||
+          docSnap.id === 'usr-mod-staff'
+        ) {
+          return;
+        }
+
         users.push({
           id: data.id || docSnap.id,
-          email: data.email,
-          role: data.role || 'customer',
-          fullName: data.fullName || 'Customer',
+          email: data.email || '',
+          role: normalizeUserRole(data.role, data.isAdmin),
+          fullName: data.fullName || 'User',
           gender: (data.gender as any) || 'male',
           phone: data.phone || '',
+          password: data.password || '',
           avatarUrl: data.avatarUrl || '',
           createdAt: data.createdAt || new Date().toISOString(),
           approvalStatus: data.approvalStatus || 'approved',
@@ -251,6 +301,126 @@ export const fetchFirestoreUsers = async (): Promise<User[]> => {
   } catch (err) {
     console.warn('Firestore fetch users error:', err);
     return [];
+  }
+};
+
+// Fetch a single user by email, phone, or id directly from Firestore
+export const fetchFirestoreUserByIdentifier = async (identifier: string): Promise<User | null> => {
+  try {
+    const clean = identifier.trim().toLowerCase();
+    const cleanDigits = identifier.replace(/[^0-9]/g, '');
+
+    // 1. Direct get by Document ID in 'users'
+    try {
+      const directDoc = await getDoc(doc(db, 'users', identifier.trim()));
+      if (directDoc.exists()) {
+        const data = directDoc.data();
+        if (data && data.email !== 'admin@xeeroo.com' && data.email !== 'staff@xeeroo.com') {
+          return {
+            id: directDoc.id,
+            email: data.email || '',
+            role: normalizeUserRole(data.role, data.isAdmin),
+            fullName: data.fullName || 'User',
+            gender: (data.gender as any) || 'male',
+            phone: data.phone || '',
+            password: data.password || '',
+            avatarUrl: data.avatarUrl || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            approvalStatus: data.approvalStatus || 'approved',
+            isBanned: Boolean(data.isBanned),
+            isVerified: data.isVerified ?? true,
+            address: data.address || undefined,
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Query 'users' by email
+    if (clean.includes('@')) {
+      const qEmail = query(collection(db, 'users'), where('email', '==', clean));
+      const snap = await getDocs(qEmail);
+      if (!snap.empty) {
+        const d = snap.docs[0];
+        const data = d.data();
+        if (data.email !== 'admin@xeeroo.com' && data.email !== 'staff@xeeroo.com') {
+          return {
+            id: d.id,
+            email: data.email || clean,
+            role: normalizeUserRole(data.role, data.isAdmin),
+            fullName: data.fullName || 'User',
+            gender: (data.gender as any) || 'male',
+            phone: data.phone || '',
+            password: data.password || '',
+            avatarUrl: data.avatarUrl || '',
+            createdAt: data.createdAt || new Date().toISOString(),
+            approvalStatus: data.approvalStatus || 'approved',
+            isBanned: Boolean(data.isBanned),
+            isVerified: data.isVerified ?? true,
+            address: data.address || undefined,
+          };
+        }
+      }
+    }
+
+    // 3. Query 'users' by phone digits
+    if (cleanDigits.length >= 8) {
+      const snapAll = await getDocs(collection(db, 'users'));
+      for (const d of snapAll.docs) {
+        const data = d.data();
+        const pDigits = (data.phone || '').replace(/[^0-9]/g, '');
+        if (pDigits && (pDigits === cleanDigits || pDigits.endsWith(cleanDigits) || cleanDigits.endsWith(pDigits))) {
+          if (data.email !== 'admin@xeeroo.com' && data.email !== 'staff@xeeroo.com') {
+            return {
+              id: d.id,
+              email: data.email || '',
+              role: normalizeUserRole(data.role, data.isAdmin),
+              fullName: data.fullName || 'User',
+              gender: (data.gender as any) || 'male',
+              phone: data.phone || '',
+              password: data.password || '',
+              avatarUrl: data.avatarUrl || '',
+              createdAt: data.createdAt || new Date().toISOString(),
+              approvalStatus: data.approvalStatus || 'approved',
+              isBanned: Boolean(data.isBanned),
+              isVerified: data.isVerified ?? true,
+              address: data.address || undefined,
+            };
+          }
+        }
+      }
+    }
+
+    // 4. Fallback: check 'customers' collection
+    if (clean.includes('@')) {
+      const qCust = query(collection(db, 'customers'), where('email', '==', clean));
+      const snapCust = await getDocs(qCust);
+      if (!snapCust.empty) {
+        const d = snapCust.docs[0];
+        const data = d.data();
+        return {
+          id: d.id,
+          email: data.email || clean,
+          role: normalizeUserRole(data.role, data.isAdmin),
+          fullName: data.fullName || 'Customer',
+          gender: (data.gender as any) || 'male',
+          phone: data.phone || '',
+          password: data.password || '',
+          avatarUrl: data.avatarUrl || '',
+          createdAt: data.createdAt || new Date().toISOString(),
+          approvalStatus: data.approvalStatus || 'approved',
+          isBanned: Boolean(data.isBanned),
+          isVerified: data.isVerified ?? true,
+          address: data.address || undefined,
+        };
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('fetchFirestoreUserByIdentifier error:', err);
+    return null;
   }
 };
 
@@ -558,12 +728,22 @@ export const subscribeToFirestoreUsers = (
       const list: User[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data && data.email) {
+        if (data && (data.email || data.phone)) {
+          // Discard legacy mock admin/staff if present
+          if (
+            data.email === 'admin@xeeroo.com' ||
+            data.email === 'staff@xeeroo.com' ||
+            docSnap.id === 'usr-admin-master' ||
+            docSnap.id === 'usr-mod-staff'
+          ) {
+            return;
+          }
+
           list.push({
             id: data.id || docSnap.id,
-            email: data.email,
-            role: data.role || 'customer',
-            fullName: data.fullName || 'Customer',
+            email: data.email || '',
+            role: normalizeUserRole(data.role, data.isAdmin),
+            fullName: data.fullName || 'User',
             gender: (data.gender as any) || 'male',
             phone: data.phone || '',
             password: data.password || '',

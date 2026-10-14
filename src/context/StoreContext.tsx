@@ -26,8 +26,6 @@ import {
   INITIAL_ORDERS,
   INITIAL_PRODUCTS,
   INITIAL_USERS,
-  DEFAULT_ADMIN_USER,
-  DEFAULT_MODERATOR_USER,
 } from '../data/mockData';
 import {
   signInFirebaseUser,
@@ -36,6 +34,8 @@ import {
   saveFirestoreUserProfile,
   saveFirestoreCustomer,
   fetchFirestoreUsers,
+  fetchFirestoreUserByIdentifier,
+  normalizeUserRole,
   saveFirestoreProduct,
   deleteFirestoreProduct,
   fetchFirestoreProducts,
@@ -55,8 +55,16 @@ import {
   fetchFirestoreNotifications,
   updateFirestoreNotification,
   deleteFirestoreNotification,
+  registerFirebaseUser,
+  db,
 } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { formatBDT } from '../utils/currency';
+import {
+  getStoredTelegramConfig,
+  sendTelegramMessage,
+  formatOrderForTelegram,
+} from '../utils/telegram';
 
 interface StoreContextType {
   // Current user & Auth state
@@ -117,7 +125,7 @@ interface StoreContextType {
   initiateRegistration: (data: { fullName: string; email: string; phone: string; password: string }) => { success: boolean; message: string; otp?: string };
   verifyOtpAndComplete: (enteredOtp: string) => { success: boolean; message: string; user?: User };
   resendOtp: () => string | null;
-  resetPassword: (identifier: string, newPassword?: string) => Promise<{ success: boolean; message: string; isEmailSent?: boolean }>;
+  resetPassword: (identifier: string, newPassword?: string) => Promise<{ success: boolean; message: string; isEmailSent?: boolean; canDirectReset?: boolean }>;
   pendingPasswordReset: { identifier: string; email: string; otp: string } | null;
   sendPasswordResetOtp: (identifier: string) => Promise<{ success: boolean; message: string; email?: string }>;
   verifyPasswordResetOtpAndSetPassword: (enteredOtp: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
@@ -222,7 +230,7 @@ interface StoreContextType {
     optionalEmail?: string,
     paymentDetails?: { bkashNumber?: string; trxId?: string }
   ) => Promise<Order | null>;
-  updateOrderStatus: (orderId: string, status: OrderStatus) => boolean;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<boolean>;
   userOrders: Order[];
 
   // RBAC Permission Helpers
@@ -260,17 +268,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasAdmin = parsed.some((u: User) => u.role === 'admin');
-          const hasMod = parsed.some((u: User) => u.role === 'moderator');
-          const list = [...parsed];
-          if (!hasAdmin) list.unshift(DEFAULT_ADMIN_USER);
-          if (!hasMod) list.push(DEFAULT_MODERATOR_USER);
-          return list;
+          // Filter out any legacy mock accounts (admin@xeeroo.com, staff@xeeroo.com, usr-admin-master)
+          const cleaned = parsed.filter(
+            (u: User) =>
+              u.email !== 'admin@xeeroo.com' &&
+              u.email !== 'staff@xeeroo.com' &&
+              u.id !== 'usr-admin-master' &&
+              u.id !== 'usr-mod-staff' &&
+              u.id !== 'usr-admin-xeeroo'
+          );
+          return cleaned;
         }
       }
-      return [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
+      return [];
     } catch {
-      return [DEFAULT_ADMIN_USER, DEFAULT_MODERATOR_USER];
+      return [];
     }
   });
 
@@ -278,7 +290,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CURRENT_USER_ID);
       if (!saved || saved === 'null' || saved === '') return null;
-      if (saved === 'usr-admin-xeeroo' || saved === 'usr-customer-demo') return null;
+      if (
+        saved === 'usr-admin-xeeroo' ||
+        saved === 'usr-customer-demo' ||
+        saved === 'usr-admin-master' ||
+        saved === 'usr-mod-staff'
+      ) {
+        localStorage.removeItem(STORAGE_KEY_CURRENT_USER_ID);
+        return null;
+      }
       return saved;
     } catch {
       return null;
@@ -853,129 +873,191 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const canViewAnalytics = currentUser?.role === 'admin';
   const canUpdateOrderStatus = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
-  // Auth Operations
-  const login = async (identifier: string, password?: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  // Auth Operations: Unified Database & Firebase Password Validation
+  const login = async (
+    identifier: string,
+    password?: string
+  ): Promise<{ success: boolean; message: string; user?: User }> => {
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/[^0-9]/g, '');
 
-    // 1. Check local users first
-    let user = users.find(u => {
-      const emailMatch = u.email.toLowerCase() === clean;
+    if (!clean) {
+      addToast('Please enter your email or phone number.', 'error');
+      return { success: false, message: 'Email or phone number is required' };
+    }
+
+    if (!password || !password.trim()) {
+      addToast('Please enter your password.', 'error');
+      return { success: false, message: 'Password is required' };
+    }
+
+    // Disallow the removed legacy mock admin account
+    if (clean === 'admin@xeeroo.com' || clean === 'staff@xeeroo.com') {
+      addToast('Legacy default admin accounts have been removed. Please log in with your registered account.', 'error');
+      return { success: false, message: 'Legacy admin account removed. Please use your registered account.' };
+    }
+
+    // 1. Search for registered user in current state
+    let matchedUser = users.find(u => {
+      const emailMatches = Boolean(u.email && u.email.toLowerCase().trim() === clean);
       const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
-      const phoneMatch =
+      const phoneMatches = Boolean(
         cleanDigits.length >= 8 &&
         (uPhoneDigits === cleanDigits ||
           uPhoneDigits.endsWith(cleanDigits) ||
-          cleanDigits.endsWith(uPhoneDigits));
-      return emailMatch || phoneMatch;
+          cleanDigits.endsWith(uPhoneDigits))
+      );
+      const idMatches = u.id === identifier.trim();
+      return emailMatches || phoneMatches || idMatches;
     });
 
-    // 2. If password provided and user not found locally, check Firebase Authentication + Firestore backend!
-    if (!user && password && clean.includes('@')) {
-      try {
+    // 2. If not found in state memory or password not in cache, query Firestore database directly
+    if (!matchedUser || !matchedUser.password) {
+      const remoteDbUser = await fetchFirestoreUserByIdentifier(identifier);
+      if (remoteDbUser) {
+        matchedUser = remoteDbUser;
+      }
+    }
+
+    // 3. User was found in Firestore / registered records
+    if (matchedUser) {
+      let isPasswordValid = false;
+
+      // 3a. Check stored password (from registration in Firestore database)
+      if (matchedUser.password && matchedUser.password === password) {
+        isPasswordValid = true;
+      } else if (clean.includes('@')) {
+        // 3b. Also check Firebase Auth in case password was changed via Firebase Auth
         const fbAuthRes = await signInFirebaseUser(clean, password);
-        if (fbAuthRes.success && fbAuthRes.user) {
-          const fbUser = fbAuthRes.user;
-          // Check role from Firestore backend
-          const firestoreProfile = await fetchFirestoreUserProfile(fbUser.uid);
-          const assignedRole: UserRole =
-            (firestoreProfile?.role as UserRole) ||
-            (clean.includes('admin') ? 'admin' : 'customer');
-
-          const backendUser: User = {
-            id: `usr-fb-${fbUser.uid}`,
-            email: fbUser.email || clean,
-            fullName: (firestoreProfile?.fullName as string) || fbUser.displayName || 'Administrator',
-            role: assignedRole,
-            phone: (firestoreProfile?.phone as string) || fbUser.phoneNumber || '',
-            approvalStatus: 'approved',
-            isVerified: true,
-            avatarUrl: fbUser.photoURL || '',
-            gender: 'male',
-            createdAt: new Date().toISOString(),
-            isBanned: false,
-          };
-
-          setUsers(prev => {
-            const filtered = prev.filter(u => u.email.toLowerCase() !== clean);
-            return [...filtered, backendUser];
-          });
-          user = backendUser;
+        if (fbAuthRes.success) {
+          isPasswordValid = true;
         }
-      } catch (err) {
-        console.warn('Firebase login attempt:', err);
       }
+
+      if (!isPasswordValid) {
+        addToast('Incorrect password entered. Please check your credentials.', 'error');
+        return { success: false, message: 'Incorrect password entered.' };
+      }
+
+      if (matchedUser.isBanned) {
+        addToast('This account has been suspended by administration.', 'error');
+        return { success: false, message: 'Account suspended' };
+      }
+
+      // Check authoritative role from Firestore (if someone updated role in Firestore to admin)
+      const authoritativeRole: UserRole = normalizeUserRole(matchedUser.role);
+
+      const loggedInUser: User = {
+        ...matchedUser,
+        role: authoritativeRole,
+      };
+
+      // Ensure user is updated in memory and localStorage
+      setUsers(prev => {
+        const filtered = prev.filter(
+          u => u.id !== loggedInUser.id && (u.email ? u.email.toLowerCase() !== loggedInUser.email.toLowerCase() : true)
+        );
+        return [...filtered, loggedInUser];
+      });
+
+      setCurrentUserId(loggedInUser.id);
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, loggedInUser.id);
+      setIsAuthModalOpen(false);
+
+      if (loggedInUser.role === 'admin') {
+        addToast(`Welcome back, ${loggedInUser.fullName} (Administrator)!`, 'success');
+      } else if (loggedInUser.role === 'moderator') {
+        addToast(`Welcome back, ${loggedInUser.fullName} (Staff/Moderator)!`, 'success');
+      } else {
+        addToast(`Signed in successfully as ${loggedInUser.fullName}!`, 'success');
+      }
+
+      // Background sync with Firebase Auth if available
+      if (clean.includes('@') && matchedUser.password) {
+        registerFirebaseUser(clean, password).catch(() => {});
+      }
+
+      return { success: true, message: 'Logged in successfully', user: loggedInUser };
     }
 
-    // Fallback for default master admin & moderator
-    if (!user && (clean === 'admin' || clean === 'admin@xeeroo.com')) {
-      user = DEFAULT_ADMIN_USER;
-      setUsers(prev => [DEFAULT_ADMIN_USER, ...prev.filter(u => u.id !== DEFAULT_ADMIN_USER.id)]);
-    } else if (!user && (clean === 'staff' || clean === 'staff@xeeroo.com' || clean === 'moderator' || clean === 'moderator@xeeroo.com')) {
-      user = DEFAULT_MODERATOR_USER;
-      setUsers(prev => [DEFAULT_MODERATOR_USER, ...prev.filter(u => u.id !== DEFAULT_MODERATOR_USER.id)]);
-    }
+    // 4. If not found in Firestore records, try Firebase Auth directly (for accounts created in Firebase Console)
+    if (clean.includes('@')) {
+      const fbAuthRes = await signInFirebaseUser(clean, password);
 
-    if (!user) {
-      addToast('No account found with this email or phone number.', 'error');
-      return { success: false, message: 'Account not found with this email or phone number' };
-    }
+      if (fbAuthRes.success && fbAuthRes.user) {
+        const fbUser = fbAuthRes.user;
+        const firestoreProfile = await fetchFirestoreUserProfile(fbUser.uid);
+        const assignedRole: UserRole = normalizeUserRole(
+          firestoreProfile?.role,
+          firestoreProfile?.isAdmin
+        );
 
-    if (password && user.password && user.password !== password) {
-      addToast('Incorrect password entered.', 'error');
-      return { success: false, message: 'Incorrect password' };
-    }
+        const loggedInUser: User = {
+          id: `usr-fb-${fbUser.uid}`,
+          email: fbUser.email || clean,
+          fullName: (firestoreProfile?.fullName as string) || fbUser.displayName || 'User',
+          role: assignedRole,
+          phone: (firestoreProfile?.phone as string) || fbUser.phoneNumber || '',
+          approvalStatus: (firestoreProfile?.approvalStatus as any) || 'approved',
+          isVerified: true,
+          avatarUrl: fbUser.photoURL || '',
+          gender: (firestoreProfile?.gender as any) || 'male',
+          createdAt: new Date().toISOString(),
+          isBanned: Boolean(firestoreProfile?.isBanned),
+        };
 
-    if (user.isBanned) {
-      addToast('This account has been suspended by administration.', 'error');
-      return { success: false, message: 'Account suspended' };
-    }
-
-    // If user found locally, check if remote role in Firestore was upgraded
-    if (user && user.email && user.email.includes('@')) {
-      try {
-        const remoteProfile = await fetchFirestoreUserProfile(user.id);
-        if (remoteProfile && remoteProfile.role && remoteProfile.role !== user.role) {
-          user = {
-            ...user,
-            role: remoteProfile.role as UserRole,
-            approvalStatus: remoteProfile.approvalStatus || user.approvalStatus,
-          };
-          setUsers(prev => prev.map(u => u.id === user!.id ? user! : u));
+        if (loggedInUser.isBanned) {
+          addToast('This account has been suspended by administration.', 'error');
+          return { success: false, message: 'Account suspended' };
         }
-      } catch {
-        // ignore
+
+        setUsers(prev => {
+          const filtered = prev.filter(u => u.email.toLowerCase() !== clean && u.id !== loggedInUser.id);
+          return [...filtered, loggedInUser];
+        });
+
+        setCurrentUserId(loggedInUser.id);
+        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, loggedInUser.id);
+        setIsAuthModalOpen(false);
+
+        if (loggedInUser.role === 'admin') {
+          addToast(`Welcome back, ${loggedInUser.fullName} (Administrator)!`, 'success');
+        } else {
+          addToast(`Signed in successfully as ${loggedInUser.fullName}!`, 'success');
+        }
+        return { success: true, message: 'Logged in successfully', user: loggedInUser };
       }
+
+      if (
+        fbAuthRes.code === 'auth/wrong-password' ||
+        fbAuthRes.code === 'auth/invalid-credential' ||
+        fbAuthRes.code === 'auth/invalid-login-credentials'
+      ) {
+        addToast('No registered account found with these credentials or incorrect password.', 'error');
+        return { success: false, message: 'Incorrect credentials or account not found.' };
+      }
+
+      addToast(fbAuthRes.error || 'Authentication failed.', 'error');
+      return { success: false, message: fbAuthRes.error || 'Authentication failed.' };
     }
 
-    setCurrentUserId(user.id);
-    setIsAuthModalOpen(false);
-
-    if (user.role === 'admin') {
-      addToast(`Welcome back, Administrator ${user.fullName}!`, 'success');
-    } else if (user.role === 'moderator') {
-      setDashboardTab('orders');
-      addToast(`Welcome back, Staff Moderator ${user.fullName}! Order Fulfillment & Operations are active.`, 'success');
-    } else if (user.role === 'customer' && user.approvalStatus === 'pending') {
-      addToast(`Logged in as ${user.fullName}. Note: Account is pending admin approval.`, 'warning');
-    } else {
-      addToast(`Welcome back, ${user.fullName}!`, 'success');
-    }
-
-    return { success: true, message: 'Logged in successfully', user };
+    addToast('No account found with this mobile number. Please register an account first.', 'error');
+    return { success: false, message: 'Account not found with this mobile number' };
   };
 
   const loginAsAdmin = () => {
-    let admin = users.find(u => u.role === 'admin');
-    if (!admin) {
-      admin = DEFAULT_ADMIN_USER;
-      setUsers(prev => [DEFAULT_ADMIN_USER, ...prev.filter(u => u.id !== DEFAULT_ADMIN_USER.id)]);
+    const admin = users.find(u => u.role === 'admin');
+    if (admin) {
+      setCurrentUserId(admin.id);
+      localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, admin.id);
+      setIsAuthModalOpen(false);
+      setViewMode('dashboard');
+      addToast(`Welcome! You are signed in as Administrator (${admin.fullName}).`, 'success');
+    } else {
+      setIsAuthModalOpen(true);
+      setAuthModalTab('login');
+      addToast('No Administrator account active. Please register or sign in with your Admin account credentials.', 'info');
     }
-    setCurrentUserId(admin.id);
-    localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, admin.id);
-    setIsAuthModalOpen(false);
-    setViewMode('dashboard');
-    addToast('Welcome! You have signed in as Administrator.', 'success');
   };
 
   const loginWithGoogle = (googleData: {
@@ -1172,6 +1254,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save to Firestore collections: both 'users' and 'customers'
     saveFirestoreCustomer(newUser);
 
+    // Also register in Firebase Authentication for seamless login
+    registerFirebaseUser(pendingRegistration.email, pendingRegistration.password).catch(err => {
+      console.warn('Firebase Auth user registration notice:', err);
+    });
+
     setPendingRegistration(null);
     setAuthModalTab('login');
     addToast('Account verified successfully! Please sign in with your email or phone.', 'success');
@@ -1346,20 +1433,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const resetPassword = async (
     identifier: string,
     newPassword?: string
-  ): Promise<{ success: boolean; message: string; isEmailSent?: boolean }> => {
+  ): Promise<{ success: boolean; message: string; isEmailSent?: boolean; canDirectReset?: boolean }> => {
     const clean = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/[^0-9]/g, '');
 
-    // 1. If it's an email, send Firebase official password reset link
-    if (clean.includes('@')) {
-      const fbRes = await sendFirebasePasswordReset(clean);
-      if (fbRes.success) {
-        addToast(fbRes.message, 'success');
-        return { success: true, message: fbRes.message, isEmailSent: true };
-      }
-    }
-
-    // 2. Check local users or phone match
+    // Check local / Firestore user account match
     const userIndex = users.findIndex(u => {
       const emailMatch = u.email.toLowerCase() === clean;
       const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
@@ -1371,23 +1449,52 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return emailMatch || phoneMatch;
     });
 
-    if (userIndex === -1 && !clean.includes('@')) {
-      addToast('No registered account found with this phone number or email.', 'error');
-      return { success: false, message: 'Account not found' };
+    // 1. If user supplied a new password, perform instant direct password reset
+    if (newPassword && newPassword.trim()) {
+      if (userIndex !== -1) {
+        const updatedUser = { ...users[userIndex], password: newPassword.trim() };
+        setUsers(prev =>
+          prev.map((u, i) => (i === userIndex ? updatedUser : u))
+        );
+        await saveFirestoreCustomer(updatedUser);
+        addToast('Password updated successfully! You can now sign in with your new password.', 'success');
+        return { success: true, message: 'Password updated successfully' };
+      } else {
+        addToast('No registered account found with this phone number or email.', 'error');
+        return { success: false, message: 'Account not found' };
+      }
     }
 
-    if (newPassword && userIndex !== -1) {
-      const updatedUser = { ...users[userIndex], password: newPassword };
-      setUsers(prev =>
-        prev.map((u, i) => (i === userIndex ? updatedUser : u))
-      );
-      await saveFirestoreCustomer(updatedUser);
-      addToast('Password updated successfully! You can now sign in with your new password.', 'success');
-      return { success: true, message: 'Password updated successfully' };
+    // 2. If it's an email and no new password provided, try official Firebase password reset
+    if (clean.includes('@')) {
+      const fbRes = await sendFirebasePasswordReset(clean);
+      if (fbRes.success) {
+        addToast(`Password reset link sent to ${clean}! Please check your Inbox and Spam/Junk folder.`, 'success');
+        return { success: true, message: fbRes.message, isEmailSent: true };
+      } else {
+        // Firebase Auth failed (e.g. account created only in Firestore, not in Firebase Auth, or auth/user-not-found)
+        if (userIndex !== -1) {
+          const helperMsg = 'This account exists in our database. You can directly set a new password below.';
+          addToast(helperMsg, 'info');
+          return { success: false, message: helperMsg, canDirectReset: true };
+        } else {
+          addToast(fbRes.message, 'error');
+          return { success: false, message: fbRes.message };
+        }
+      }
     }
 
-    addToast('Password recovery instructions dispatched to your email.', 'info');
-    return { success: true, message: 'Instructions sent' };
+    // 3. If phone number identifier
+    if (userIndex !== -1) {
+      return {
+        success: false,
+        message: 'Account located! Please enter your new password to reset directly.',
+        canDirectReset: true,
+      };
+    }
+
+    addToast('No registered account found with this phone number or email.', 'error');
+    return { success: false, message: 'No registered account found with this identifier.' };
   };
 
   const register = async (data: {
@@ -1438,6 +1545,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers(prev => [...prev, newUser]);
     // Save to Firestore collections 'users' and 'customers'
     await saveFirestoreCustomer(newUser);
+
+    // Also sync to Firebase Auth if available
+    registerFirebaseUser(newUser.email, data.password).catch(() => {});
 
     setCurrentUserId(newUser.id);
     localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newUser.id);
@@ -2301,34 +2411,83 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       orderId,
     });
 
+    // Send Telegram Order Notification to Admin / Group if configured
+    try {
+      const tgConfig = getStoredTelegramConfig();
+      if (tgConfig.enabled && tgConfig.botToken && tgConfig.chatId) {
+        const tgMsg = formatOrderForTelegram(newOrder, 'XEEROO Store');
+        sendTelegramMessage(tgConfig.botToken, tgConfig.chatId, tgMsg).then(res => {
+          if (!res.success) {
+            console.warn('Telegram order alert notice:', res.message);
+          }
+        });
+      }
+    } catch (tgErr) {
+      console.warn('Telegram order alert dispatch exception:', tgErr);
+    }
+
     addToast(`Order #${orderId} placed successfully and saved to database!`, 'success');
     return newOrder;
   };
 
-  const updateOrderStatus = (orderId: string, status: OrderStatus): boolean => {
+  const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<boolean> => {
     if (!canUpdateOrderStatus) {
       addToast('Access Denied: Only Staff can update order status.', 'error');
       return false;
     }
 
-    const targetOrder = orders.find(o => o.id === orderId);
+    let targetOrder = orders.find(o => o.id === orderId);
 
-    setOrders(prev =>
-      prev.map(o => {
-        if (o.id === orderId) {
-          const updated = { ...o, status, updatedAt: new Date().toISOString() };
-          saveFirestoreOrder(updated);
-          return updated;
+    // If order was not found in local memory, fetch directly from Firestore
+    if (!targetOrder) {
+      try {
+        const orderSnap = await getDoc(doc(db, 'orders', orderId));
+        if (orderSnap.exists()) {
+          targetOrder = orderSnap.data() as Order;
         }
-        return o;
-      })
-    );
+      } catch (err) {
+        console.warn('Error fetching order from Firestore:', err);
+      }
+    }
 
-    // Notify Customer about order status change
-    if (targetOrder?.userId || targetOrder?.userEmail) {
-      addNotification({
-        userId: targetOrder.userId || undefined,
-        userEmail: targetOrder.userEmail || undefined,
+    if (!targetOrder) {
+      addToast(`Order #${orderId} not found in database.`, 'error');
+      return false;
+    }
+
+    const updatedOrder: Order = {
+      ...targetOrder,
+      status,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // 1. Save updated order in Firestore
+    await saveFirestoreOrder(updatedOrder);
+
+    // 2. Update local state
+    setOrders(prev => prev.map(o => (o.id === orderId ? updatedOrder : o)));
+
+    // 3. Resolve customer ID and email for the notification document
+    let customerId = (targetOrder.userId || (targetOrder as any).customerId || '').trim();
+    let customerEmail = (targetOrder.userEmail || '').trim();
+
+    if (!customerId && customerEmail) {
+      const match = users.find(u => u.email.toLowerCase() === customerEmail.toLowerCase());
+      if (match) customerId = match.id;
+    }
+    if (!customerId && targetOrder.shippingAddress?.phone) {
+      const digits = targetOrder.shippingAddress.phone.replace(/[^0-9]/g, '');
+      const match = users.find(u => (u.phone || '').replace(/[^0-9]/g, '') === digits);
+      if (match) customerId = match.id;
+    }
+
+    // 4. Create and trigger real-time notification document for customer in Firestore
+    if (customerId || customerEmail) {
+      const notifId = `notif-status-${orderId}-${Date.now()}`;
+      await addNotification({
+        id: notifId,
+        userId: customerId || undefined,
+        userEmail: customerEmail || undefined,
         type: 'order_status',
         title: `Order Status: ${status.toUpperCase()}`,
         message: `Your order #${orderId} status has been updated to "${status.toUpperCase()}".`,
@@ -2337,10 +2496,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Auto-trigger: Send a "Review Request" notification when status is 'delivered'
       if (status === 'delivered' && targetOrder.items && targetOrder.items.length > 0) {
-        targetOrder.items.forEach(item => {
-          addNotification({
-            userId: targetOrder.userId || undefined,
-            userEmail: targetOrder.userEmail || undefined,
+        for (const item of targetOrder.items) {
+          const revNotifId = `notif-rev-${orderId}-${item.productId}-${Date.now()}`;
+          await addNotification({
+            id: revNotifId,
+            userId: customerId || undefined,
+            userEmail: customerEmail || undefined,
             type: 'review_request',
             orderId,
             productId: item.productId,
@@ -2348,7 +2509,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             title: `Review Request: ${item.productTitle}`,
             message: `Your order #${orderId} has been delivered! How was your experience with ${item.productTitle}? Tap to leave a rating & review.`,
           });
-        });
+        }
       }
     }
 
@@ -2358,17 +2519,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Notification helper methods (Real-time Firestore)
   const addNotification = async (
-    data: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>
+    data: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'> & { id?: string; createdAt?: string; isRead?: boolean }
   ): Promise<boolean> => {
     const newNotification: AppNotification = {
       ...data,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      isRead: false,
-      createdAt: new Date().toISOString(),
+      id: data.id || `notif-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      isRead: data.isRead ?? false,
+      createdAt: data.createdAt || new Date().toISOString(),
     };
 
     setNotifications(prev => {
-      const next = [newNotification, ...prev];
+      const next = [newNotification, ...prev.filter(n => n.id !== newNotification.id)];
       try {
         localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
       } catch (e) {
@@ -2443,20 +2604,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return notifications.filter(n => n.targetRole === 'all');
     }
     const isStaff = currentUser.role === 'admin' || currentUser.role === 'moderator';
+    const currentId = (currentUser.id || '').trim();
+    const currentEmail = (currentUser.email || '').toLowerCase().trim();
+    const currentPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
+
     return notifications.filter(n => {
+      const notifUserId = (n.userId || '').trim();
+      const notifEmail = (n.userEmail || '').toLowerCase().trim();
+
+      const isForThisUser =
+        (notifUserId && (
+          notifUserId === currentId ||
+          currentId.includes(notifUserId) ||
+          notifUserId.includes(currentId) ||
+          (currentPhone && notifUserId === currentPhone)
+        )) ||
+        (currentEmail && notifEmail && notifEmail === currentEmail);
+
       if (isStaff) {
         return (
           n.targetRole === 'staff' ||
           n.targetRole === 'all' ||
-          n.userId === currentUser.id ||
-          (currentUser.email && n.userEmail === currentUser.email)
+          isForThisUser
         );
       }
-      return (
-        n.userId === currentUser.id ||
-        (currentUser.email && n.userEmail === currentUser.email) ||
-        n.targetRole === 'all'
-      );
+      return isForThisUser || n.targetRole === 'all';
     });
   }, [notifications, currentUser]);
 
@@ -2468,7 +2640,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const userOrders = useMemo(() => {
     if (!currentUser) return [];
     if (currentUser.role === 'customer') {
-      return orders.filter(o => o.userId === currentUser.id || o.userEmail === currentUser.email);
+      const currentId = (currentUser.id || '').trim();
+      const currentEmail = (currentUser.email || '').toLowerCase().trim();
+      const currentPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
+
+      return orders.filter(o => {
+        const orderUserId = (o.userId || '').trim();
+        const orderEmail = (o.userEmail || '').toLowerCase().trim();
+        const orderPhone = (o.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
+
+        return (
+          (orderUserId && (orderUserId === currentId || currentId.includes(orderUserId) || orderUserId.includes(currentId))) ||
+          (currentEmail && orderEmail && orderEmail === currentEmail) ||
+          (currentPhone && orderPhone && orderPhone === currentPhone)
+        );
+      });
     }
     return orders;
   }, [orders, currentUser]);

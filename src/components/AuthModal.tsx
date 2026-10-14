@@ -61,6 +61,11 @@ export const AuthModal: React.FC = () => {
   // Forgot Password State
   const [forgotIdentifier, setForgotIdentifier] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [directResetMode, setDirectResetMode] = useState(false);
+  const [newDirectPassword, setNewDirectPassword] = useState('');
+  const [confirmDirectPassword, setConfirmDirectPassword] = useState('');
+  const [showDirectPassword, setShowDirectPassword] = useState(false);
+  const [forgotEmailSentMsg, setForgotEmailSentMsg] = useState('');
 
   // Password strength helper
   const getPasswordStrength = (pwd: string) => {
@@ -87,6 +92,9 @@ export const AuthModal: React.FC = () => {
     setErrorMsg('');
     setSuccessMsg('');
     setForgotSent(false);
+    setDirectResetMode(false);
+    setNewDirectPassword('');
+    setConfirmDirectPassword('');
     setShowGoogleFallback(false);
   };
 
@@ -95,6 +103,9 @@ export const AuthModal: React.FC = () => {
     setErrorMsg('');
     setSuccessMsg('');
     setForgotSent(false);
+    setDirectResetMode(false);
+    setNewDirectPassword('');
+    setConfirmDirectPassword('');
     setShowGoogleFallback(false);
   };
 
@@ -248,15 +259,41 @@ export const AuthModal: React.FC = () => {
       return;
     }
 
+    if (directResetMode) {
+      if (!newDirectPassword || newDirectPassword.length < 6) {
+        setErrorMsg('New password must be at least 6 characters long.');
+        return;
+      }
+      if (newDirectPassword !== confirmDirectPassword) {
+        setErrorMsg('Passwords do not match. Please verify both inputs.');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrorMsg('');
+    setSuccessMsg('');
     try {
-      const res = await resetPassword(forgotIdentifier.trim());
+      const res = await resetPassword(
+        forgotIdentifier.trim(),
+        directResetMode ? newDirectPassword.trim() : undefined
+      );
+
       if (res.success) {
         setForgotSent(true);
-        setSuccessMsg('Password recovery instructions have been sent successfully.');
+        if (directResetMode) {
+          setSuccessMsg('Your password has been updated successfully! You can now sign in.');
+        } else {
+          setForgotEmailSentMsg(res.message);
+          setSuccessMsg(res.message);
+        }
       } else {
-        setErrorMsg(res.message || 'No account found with this identifier.');
+        if (res.canDirectReset) {
+          setDirectResetMode(true);
+          setErrorMsg(res.message);
+        } else {
+          setErrorMsg(res.message || 'No account found with this identifier.');
+        }
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
@@ -846,6 +883,23 @@ export const AuthModal: React.FC = () => {
             <div className="space-y-4">
               {!forgotSent ? (
                 <form onSubmit={handleForgotPassword} className="space-y-4">
+                  {/* Mode Toggle Button */}
+                  <div className="flex items-center justify-between pb-1 border-b border-gray-100">
+                    <span className="text-[11px] font-bold text-gray-700">
+                      {directResetMode ? 'Direct Password Reset' : 'Email Reset Link'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDirectResetMode(!directResetMode);
+                        setErrorMsg('');
+                      }}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 underline underline-offset-2 cursor-pointer"
+                    >
+                      {directResetMode ? '← Send email link instead' : '⚡ Set new password directly'}
+                    </button>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold text-gray-700 mb-1">
                       Registered Email or Phone Number *
@@ -863,6 +917,83 @@ export const AuthModal: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Direct Password Reset Fields */}
+                  {directResetMode ? (
+                    <div className="space-y-3 p-3 bg-blue-50/70 border border-blue-200 rounded-2xl animate-in fade-in">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-bold text-blue-950">
+                            New Password *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowDirectPassword(!showDirectPassword)}
+                            className="text-[10px] text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                          >
+                            {showDirectPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            <span>{showDirectPassword ? 'Hide' : 'Show'}</span>
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                          <input
+                            type={showDirectPassword ? 'text' : 'password'}
+                            value={newDirectPassword}
+                            onChange={(e) => setNewDirectPassword(e.target.value)}
+                            placeholder="At least 6 characters"
+                            className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-gray-900"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-blue-950 mb-1">
+                          Confirm New Password *
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+                          <input
+                            type={showDirectPassword ? 'text' : 'password'}
+                            value={confirmDirectPassword}
+                            onChange={(e) => setConfirmDirectPassword(e.target.value)}
+                            placeholder="Repeat new password"
+                            className="w-full pl-10 pr-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-gray-900"
+                            required
+                          />
+                        </div>
+                        {confirmDirectPassword && (
+                          <p className="text-[10px] mt-1 font-semibold flex items-center gap-1">
+                            {newDirectPassword === confirmDirectPassword ? (
+                              <span className="text-emerald-700 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Passwords match
+                              </span>
+                            ) : (
+                              <span className="text-rose-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3 text-rose-500" />
+                                Passwords do not match
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1">
+                      <div className="font-bold flex items-center gap-1 text-amber-950">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>How reset email works:</span>
+                      </div>
+                      <p className="leading-relaxed text-amber-800">
+                        Firebase will dispatch a reset link from <code className="font-mono bg-white/80 px-1 py-0.5 rounded text-amber-950 font-bold">noreply@...firebaseapp.com</code>.
+                      </p>
+                      <p className="text-amber-800">
+                        ⚠️ <strong>Important:</strong> Check your <strong>Spam / Junk</strong> folder if not in primary Inbox.
+                      </p>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={isSubmitting}
@@ -871,23 +1002,68 @@ export const AuthModal: React.FC = () => {
                     {isSubmitting ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Sending recovery request...</span>
+                        <span>Processing request...</span>
+                      </>
+                    ) : directResetMode ? (
+                      <>
+                        <KeyRound className="w-4 h-4" />
+                        <span>Update Password Now</span>
                       </>
                     ) : (
                       <>
-                        <KeyRound className="w-4 h-4" />
-                        <span>Send Recovery Details</span>
+                        <Mail className="w-4 h-4" />
+                        <span>Send Firebase Reset Link</span>
                       </>
                     )}
                   </button>
                 </form>
               ) : (
-                <div className="text-center p-4 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <h4 className="text-sm font-bold text-emerald-900">Recovery Instructions Sent!</h4>
-                  <p className="text-xs text-emerald-700">
-                    Please check your email inbox and SMS for the reset link.
-                  </p>
+                <div className="text-center p-5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-3 animate-in fade-in">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+                    <CheckCircle2 className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-950">
+                      {directResetMode ? 'Password Updated Successfully!' : 'Password Reset Link Dispatched!'}
+                    </h4>
+                    <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                      {directResetMode
+                        ? 'Your account password has been updated in the database. You can now log in.'
+                        : (forgotEmailSentMsg || `A password reset link was sent to ${forgotIdentifier}.`)}
+                    </p>
+                  </div>
+
+                  {!directResetMode && (
+                    <div className="p-3 bg-white/80 rounded-xl border border-emerald-300/50 text-[11px] text-gray-700 text-left space-y-1">
+                      <p className="font-bold text-gray-900">Didn't find the email in your inbox?</p>
+                      <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+                        <li>Please check your <strong>Spam / Junk / Promotions</strong> folder.</li>
+                        <li>Look for sender: <code>noreply@...firebaseapp.com</code>.</li>
+                      </ul>
+                      <div className="pt-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setForgotSent(false);
+                            setDirectResetMode(true);
+                          }}
+                          className="font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer text-xs"
+                        >
+                          ⚡ Set new password directly instead
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {directResetMode && (
+                    <button
+                      type="button"
+                      onClick={() => switchTab('login')}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                    >
+                      Proceed to Login →
+                    </button>
+                  )}
                 </div>
               )}
 
