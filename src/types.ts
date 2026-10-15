@@ -66,17 +66,27 @@ export type NotificationType = 'order_placed' | 'order_status' | 'review_request
 export interface AppNotification {
   id: string;
   userId?: string;
+  customerId?: string;
   userEmail?: string;
+  phone?: string;
   targetRole?: UserRole | 'staff' | 'all';
   type: NotificationType;
   title: string;
   message: string;
   orderId?: string;
+  orderStatus?: string;
   productId?: string;
   productTitle?: string;
   isRead: boolean;
   createdAt: string;
   link?: string;
+}
+
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+  enabled: boolean;
+  updatedAt?: string;
 }
 
 export interface Product {

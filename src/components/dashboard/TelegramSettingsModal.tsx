@@ -35,7 +35,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { addToast } = useStore();
+  const { addToast, telegramConfig, updateTelegramConfig } = useStore();
 
   const [config, setConfig] = useState<TelegramConfig>({
     botToken: '',
@@ -50,19 +50,23 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setConfig(getStoredTelegramConfig());
+      if (telegramConfig.botToken || telegramConfig.chatId) {
+        setConfig(telegramConfig);
+      } else {
+        setConfig(getStoredTelegramConfig());
+      }
       setTestResult(null);
     }
-  }, [isOpen]);
+  }, [isOpen, telegramConfig]);
 
   if (!isOpen) return null;
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    saveStoredTelegramConfig(config);
+    await updateTelegramConfig(config);
     addToast(
       config.enabled
-        ? 'Telegram order alerts enabled! You will receive messages for new orders.'
+        ? 'Telegram order alerts enabled! Synchronized with database for all customers & devices.'
         : 'Telegram settings saved.',
       'success'
     );

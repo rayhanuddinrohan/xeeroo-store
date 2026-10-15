@@ -42,5 +42,10 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, write: if true;
     }
+
+    // Store Settings (Telegram Bot alerts, Store config): allow read, write
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
   }
 }

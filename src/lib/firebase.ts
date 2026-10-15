@@ -21,7 +21,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole } from "../types";
+import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -908,10 +908,15 @@ export const saveFirestoreNotification = async (notification: AppNotification): 
       createdAt: notification.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    if (notification.userId) cleanData.userId = notification.userId;
+    if (notification.userId || notification.customerId) {
+      cleanData.userId = notification.userId || notification.customerId;
+      cleanData.customerId = notification.customerId || notification.userId;
+    }
     if (notification.userEmail) cleanData.userEmail = notification.userEmail;
+    if (notification.phone) cleanData.phone = notification.phone;
     if (notification.targetRole) cleanData.targetRole = notification.targetRole;
     if (notification.orderId) cleanData.orderId = notification.orderId;
+    if (notification.orderStatus) cleanData.orderStatus = notification.orderStatus;
     if (notification.productId) cleanData.productId = notification.productId;
     if (notification.productTitle) cleanData.productTitle = notification.productTitle;
     if (notification.link) cleanData.link = notification.link;
@@ -936,15 +941,19 @@ export const subscribeToFirestoreNotifications = (
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         if (data && data.title) {
+          const hasTarget = Boolean(data.userId || data.customerId || data.orderId);
           list.push({
             id: data.id || docSnap.id,
-            userId: data.userId || '',
+            userId: data.userId || data.customerId || '',
+            customerId: data.customerId || data.userId || '',
             userEmail: data.userEmail || '',
-            targetRole: data.targetRole || 'all',
+            phone: data.phone || '',
+            targetRole: data.targetRole || (hasTarget ? 'customer' : 'all'),
             type: data.type || 'system',
             title: data.title || '',
             message: data.message || '',
             orderId: data.orderId || '',
+            orderStatus: data.orderStatus || '',
             productId: data.productId || '',
             productTitle: data.productTitle || '',
             isRead: Boolean(data.isRead),
@@ -1020,4 +1029,72 @@ export const deleteFirestoreNotification = async (id: string): Promise<boolean> 
     console.warn('Failed to delete notification in Firestore:', err);
     return false;
   }
+};
+
+// ==========================================
+// 9. Store Settings (Telegram Bot Config, etc.)
+// ==========================================
+export const saveFirestoreTelegramConfig = async (config: TelegramConfig): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'settings', 'telegram');
+    await setDoc(
+      docRef,
+      {
+        botToken: config.botToken.trim(),
+        chatId: config.chatId.trim(),
+        enabled: Boolean(config.enabled),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn('Failed to save Telegram config to Firestore:', err);
+    return false;
+  }
+};
+
+export const fetchFirestoreTelegramConfig = async (): Promise<TelegramConfig | null> => {
+  try {
+    const docRef = doc(db, 'settings', 'telegram');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const d = snap.data();
+      return {
+        botToken: d.botToken || '',
+        chatId: d.chatId || '',
+        enabled: Boolean(d.enabled),
+        updatedAt: d.updatedAt,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch Telegram config from Firestore:', err);
+    return null;
+  }
+};
+
+export const subscribeToFirestoreTelegramConfig = (
+  onUpdate: (config: TelegramConfig) => void,
+  onError?: (err: unknown) => void
+) => {
+  const docRef = doc(db, 'settings', 'telegram');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        onUpdate({
+          botToken: d.botToken || '',
+          chatId: d.chatId || '',
+          enabled: Boolean(d.enabled),
+          updatedAt: d.updatedAt,
+        });
+      }
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot telegram settings error:', err);
+      onError?.(err);
+    }
+  );
 };

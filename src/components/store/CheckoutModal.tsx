@@ -10,6 +10,11 @@ import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { BANGLADESH_DISTRICTS } from '../../data/bangladeshDistricts';
 import {
+  getShippingZoneInfo,
+  calculateShippingCharge,
+  isValidBDPhone,
+} from '../../utils/shipping';
+import {
   X,
   CheckCircle2,
   CreditCard,
@@ -72,6 +77,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     return matched ? matched.thanas : [];
   }, [selectedDistrict]);
 
+  // Dynamic shipping fee calculation for selected location
+  // 80 TK inside Dhaka city, 130 TK sub-urban & outside Dhaka
+  const shippingInfo = useMemo(() => {
+    return getShippingZoneInfo(selectedDistrict, selectedThana);
+  }, [selectedDistrict, selectedThana]);
+
+  const modalDeliveryCharge = shippingInfo.charge;
+  const modalCartTotal = cartSubtotal + modalDeliveryCharge;
+
   // Sync when currentUser changes or modal opens
   useEffect(() => {
     if (currentUser) {
@@ -129,10 +143,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!fullName.trim() || !phone.trim() || !street.trim() || !selectedDistrict || !selectedThana) {
       return;
     }
+    if (!isValidBDPhone(phone)) {
+      addToast('Please enter a valid 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).', 'error');
+      return;
+    }
     setStep('payment');
   };
 
   const handlePlaceOnlineOrder = async () => {
+    if (!isValidBDPhone(phone)) {
+      addToast('Please enter a valid 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).', 'error');
+      setStep('shipping');
+      return;
+    }
     setIsPlacingOrder(true);
     try {
       const order = await createOrder(currentAddress, paymentMethod, customerEmail);
@@ -146,6 +169,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const handlePlaceOrderViaWhatsApp = async () => {
+    if (!isValidBDPhone(phone)) {
+      addToast('Please enter a valid 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).', 'error');
+      setStep('shipping');
+      return;
+    }
     setIsPlacingOrder(true);
     try {
       const order = await createOrder(currentAddress, paymentMethod, customerEmail);
@@ -167,8 +195,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 ${cartItemsText}
 
 Subtotal: ${formatBDT(cartSubtotal)}
-Delivery Charge: ${formatBDT(deliveryCharge)}
-Total Payable: ${formatBDT(cartTotal)}
+Delivery Charge: ${formatBDT(modalDeliveryCharge)} (${shippingInfo.label})
+Total Payable: ${formatBDT(modalCartTotal)}
 
 Payment Method: ${paymentLabel}
 

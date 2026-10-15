@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from 'react';
 import {
   BannerSlide,
   CartItem,
@@ -56,17 +56,32 @@ import {
   updateFirestoreNotification,
   deleteFirestoreNotification,
   registerFirebaseUser,
+  saveFirestoreTelegramConfig,
+  fetchFirestoreTelegramConfig,
+  subscribeToFirestoreTelegramConfig,
   db,
 } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { formatBDT } from '../utils/currency';
 import {
   getStoredTelegramConfig,
+  saveStoredTelegramConfig,
   sendTelegramMessage,
   formatOrderForTelegram,
 } from '../utils/telegram';
+import { playNotificationChime } from '../utils/audio';
+import { TelegramConfig } from '../types';
+import {
+  calculateShippingCharge,
+  getShippingZoneInfo,
+  isValidBDPhone,
+  normalizeBDPhone,
+} from '../utils/shipping';
 
 interface StoreContextType {
+  // Telegram Bot Settings
+  telegramConfig: TelegramConfig;
+  updateTelegramConfig: (config: TelegramConfig) => Promise<boolean>;
   // Current user & Auth state
   currentUser: User | null;
   users: User[];
@@ -217,6 +232,7 @@ interface StoreContextType {
   cartSubtotal: number;
   cartTax: number;
   deliveryCharge: number;
+  getDeliveryChargeForLocation: (district?: string, thana?: string) => number;
   cartTotal: number;
   isCheckoutOpen: boolean;
   setIsCheckoutOpen: (open: boolean) => void;
@@ -259,6 +275,14 @@ const STORAGE_KEY_CART = 'xeeroo_store_cart_v3';
 const STORAGE_KEY_BANNERS = 'xeeroo_store_banners_v3';
 const STORAGE_KEY_CURRENT_USER_ID = 'xeeroo_store_current_user_id_v3';
 const STORAGE_KEY_NOTIFICATIONS = 'xeeroo_store_notifications_v3';
+
+export const isPhoneMatch = (p1?: string, p2?: string): boolean => {
+  if (!p1 || !p2) return false;
+  const d1 = p1.replace(/[^0-9]/g, '');
+  const d2 = p2.replace(/[^0-9]/g, '');
+  if (d1.length < 8 || d2.length < 8) return false;
+  return d1 === d2 || d1.endsWith(d2) || d2.endsWith(d1);
+};
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // 1. Users state
@@ -458,6 +482,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Store-wide Telegram Bot alert configuration (Synchronized with Firestore)
+  const [telegramConfig, setTelegramConfig] = useState<TelegramConfig>(() => getStoredTelegramConfig());
+
+  // Refs to track order statuses, seen notifications, and current user for real-time customer alerts
+  const ordersStatusRef = useRef<Map<string, OrderStatus>>(new Map());
+  const seenNotifsRef = useRef<Set<string>>(new Set());
+  const currentUserRef = useRef<User | null>(null);
+
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // Automatic connection test & real-time sync on boot
   useEffect(() => {
     let isMounted = true;
@@ -465,6 +501,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let unsubscribeOrders: (() => void) | null = null;
     let unsubscribeUsers: (() => void) | null = null;
     let unsubscribeNotifications: (() => void) | null = null;
+    let unsubscribeTelegram: (() => void) | null = null;
 
     const initDatabase = async () => {
       try {
@@ -478,11 +515,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             projectId: ping.projectId,
           }));
 
-          const [dbProds, dbCats, dbUsers, dbOrders] = await Promise.all([
+          const [dbProds, dbCats, dbUsers, dbOrders, dbTelegram] = await Promise.all([
             fetchFirestoreProducts(),
             fetchFirestoreCategories(),
             fetchFirestoreUsers(),
             fetchFirestoreOrders(),
+            fetchFirestoreTelegramConfig(),
           ]);
 
           if (!isMounted) return;
@@ -509,6 +547,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
           if (dbOrders.length > 0) {
             setOrders(dbOrders);
+            dbOrders.forEach(o => ordersStatusRef.current.set(o.id, o.status));
+          }
+          if (dbTelegram && isMounted) {
+            setTelegramConfig(dbTelegram);
+            saveStoredTelegramConfig(dbTelegram);
           }
 
           setDbStatus(prev => ({
@@ -535,6 +578,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Attach real-time Firestore listener for orders
           unsubscribeOrders = subscribeToFirestoreOrders((liveOrders) => {
             if (!isMounted) return;
+            const isInitial = ordersStatusRef.current.size === 0;
+            liveOrders.forEach(o => {
+              const prevStatus = ordersStatusRef.current.get(o.id);
+              if (!isInitial && prevStatus && prevStatus !== o.status) {
+                // Order status changed in Firestore!
+                const activeUser = currentUserRef.current;
+                if (activeUser) {
+                  const currentId = (activeUser.id || '').trim();
+                  const currentEmail = (activeUser.email || '').toLowerCase().trim();
+                  const currentPhone = (activeUser.phone || '').replace(/[^0-9]/g, '');
+                  const orderPhone = (o.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
+                  const isMyOrder =
+                    (o.userId && (o.userId === currentId || currentId.includes(o.userId) || o.userId.includes(currentId))) ||
+                    (currentEmail && o.userEmail && o.userEmail.toLowerCase() === currentEmail) ||
+                    (currentPhone && orderPhone && orderPhone === currentPhone);
+
+                  if (isMyOrder) {
+                    addToast(`🔔 Order #${o.id} status updated to: ${o.status.toUpperCase()}!`, 'info');
+                    playNotificationChime();
+                  }
+                }
+              }
+              ordersStatusRef.current.set(o.id, o.status);
+            });
+
             setOrders(liveOrders);
             setDbStatus(prev => ({
               ...prev,
@@ -601,12 +669,51 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Attach real-time Firestore listener for notifications
           unsubscribeNotifications = subscribeToFirestoreNotifications((liveNotifs) => {
             if (!isMounted) return;
+            const isInitial = seenNotifsRef.current.size === 0;
+            liveNotifs.forEach(n => {
+              if (!isInitial && !seenNotifsRef.current.has(n.id)) {
+                const activeUser = currentUserRef.current;
+                if (activeUser && activeUser.role === 'customer') {
+                  const currentId = (activeUser.id || '').trim();
+                  const currentEmail = (activeUser.email || '').toLowerCase().trim();
+                  const currentPhone = (activeUser.phone || '').replace(/[^0-9]/g, '');
+                  const notifTargetId = (n.userId || n.customerId || '').trim();
+                  const notifEmail = (n.userEmail || '').toLowerCase().trim();
+                  const notifPhone = (n.phone || '').replace(/[^0-9]/g, '');
+
+                  // Strict targeting: ONLY trigger if notification explicitly matches this customer's account!
+                  const isForMe =
+                    (notifTargetId && (
+                      notifTargetId === currentId ||
+                      currentId.includes(notifTargetId) ||
+                      notifTargetId.includes(currentId) ||
+                      (currentPhone && notifTargetId === currentPhone)
+                    )) ||
+                    (currentEmail && notifEmail && notifEmail === currentEmail) ||
+                    (currentPhone && notifPhone && notifPhone === currentPhone);
+
+                  if (isForMe && (n.type === 'order_status' || n.type === 'review_request')) {
+                    addToast(`${n.title}: ${n.message}`, 'info');
+                    playNotificationChime();
+                  }
+                }
+              }
+              seenNotifsRef.current.add(n.id);
+            });
+
             setNotifications(liveNotifs);
             try {
               localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(liveNotifs));
             } catch {
               // ignore
             }
+          });
+
+          // Attach real-time Firestore listener for Telegram Bot settings
+          unsubscribeTelegram = subscribeToFirestoreTelegramConfig((remoteCfg) => {
+            if (!isMounted) return;
+            setTelegramConfig(remoteCfg);
+            saveStoredTelegramConfig(remoteCfg);
           });
         } else {
           setDbStatus(prev => ({
@@ -627,6 +734,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (unsubscribeOrders) unsubscribeOrders();
       if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeNotifications) unsubscribeNotifications();
+      if (unsubscribeTelegram) unsubscribeTelegram();
     };
   }, []);
 
@@ -745,6 +853,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return [];
     }
   });
+
+
 
   // 7. Navigation / View
   const [viewMode, setViewMode] = useState<ViewMode>('store');
@@ -1505,7 +1615,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     address?: ShippingAddress;
   }): Promise<{ success: boolean; message: string; user?: User }> => {
     const cleanEmail = data.email.trim().toLowerCase();
-    const cleanDigits = data.phone.replace(/[^0-9]/g, '');
+    const rawPhone = data.phone.trim();
+    const cleanDigits = normalizeBDPhone(rawPhone);
+
+    if (!isValidBDPhone(rawPhone)) {
+      addToast('Invalid phone number: Please provide an 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).', 'error');
+      return {
+        success: false,
+        message: 'Invalid phone number. A valid 11-digit Bangladeshi mobile number (013-019) is required.',
+      };
+    }
 
     if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
       addToast('An account with this email already exists. Please log in.', 'error');
@@ -2268,8 +2387,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
   }, [cart]);
 
-  // Standard delivery charge for Bangladesh (150 BDT)
-  const deliveryCharge = 150;
+  // Helper for dynamic delivery charge by location
+  const getDeliveryChargeForLocation = (district?: string, thana?: string): number => {
+    return calculateShippingCharge(district, thana);
+  };
+
+  // Dynamic delivery charge based on active customer location
+  // (80 TK inside Dhaka city, 130 TK sub-urban & outside Dhaka)
+  const deliveryCharge = useMemo(() => {
+    const dist = currentUser?.address?.district || currentUser?.address?.city;
+    const thana = currentUser?.address?.thana || currentUser?.address?.state;
+    return calculateShippingCharge(dist, thana);
+  }, [currentUser]);
 
   const cartTax = 0;
 
@@ -2353,6 +2482,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
+    // Calculate dynamic shipping fee for this order's exact location
+    const orderDeliveryCharge = calculateShippingCharge(
+      shippingAddress.district || shippingAddress.city,
+      shippingAddress.thana || shippingAddress.state
+    );
+    const orderTotalAmount = cartSubtotal + orderDeliveryCharge;
+
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
 
     const newOrder: Order = {
@@ -2360,7 +2496,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       userId: orderCustomer.id,
       userEmail: orderCustomer.email,
       status: 'pending',
-      totalAmount: cartTotal,
+      totalAmount: orderTotalAmount,
       shippingAddress,
       paymentMethod,
       ...(paymentDetails ? { paymentDetails } : {}),
@@ -2413,7 +2549,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Send Telegram Order Notification to Admin / Group if configured
     try {
-      const tgConfig = getStoredTelegramConfig();
+      let tgConfig = telegramConfig;
+      if (!tgConfig.botToken || !tgConfig.chatId) {
+        const remoteTg = await fetchFirestoreTelegramConfig();
+        if (remoteTg && remoteTg.botToken) {
+          tgConfig = remoteTg;
+        } else {
+          tgConfig = getStoredTelegramConfig();
+        }
+      }
+
       if (tgConfig.enabled && tgConfig.botToken && tgConfig.chatId) {
         const tgMsg = formatOrderForTelegram(newOrder, 'XEEROO Store');
         sendTelegramMessage(tgConfig.botToken, tgConfig.chatId, tgMsg).then(res => {
@@ -2428,6 +2573,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     addToast(`Order #${orderId} placed successfully and saved to database!`, 'success');
     return newOrder;
+  };
+
+  const updateTelegramConfig = async (newConfig: TelegramConfig): Promise<boolean> => {
+    setTelegramConfig(newConfig);
+    saveStoredTelegramConfig(newConfig);
+    const ok = await saveFirestoreTelegramConfig(newConfig);
+    return ok;
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<boolean> => {
@@ -2467,49 +2619,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 2. Update local state
     setOrders(prev => prev.map(o => (o.id === orderId ? updatedOrder : o)));
 
-    // 3. Resolve customer ID and email for the notification document
+    // 3. Resolve customer ID, email, and phone for the notification document
     let customerId = (targetOrder.userId || (targetOrder as any).customerId || '').trim();
     let customerEmail = (targetOrder.userEmail || '').trim();
+    let customerPhone = (targetOrder.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
 
     if (!customerId && customerEmail) {
       const match = users.find(u => u.email.toLowerCase() === customerEmail.toLowerCase());
       if (match) customerId = match.id;
     }
-    if (!customerId && targetOrder.shippingAddress?.phone) {
-      const digits = targetOrder.shippingAddress.phone.replace(/[^0-9]/g, '');
-      const match = users.find(u => (u.phone || '').replace(/[^0-9]/g, '') === digits);
+    if (!customerId && customerPhone) {
+      const match = users.find(u => (u.phone || '').replace(/[^0-9]/g, '') === customerPhone);
       if (match) customerId = match.id;
     }
 
     // 4. Create and trigger real-time notification document for customer in Firestore
-    if (customerId || customerEmail) {
-      const notifId = `notif-status-${orderId}-${Date.now()}`;
-      await addNotification({
-        id: notifId,
-        userId: customerId || undefined,
-        userEmail: customerEmail || undefined,
-        type: 'order_status',
-        title: `Order Status: ${status.toUpperCase()}`,
-        message: `Your order #${orderId} status has been updated to "${status.toUpperCase()}".`,
-        orderId,
-      });
+    const notifId = `notif-status-${orderId}-${Date.now()}`;
+    await addNotification({
+      id: notifId,
+      userId: customerId || undefined,
+      customerId: customerId || undefined,
+      userEmail: customerEmail || undefined,
+      phone: customerPhone || undefined,
+      targetRole: 'customer',
+      type: 'order_status',
+      title: `Order #${orderId} Status: ${status.toUpperCase()}`,
+      message: `Your order #${orderId} status has been updated to "${status.toUpperCase()}".`,
+      orderId,
+      orderStatus: status,
+    });
 
-      // Auto-trigger: Send a "Review Request" notification when status is 'delivered'
-      if (status === 'delivered' && targetOrder.items && targetOrder.items.length > 0) {
-        for (const item of targetOrder.items) {
-          const revNotifId = `notif-rev-${orderId}-${item.productId}-${Date.now()}`;
-          await addNotification({
-            id: revNotifId,
-            userId: customerId || undefined,
-            userEmail: customerEmail || undefined,
-            type: 'review_request',
-            orderId,
-            productId: item.productId,
-            productTitle: item.productTitle,
-            title: `Review Request: ${item.productTitle}`,
-            message: `Your order #${orderId} has been delivered! How was your experience with ${item.productTitle}? Tap to leave a rating & review.`,
-          });
-        }
+    // Auto-trigger: Send a "Review Request" notification when status is 'delivered'
+    if (status === 'delivered' && targetOrder.items && targetOrder.items.length > 0) {
+      for (const item of targetOrder.items) {
+        const revNotifId = `notif-rev-${orderId}-${item.productId}-${Date.now()}`;
+        await addNotification({
+          id: revNotifId,
+          userId: customerId || undefined,
+          customerId: customerId || undefined,
+          userEmail: customerEmail || undefined,
+          phone: customerPhone || undefined,
+          targetRole: 'customer',
+          type: 'review_request',
+          orderId,
+          productId: item.productId,
+          productTitle: item.productTitle,
+          title: `Review Request: ${item.productTitle}`,
+          message: `Your order #${orderId} has been delivered! How was your experience with ${item.productTitle}? Tap to leave a rating & review.`,
+        });
       }
     }
 
@@ -2599,43 +2756,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addToast('All notifications cleared', 'info');
   };
 
-  const visibleNotifications = useMemo(() => {
-    if (!currentUser) {
-      return notifications.filter(n => n.targetRole === 'all');
-    }
-    const isStaff = currentUser.role === 'admin' || currentUser.role === 'moderator';
-    const currentId = (currentUser.id || '').trim();
-    const currentEmail = (currentUser.email || '').toLowerCase().trim();
-    const currentPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
-
-    return notifications.filter(n => {
-      const notifUserId = (n.userId || '').trim();
-      const notifEmail = (n.userEmail || '').toLowerCase().trim();
-
-      const isForThisUser =
-        (notifUserId && (
-          notifUserId === currentId ||
-          currentId.includes(notifUserId) ||
-          notifUserId.includes(currentId) ||
-          (currentPhone && notifUserId === currentPhone)
-        )) ||
-        (currentEmail && notifEmail && notifEmail === currentEmail);
-
-      if (isStaff) {
-        return (
-          n.targetRole === 'staff' ||
-          n.targetRole === 'all' ||
-          isForThisUser
-        );
-      }
-      return isForThisUser || n.targetRole === 'all';
-    });
-  }, [notifications, currentUser]);
-
-  const unreadNotificationsCount = useMemo(() => {
-    return visibleNotifications.filter(n => !n.isRead).length;
-  }, [visibleNotifications]);
-
   // User-specific orders
   const userOrders = useMemo(() => {
     if (!currentUser) return [];
@@ -2659,6 +2779,58 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return orders;
   }, [orders, currentUser]);
 
+  const userOrderIds = useMemo(() => {
+    return new Set(userOrders.map(o => o.id));
+  }, [userOrders]);
+
+  const visibleNotifications = useMemo(() => {
+    if (!currentUser) {
+      return notifications.filter(n => n.targetRole === 'all' && !n.orderId && !n.userId);
+    }
+    const isStaff = currentUser.role === 'admin' || currentUser.role === 'moderator';
+    const currentId = (currentUser.id || '').trim();
+    const currentEmail = (currentUser.email || '').toLowerCase().trim();
+    const currentPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
+
+    return notifications.filter(n => {
+      const notifUserId = (n.userId || n.customerId || '').trim();
+      const notifEmail = (n.userEmail || '').toLowerCase().trim();
+      const notifPhone = (n.phone || '').replace(/[^0-9]/g, '');
+
+      const isForThisUser =
+        (notifUserId && (
+          notifUserId === currentId ||
+          currentId.includes(notifUserId) ||
+          notifUserId.includes(currentId) ||
+          (currentPhone && notifUserId === currentPhone)
+        )) ||
+        (currentEmail && notifEmail && notifEmail === currentEmail) ||
+        (currentPhone && notifPhone && notifPhone === currentPhone) ||
+        (Boolean(n.orderId) && userOrderIds.has(n.orderId!));
+
+      if (isStaff) {
+        return (
+          n.targetRole === 'staff' ||
+          (n.targetRole === 'all' && !n.orderId) ||
+          isForThisUser
+        );
+      }
+
+      // Customer view:
+      // Orders, status updates, and review requests MUST strictly go to the specific customer's User ID
+      if (n.orderId || n.type === 'order_status' || n.type === 'review_request' || n.targetRole === 'customer') {
+        return isForThisUser;
+      }
+
+      // Only generic public broadcast notifications (without customer or order targeting)
+      return n.targetRole === 'all' && !n.userId && !n.customerId && !n.orderId;
+    });
+  }, [notifications, currentUser, userOrderIds]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return visibleNotifications.filter(n => !n.isRead).length;
+  }, [visibleNotifications]);
+
   // Reset to original mock data
   const resetDemoData = () => {
     setProducts(INITIAL_PRODUCTS);
@@ -2672,6 +2844,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const value: StoreContextType = {
+    // Telegram Bot Settings
+    telegramConfig,
+    updateTelegramConfig,
+
     currentUser,
     users,
     isLoggedIn,
@@ -2769,6 +2945,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     cartSubtotal,
     cartTax,
     deliveryCharge,
+    getDeliveryChargeForLocation,
     cartTotal,
     isCheckoutOpen,
     setIsCheckoutOpen,

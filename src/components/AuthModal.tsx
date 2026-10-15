@@ -40,8 +40,6 @@ export const AuthModal: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showGoogleFallback, setShowGoogleFallback] = useState(false);
-  const [googleManualEmail, setGoogleManualEmail] = useState('rayhanuddinrohan0@gmail.com');
 
   // Login Form State
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -95,7 +93,6 @@ export const AuthModal: React.FC = () => {
     setDirectResetMode(false);
     setNewDirectPassword('');
     setConfirmDirectPassword('');
-    setShowGoogleFallback(false);
   };
 
   const switchTab = (tab: 'login' | 'register' | 'forgot-password') => {
@@ -106,7 +103,6 @@ export const AuthModal: React.FC = () => {
     setDirectResetMode(false);
     setNewDirectPassword('');
     setConfirmDirectPassword('');
-    setShowGoogleFallback(false);
   };
 
   // Unified Login Handler (Admin & Customer)
@@ -199,7 +195,7 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  // Google Sign-In Handler with Popup & 1-Click Fallback
+  // Google Sign-In Handler
   const handleGoogleSignIn = async () => {
     setIsSubmitting(true);
     setErrorMsg('');
@@ -211,41 +207,11 @@ export const AuthModal: React.FC = () => {
           setViewMode('dashboard');
         }
       } else {
-        // If popup was blocked or domain not authorized, show instant 1-click fallback
-        setShowGoogleFallback(true);
-        setErrorMsg('Google popup window was restricted by your browser. Please use 1-Click Google Sign-in below:');
+        setErrorMsg(res.message || 'Google sign-in could not be completed. Please try again.');
       }
     } catch (err: unknown) {
       const error = err as { message?: string };
-      setShowGoogleFallback(true);
-      setErrorMsg(error.message || 'Google popup restricted. Please use 1-Click Google Sign-in below:');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleManualGoogleLogin = (email: string, name?: string) => {
-    const clean = email.trim();
-    if (!clean || !clean.includes('@')) {
-      setErrorMsg('Please enter a valid Google email address.');
-      return;
-    }
-    setIsSubmitting(true);
-    setErrorMsg('');
-    try {
-      const derivedName = name?.trim() || clean.split('@')[0];
-      const res = loginWithGoogle({
-        email: clean,
-        fullName: derivedName,
-      });
-      if (res.success && res.user) {
-        setIsAuthModalOpen(false);
-        if (res.user.role === 'admin' || res.user.role === 'moderator') {
-          setViewMode('dashboard');
-        }
-      } else {
-        setErrorMsg(res.message || 'Could not complete Google sign-in.');
-      }
+      setErrorMsg(error.message || 'Google sign-in failed. Please try again or sign in with email.');
     } finally {
       setIsSubmitting(false);
     }
@@ -483,81 +449,6 @@ export const AuthModal: React.FC = () => {
                 </svg>
                 <span>Continue with Google</span>
               </button>
-
-              {/* Google 1-Click Fallback Panel */}
-              {showGoogleFallback ? (
-                <div className="p-3 bg-blue-50/90 border border-blue-200 rounded-2xl space-y-2 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                      1-Click Google Sign-In
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowGoogleFallback(false)}
-                      className="text-[10px] text-gray-500 hover:text-gray-800 cursor-pointer"
-                    >
-                      Hide
-                    </button>
-                  </div>
-
-                  {/* 1-Click default Google account */}
-                  <button
-                    type="button"
-                    onClick={() => handleManualGoogleLogin('rayhanuddinrohan0@gmail.com', 'Rayhan')}
-                    disabled={isSubmitting}
-                    className="w-full py-2 px-3 bg-white hover:bg-gray-50 border border-blue-300 rounded-xl text-left flex items-center justify-between text-xs font-semibold text-gray-800 shadow-xs cursor-pointer group transition-all"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
-                        R
-                      </div>
-                      <div className="truncate">
-                        <div className="font-bold text-gray-900 leading-tight">Rayhan</div>
-                        <div className="text-[10px] text-gray-500 font-normal truncate">rayhanuddinrohan0@gmail.com</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-blue-600 group-hover:underline shrink-0">
-                      Sign in →
-                    </span>
-                  </button>
-
-                  {/* Or Custom Gmail Input */}
-                  <div className="pt-0.5 space-y-1">
-                    <label className="block text-[10px] font-medium text-gray-600">
-                      Or enter another Google / Gmail account:
-                    </label>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="email"
-                        value={googleManualEmail}
-                        onChange={(e) => setGoogleManualEmail(e.target.value)}
-                        placeholder="yourname@gmail.com"
-                        className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-gray-800"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleManualGoogleLogin(googleManualEmail)}
-                        disabled={isSubmitting || !googleManualEmail.trim()}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors shrink-0"
-                      >
-                        Sign In
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleFallback(true)}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                  >
-                    ⚡ Fast 1-Click Google Sign-In (rayhanuddinrohan0@gmail.com)
-                  </button>
-                </div>
-              )}
-
               {/* Switch to Registration */}
               <div className="text-center pt-2">
                 <p className="text-xs text-gray-500">
@@ -790,78 +681,7 @@ export const AuthModal: React.FC = () => {
                 </svg>
                 <span>Sign up with Google</span>
               </button>
-
-              {/* Google 1-Click Fallback Panel in Register Tab */}
-              {showGoogleFallback ? (
-                <div className="p-3 bg-blue-50/90 border border-blue-200 rounded-2xl space-y-2 animate-in fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                      1-Click Google Sign-Up
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowGoogleFallback(false)}
-                      className="text-[10px] text-gray-500 hover:text-gray-800 cursor-pointer"
-                    >
-                      Hide
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleManualGoogleLogin('rayhanuddinrohan0@gmail.com', 'Rayhan')}
-                    disabled={isSubmitting}
-                    className="w-full py-2 px-3 bg-white hover:bg-gray-50 border border-blue-300 rounded-xl text-left flex items-center justify-between text-xs font-semibold text-gray-800 shadow-xs cursor-pointer group transition-all"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
-                        R
-                      </div>
-                      <div className="truncate">
-                        <div className="font-bold text-gray-900 leading-tight">Rayhan</div>
-                        <div className="text-[10px] text-gray-500 font-normal truncate">rayhanuddinrohan0@gmail.com</div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold text-blue-600 group-hover:underline shrink-0">
-                      Sign up →
-                    </span>
-                  </button>
-
-                  <div className="pt-0.5 space-y-1">
-                    <label className="block text-[10px] font-medium text-gray-600">
-                      Or sign up with any Google account:
-                    </label>
-                    <div className="flex gap-1.5">
-                      <input
-                        type="email"
-                        value={googleManualEmail}
-                        onChange={(e) => setGoogleManualEmail(e.target.value)}
-                        placeholder="yourname@gmail.com"
-                        className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium text-gray-800"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleManualGoogleLogin(googleManualEmail)}
-                        disabled={isSubmitting || !googleManualEmail.trim()}
-                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors shrink-0"
-                      >
-                        Sign Up
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowGoogleFallback(true)}
-                    className="text-[11px] text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                  >
-                    ⚡ Fast 1-Click Google Sign-Up (rayhanuddinrohan0@gmail.com)
-                  </button>
-                </div>
-              )}
+              {/* Switch to Login */}
 
               <div className="text-center pt-2">
                 <p className="text-xs text-gray-500">

@@ -36,7 +36,20 @@ export const saveStoredTelegramConfig = (config: TelegramConfig) => {
 };
 
 /**
- * Send an HTML formatted message to Telegram Bot Chat/Channel
+ * Escape HTML special characters for Telegram HTML mode
+ */
+const escapeHtml = (str: unknown = ''): string => {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+};
+
+/**
+ * Send a formatted message to Telegram Bot Chat/Channel
+ * Automatically falls back to plain text if Telegram rejects HTML formatting
  */
 export const sendTelegramMessage = async (
   botToken: string,
@@ -52,6 +65,8 @@ export const sendTelegramMessage = async (
 
   try {
     const url = `https://api.telegram.org/bot${cleanToken}/sendMessage`;
+    
+    // First attempt: HTML parse mode
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -66,12 +81,29 @@ export const sendTelegramMessage = async (
     const data = await response.json();
     if (data.ok) {
       return { success: true, message: 'Telegram notification delivered successfully!' };
-    } else {
-      return {
-        success: false,
-        message: data.description || `Telegram API error code: ${data.error_code}`,
-      };
     }
+
+    // If HTML parsing failed, strip HTML tags and retry as plain text
+    const plainText = text.replace(/<[^>]*>?/gm, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    const fallbackResponse = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: cleanChatId,
+        text: plainText,
+        disable_web_page_preview: true,
+      }),
+    });
+
+    const fallbackData = await fallbackResponse.json();
+    if (fallbackData.ok) {
+      return { success: true, message: 'Telegram notification delivered (plain-text fallback).' };
+    }
+
+    return {
+      success: false,
+      message: fallbackData.description || data.description || `Telegram API error code: ${data.error_code}`,
+    };
   } catch (err: unknown) {
     const error = err as { message?: string };
     return {
@@ -85,15 +117,16 @@ export const sendTelegramMessage = async (
  * Format new order details into a clean, rich Telegram HTML message
  */
 export const formatOrderForTelegram = (order: Order, storeName: string = 'XEEROO Store'): string => {
-  const addr = order.shippingAddress;
-  const fullAddress = [addr.street, addr.city, addr.state, addr.postalCode, addr.country]
+  const addr = order.shippingAddress || ({} as any);
+  const fullAddress = [addr.street, addr.thana || addr.state, addr.district || addr.city, addr.postalCode, addr.country || 'Bangladesh']
     .filter(Boolean)
     .join(', ');
 
-  const itemsList = order.items
+  const items = order.items || [];
+  const itemsList = items
     .map(
       (item, idx) =>
-        `  ${idx + 1}. <b>${item.productTitle}</b>\n     ▫️ Qty: ${item.quantity} | Price: ${formatBDT(item.unitPrice)}`
+        `  ${idx + 1}. <b>${escapeHtml(item.productTitle)}</b>\n     ▫️ Qty: ${item.quantity} | Price: ${formatBDT(item.unitPrice)}`
     )
     .join('\n');
 
@@ -101,32 +134,37 @@ export const formatOrderForTelegram = (order: Order, storeName: string = 'XEEROO
     order.paymentMethod === 'cod'
       ? 'Cash on Delivery (COD)'
       : order.paymentMethod === 'bkash'
-      ? `bKash (${order.paymentDetails?.bkashNumber || 'N/A'}${order.paymentDetails?.trxId ? ' | TrxID: ' + order.paymentDetails.trxId : ''})`
-      : order.paymentMethod.toUpperCase();
+      ? `bKash (${escapeHtml(order.paymentDetails?.bkashNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''})`
+      : escapeHtml(order.paymentMethod || 'COD').toUpperCase();
 
-  const formattedDate = new Date(order.createdAt).toLocaleString('en-US', {
+  const formattedDate = new Date(order.createdAt || Date.now()).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
 
+  const customerName = escapeHtml(addr.fullName || order.userEmail?.split('@')[0] || 'Customer');
+  const customerPhone = escapeHtml(addr.phone || 'N/A');
+  const customerEmail = escapeHtml(order.userEmail || 'N/A');
+
   return (
     `🚨 <b>NEW ORDER RECEIVED!</b>\n` +
-    `🏪 <i>${storeName}</i>\n` +
+    `🏪 <i>${escapeHtml(storeName)}</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `🆔 <b>Order ID:</b> #${order.id}\n` +
+    `🆔 <b>Order ID:</b> #${escapeHtml(order.id)}\n` +
     `📅 <b>Date:</b> ${formattedDate}\n` +
-    `👤 <b>Customer:</b> ${addr.fullName}\n` +
-    `📞 <b>Phone:</b> <code>${addr.phone || 'N/A'}</code>\n` +
-    `✉️ <b>Email:</b> ${order.userEmail}\n` +
-    `📍 <b>Delivery Address:</b> ${fullAddress || 'N/A'}\n` +
+    `👤 <b>Customer:</b> ${customerName}\n` +
+    `📞 <b>Phone:</b> <code>${customerPhone}</code>\n` +
+    `✉️ <b>Email:</b> ${customerEmail}\n` +
+    `📍 <b>Delivery Address:</b> ${escapeHtml(fullAddress || 'N/A')}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `📦 <b>Ordered Items (${order.items.length}):</b>\n` +
-    `${itemsList}\n` +
+    `📦 <b>Ordered Items (${items.length}):</b>\n` +
+    `${itemsList || '  (No items listed)'}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `💳 <b>Payment Method:</b> ${paymentDesc}\n` +
-    `💰 <b>Total Bill:</b> <b>${formatBDT(order.totalAmount)}</b>\n` +
-    `⚡ <b>Status:</b> 🟡 <i>${order.status.toUpperCase()}</i>\n` +
+    `💰 <b>Total Bill:</b> <b>${formatBDT(order.totalAmount || 0)}</b>\n` +
+    `⚡ <b>Status:</b> 🟡 <i>${escapeHtml((order.status || 'pending').toUpperCase())}</i>\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `👉 <i>Log in to Admin Dashboard to process this order.</i>`
   );
 };
+
