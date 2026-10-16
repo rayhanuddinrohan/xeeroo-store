@@ -5,6 +5,8 @@
 
 import React, { useState } from 'react';
 import { useStore } from '../context/StoreContext';
+import { BrandLogo } from './common/BrandLogo';
+import { isValidBDPhone } from '../utils/shipping';
 import {
   X,
   Lock,
@@ -144,8 +146,8 @@ export const AuthModal: React.FC = () => {
       setErrorMsg('Please enter your full name.');
       return;
     }
-    if (!regPhone.trim()) {
-      setErrorMsg('Please enter a valid mobile number (e.g. 017XXXXXXXX).');
+    if (!isValidBDPhone(regPhone)) {
+      setErrorMsg('Please enter a valid 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).');
       return;
     }
     if (!regEmail.trim() || !regEmail.includes('@')) {
@@ -283,15 +285,9 @@ export const AuthModal: React.FC = () => {
             <X className="w-5 h-5" />
           </button>
 
-          <div className="flex justify-center mb-2.5">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-300 shadow-inner">
-              <ShoppingBag className="w-6 h-6" />
-            </div>
+          <div className="flex justify-center mb-2">
+            <BrandLogo size="lg" showText={true} textColor="text-white" />
           </div>
-
-          <h3 className="text-xl font-black tracking-tight">
-            XEEROO
-          </h3>
           <p className="text-xs text-slate-300 mt-1">
             {authModalTab === 'login' && 'Sign in to your account for faster checkout & tracking'}
             {authModalTab === 'register' && 'Create your account to start ordering online'}

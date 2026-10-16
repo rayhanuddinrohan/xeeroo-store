@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { Order } from '../../types';
+import { isValidBDPhone } from '../../utils/shipping';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -71,6 +72,13 @@ export const CheckoutPage: React.FC = () => {
 
     if (!hasShippingAddress || !currentUser.address) {
       addToast('Please set your delivery address in Account Settings first.', 'warning');
+      openSettingsModal('address');
+      return;
+    }
+
+    const currentPhone = currentUser.address?.phone || currentUser.phone || '';
+    if (!isValidBDPhone(currentPhone)) {
+      addToast('Invalid phone number: Please provide an 11-digit Bangladeshi mobile number in Account Settings.', 'error');
       openSettingsModal('address');
       return;
     }
@@ -658,8 +666,13 @@ Please confirm and dispatch my order. Thank you!`;
                 <span>Subtotal</span>
                 <span className="font-mono font-medium text-gray-900">{formatBDT(cartSubtotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Standard Delivery (Nationwide)</span>
+              <div className="flex justify-between items-center text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  <span>Delivery Charge</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
+                    {deliveryCharge === 80 ? 'Inside Dhaka City (80 ৳)' : 'Sub-urban / Outside Dhaka (130 ৳)'}
+                  </span>
+                </span>
                 <span className="font-mono font-medium text-gray-900">{formatBDT(deliveryCharge)}</span>
               </div>
               <div className="flex justify-between text-sm font-black text-gray-900 pt-2 border-t border-gray-200">

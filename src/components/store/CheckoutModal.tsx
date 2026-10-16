@@ -357,7 +357,7 @@ Please confirm and dispatch the order. Thank you!`;
                   >
                     {districtList.map(dist => (
                       <option key={dist.name} value={dist.name}>
-                        {dist.name} ({dist.division} Division)
+                        {dist.name}
                       </option>
                     ))}
                   </select>
@@ -417,7 +417,7 @@ Please confirm and dispatch the order. Thank you!`;
                 <div className="hidden sm:block text-xs text-gray-600">
                   <span>Subtotal: <strong className="text-gray-900 font-mono">{formatBDT(cartSubtotal)}</strong></span>
                   <span className="mx-1.5 text-gray-300">|</span>
-                  <span>Delivery: <strong className="text-emerald-700 font-mono">{formatBDT(deliveryCharge)}</strong></span>
+                  <span>Delivery: <strong className="text-emerald-700 font-mono">{formatBDT(modalDeliveryCharge)}</strong></span>
                 </div>
 
                 <button
@@ -528,19 +528,24 @@ Please confirm and dispatch the order. Thank you!`;
               </div>
             </div>
 
-            {/* Order Price Breakdown with 150 BDT Delivery Charge */}
+            {/* Order Price Breakdown with Dynamic Location Delivery Charge */}
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs space-y-2">
               <div className="flex justify-between text-gray-600">
                 <span>Items Subtotal</span>
                 <span className="font-mono">{formatBDT(cartSubtotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-600">
-                <span>Delivery Charge (All Bangladesh)</span>
-                <span className="font-mono font-semibold text-gray-900">{formatBDT(deliveryCharge)}</span>
+              <div className="flex justify-between items-center text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  <span>Delivery Charge</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-700">
+                    {shippingInfo.label}
+                  </span>
+                </span>
+                <span className="font-mono font-semibold text-gray-900">{formatBDT(modalDeliveryCharge)}</span>
               </div>
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Total Amount Due</span>
-                <span className="font-mono text-blue-600 text-base">{formatBDT(cartTotal)}</span>
+                <span className="font-mono text-blue-600 text-base">{formatBDT(modalCartTotal)}</span>
               </div>
             </div>
 

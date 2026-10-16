@@ -201,8 +201,13 @@ My Delivery Address:`
                   <span>Items Subtotal</span>
                   <span className="font-mono">{formatBDT(cartSubtotal)}</span>
                 </div>
-                <div className="flex justify-between text-gray-500">
-                  <span>Delivery Charge</span>
+                <div className="flex justify-between items-center text-gray-500">
+                  <span className="flex items-center gap-1.5">
+                    <span>Delivery Charge</span>
+                    <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-medium">
+                      {deliveryCharge === 80 ? 'Dhaka City' : 'Sub-urban / Outside'}
+                    </span>
+                  </span>
                   <span className="font-mono font-medium text-gray-900">{formatBDT(deliveryCharge)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
