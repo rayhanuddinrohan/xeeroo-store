@@ -673,28 +673,44 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             liveNotifs.forEach(n => {
               if (!isInitial && !seenNotifsRef.current.has(n.id)) {
                 const activeUser = currentUserRef.current;
-                if (activeUser && activeUser.role === 'customer') {
-                  const currentId = (activeUser.id || '').trim();
-                  const currentEmail = (activeUser.email || '').toLowerCase().trim();
-                  const currentPhone = (activeUser.phone || '').replace(/[^0-9]/g, '');
-                  const notifTargetId = (n.userId || n.customerId || '').trim();
-                  const notifEmail = (n.userEmail || '').toLowerCase().trim();
-                  const notifPhone = (n.phone || '').replace(/[^0-9]/g, '');
 
-                  // Strict targeting: ONLY trigger if notification explicitly matches this customer's account!
-                  const isForMe =
-                    (notifTargetId && (
-                      notifTargetId === currentId ||
-                      currentId.includes(notifTargetId) ||
-                      notifTargetId.includes(currentId) ||
-                      (currentPhone && notifTargetId === currentPhone)
-                    )) ||
-                    (currentEmail && notifEmail && notifEmail === currentEmail) ||
-                    (currentPhone && notifPhone && notifPhone === currentPhone);
-
-                  if (isForMe && (n.type === 'order_status' || n.type === 'review_request')) {
-                    addToast(`${n.title}: ${n.message}`, 'info');
+                // Case 1: Staff / Admin account logged in
+                if (activeUser && (activeUser.role === 'admin' || activeUser.role === 'moderator')) {
+                  if (n.targetRole === 'staff' || n.type === 'order_placed') {
+                    addToast(`🔔 ${n.title}: ${n.message}`, 'info');
                     playNotificationChime();
+                  }
+                }
+
+                // Case 2: Customer account logged in
+                if (activeUser && activeUser.role === 'customer') {
+                  // Customer MUST NEVER receive or hear chime for staff order_placed alerts
+                  if (n.targetRole === 'staff' || n.type === 'order_placed') {
+                    // Do nothing - strictly for admin/staff
+                  } else {
+                    const currentId = (activeUser.id || '').trim();
+                    const currentEmail = (activeUser.email || '').toLowerCase().trim();
+                    const currentPhone = (activeUser.phone || '').replace(/[^0-9]/g, '');
+                    const notifTargetId = (n.userId || n.customerId || '').trim();
+                    const notifEmail = (n.userEmail || '').toLowerCase().trim();
+                    const notifPhone = (n.phone || '').replace(/[^0-9]/g, '');
+
+                    // Strict targeting: ONLY trigger if notification explicitly matches this customer's account!
+                    const isForMe =
+                      (notifTargetId && (
+                        notifTargetId === currentId ||
+                        currentId.includes(notifTargetId) ||
+                        notifTargetId.includes(currentId) ||
+                        (currentPhone && notifTargetId === currentPhone)
+                      )) ||
+                      (currentEmail && notifEmail && notifEmail === currentEmail) ||
+                      (currentPhone && notifPhone && notifPhone === currentPhone);
+
+                    // Customers only receive order status updates and review requests
+                    if (isForMe && (n.type === 'order_status' || n.type === 'review_request')) {
+                      addToast(`${n.title}: ${n.message}`, 'info');
+                      playNotificationChime();
+                    }
                   }
                 }
               }
@@ -2538,12 +2554,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Save order directly to Firestore database!
     await saveFirestoreOrder(newOrder);
 
-    // Notify Admin/Staff in real-time
+    // Notify Admin/Staff in real-time (Strictly targeted to staff, not customer account)
     addNotification({
       targetRole: 'staff',
       type: 'order_placed',
       title: 'New Customer Order Received',
-      message: `Order #${orderId} was placed by ${orderCustomer.fullName || orderCustomer.email} for ${formatBDT(cartTotal)} (${cart.length} items).`,
+      message: `Order #${orderId} was placed by ${orderCustomer.fullName || orderCustomer.email} for ${formatBDT(orderTotalAmount)} (${cart.length} items).`,
       orderId,
     });
 
@@ -2811,15 +2827,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isStaff) {
         return (
           n.targetRole === 'staff' ||
+          n.type === 'order_placed' ||
           (n.targetRole === 'all' && !n.orderId) ||
           isForThisUser
         );
       }
 
       // Customer view:
-      // Orders, status updates, and review requests MUST strictly go to the specific customer's User ID
-      if (n.orderId || n.type === 'order_status' || n.type === 'review_request' || n.targetRole === 'customer') {
-        return isForThisUser;
+      // STRICT RULE: Customer accounts MUST NEVER receive or see 'order_placed' notifications or staff-targeted notifications!
+      if (n.targetRole === 'staff' || n.type === 'order_placed') {
+        return false;
+      }
+
+      // Check if this notification is strictly meant for this customer:
+      const isForThisCustomer =
+        (notifUserId && (
+          notifUserId === currentId ||
+          currentId.includes(notifUserId) ||
+          notifUserId.includes(currentId) ||
+          (currentPhone && notifUserId === currentPhone)
+        )) ||
+        (currentEmail && notifEmail && notifEmail === currentEmail) ||
+        (currentPhone && notifPhone && notifPhone === currentPhone) ||
+        (Boolean(n.orderId) && userOrderIds.has(n.orderId!) && n.type === 'order_status');
+
+      // Customers only receive order status updates (e.g. Processing, Shipped, Delivered) and review requests
+      if (n.type === 'order_status' || n.type === 'review_request') {
+        return isForThisCustomer;
+      }
+
+      if (n.targetRole === 'customer') {
+        return isForThisCustomer;
       }
 
       // Only generic public broadcast notifications (without customer or order targeting)
