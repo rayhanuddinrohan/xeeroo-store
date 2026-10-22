@@ -512,10 +512,14 @@ function productImporterPlugin(): Plugin {
         originHeader: string | undefined,
         bodyPayload?: any
       ) => {
-        // Default to xeeroo.com if blank or not provided
-        let targetDomain = (originHeader && originHeader.trim() && originHeader !== 'null')
-          ? originHeader.trim()
-          : 'https://xeeroo.com';
+        // Filter out development preview hosts (run.app, localhost, ais-) and default to xeeroo.com
+        let targetDomain = 'https://xeeroo.com';
+        if (originHeader && originHeader.trim() && originHeader !== 'null') {
+          const raw = originHeader.trim();
+          if (!raw.includes('run.app') && !raw.includes('localhost') && !raw.includes('127.0.0.1') && !raw.includes('ais-')) {
+            targetDomain = raw;
+          }
+        }
 
         const buildHeaders = (domUrl: string) => {
           const cleanDomain = domUrl.replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
@@ -552,12 +556,12 @@ function productImporterPlugin(): Plugin {
           };
         }
 
-        // Automatic retry if key is locked to a specific domain
+        // Automatic retry if key is locked or registered to a specific domain
         if (bkResponse.status === 403 && parsedData?.message && typeof parsedData.message === 'string') {
-          const match = parsedData.message.match(/locked to domain ["']([^"']+)["']/i);
-          if (match && match[1]) {
-            const lockedDomain = match[1];
-            headers = buildHeaders(`https://${lockedDomain}`);
+          const match = parsedData.message.match(/(?:locked to domain ["']?([a-zA-Z0-9.-]+)["']?|registered to ([a-zA-Z0-9.-]+))/i);
+          const detectedDomain = match ? (match[1] || match[2]) : null;
+          if (detectedDomain && !detectedDomain.includes('run.app')) {
+            headers = buildHeaders(`https://${detectedDomain}`);
             bkResponse = await fetch(`https://api.businesskoro.com${endpoint}`, {
               method,
               headers,
@@ -595,7 +599,14 @@ function productImporterPlugin(): Plugin {
         try {
           const urlObj = new URL(req.url || '', `http://${req.headers.host}`);
           let apiKey = (req.headers['x-api-key'] as string) || urlObj.searchParams.get('apiKey') || '';
-          let originHeader = (req.headers['x-origin'] as string) || (req.headers['origin'] as string) || urlObj.searchParams.get('origin') || '';
+          let originHeader = (req.headers['x-origin'] as string) || urlObj.searchParams.get('origin') || '';
+          const browserOrigin = (req.headers['origin'] as string) || '';
+          if (!originHeader && browserOrigin && !browserOrigin.includes('run.app') && !browserOrigin.includes('localhost') && !browserOrigin.includes('ais-')) {
+            originHeader = browserOrigin;
+          }
+          if (!originHeader) {
+            originHeader = 'https://xeeroo.com';
+          }
 
           if (!apiKey && req.method === 'POST') {
             const buffers: Buffer[] = [];

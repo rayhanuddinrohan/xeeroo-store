@@ -430,9 +430,10 @@ export const fetchFirestoreUserByIdentifier = async (identifier: string): Promis
 export const saveFirestoreProduct = async (product: Product): Promise<boolean> => {
   try {
     const prodRef = doc(db, 'products', product.id);
-    await setDoc(prodRef, {
+    const cleanPayload: Record<string, any> = {
       id: product.id,
-      title: product.title,
+      title: product.title || product.name || 'Product',
+      name: product.name || product.title || 'Product',
       slug: product.slug,
       description: product.description || '',
       price: Number(product.price),
@@ -450,7 +451,12 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       reviews: Array.isArray(product.reviews) ? product.reviews : [],
       brand: product.brand || 'XEEROO',
       features: product.features || [],
-    }, { merge: true });
+    };
+    if (product.suggestedPrice !== undefined) cleanPayload.suggestedPrice = Number(product.suggestedPrice);
+    if (product.inStock !== undefined) cleanPayload.inStock = Boolean(product.inStock);
+    if (product.variants !== undefined) cleanPayload.variants = product.variants;
+
+    await setDoc(prodRef, cleanPayload, { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore save product error:', err);
@@ -484,7 +490,8 @@ export const subscribeToFirestoreProducts = (
       const list: Product[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data && data.title) {
+        if (data && (data.title || data.name)) {
+          const prodTitle = String(data.title || data.name || 'Product');
           const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
           const calculatedRating = reviewsList.length > 0
             ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
@@ -492,8 +499,9 @@ export const subscribeToFirestoreProducts = (
 
           list.push({
             id: data.id || docSnap.id,
-            title: data.title,
-            slug: data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            title: prodTitle,
+            name: String(data.name || prodTitle),
+            slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             description: data.description || '',
             price: Number(data.price) || 0,
             stockQuantity: Number(data.stockQuantity) || 0,
@@ -510,6 +518,9 @@ export const subscribeToFirestoreProducts = (
             reviews: reviewsList,
             brand: data.brand || 'XEEROO',
             features: Array.isArray(data.features) ? data.features : [],
+            suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
+            inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
+            variants: Array.isArray(data.variants) ? data.variants : undefined,
           });
         }
       });
@@ -529,7 +540,8 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
     const list: Product[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && data.title) {
+      if (data && (data.title || data.name)) {
+        const prodTitle = String(data.title || data.name || 'Product');
         const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
         const calculatedRating = reviewsList.length > 0
           ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
@@ -537,8 +549,9 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
 
         list.push({
           id: data.id || docSnap.id,
-          title: data.title,
-          slug: data.slug || data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          title: prodTitle,
+          name: String(data.name || prodTitle),
+          slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           description: data.description || '',
           price: Number(data.price) || 0,
           stockQuantity: Number(data.stockQuantity) || 0,
@@ -555,6 +568,9 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           reviews: reviewsList,
           brand: data.brand || 'XEEROO',
           features: Array.isArray(data.features) ? data.features : [],
+          suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
+          inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
+          variants: Array.isArray(data.variants) ? data.variants : undefined,
         });
       }
     });

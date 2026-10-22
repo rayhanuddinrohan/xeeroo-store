@@ -92,10 +92,14 @@ export interface TelegramConfig {
 export interface Product {
   id: string;
   title: string;
+  name?: string;
   slug: string;
   description: string;
   price: number;
+  suggestedPrice?: number;
   stockQuantity: number;
+  inStock?: boolean;
+  variants?: any[];
   soldCount?: number;
   sku?: string;
   categoryId: string;

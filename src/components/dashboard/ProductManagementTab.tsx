@@ -9,6 +9,7 @@ import { Product } from '../../types';
 import { formatBDT } from '../../utils/currency';
 import { ProductFormModal } from './ProductFormModal';
 import { ProductImportModal } from './ProductImportModal';
+import { SyncProductsModal } from './SyncProductsModal';
 import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import {
   Plus,
@@ -23,6 +24,7 @@ import {
   Layers,
   ArrowUpDown,
   DownloadCloud,
+  RefreshCw,
   Globe,
   Link,
   Sparkles,
@@ -54,6 +56,7 @@ export const ProductManagementTab: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Quick URL Scraper state
@@ -434,6 +437,16 @@ export const ProductManagementTab: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
+            id="btn-sync-api-products"
+            onClick={() => setIsSyncModalOpen(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
+            title="Fetch and sync products automatically from BusinessKoro API into Firestore"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-white" />
+            <span>Sync/Import Products</span>
+          </button>
+
+          <button
             id="btn-import-api-products"
             onClick={() => setDashboardTab('importer')}
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-slate-950 hover:bg-slate-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 border border-slate-800"
@@ -651,6 +664,12 @@ export const ProductManagementTab: React.FC = () => {
       <ProductImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+      />
+
+      {/* Modal for Automated BusinessKoro Sync */}
+      <SyncProductsModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
       />
     </div>
   );

@@ -90,16 +90,17 @@ const PRESET_APIS = [
 ];
 
 export const ProductImportTab: React.FC = () => {
-  const { categories, addProduct, addToast, setDashboardTab } = useStore();
+  const { categories, addProduct, addToast, setDashboardTab, syncBusinessKoroProducts } = useStore();
 
   const [activeImportMode, setActiveImportMode] = useState<'businesskoro' | 'url-scraper' | 'api-feed' | 'json'>('businesskoro');
+  const [isDirectSyncing, setIsDirectSyncing] = useState(false);
 
   // Business Koro API States
   const [bkApiKey, setBkApiKey] = useState(() => {
     try {
-      return localStorage.getItem('bk_api_key') || '';
+      return localStorage.getItem('bk_api_key') || 'bkr_aad2d61b33846e51b56d3c413c8b3c1d94f7e6602ee5fd0c';
     } catch {
-      return '';
+      return 'bkr_aad2d61b33846e51b56d3c413c8b3c1d94f7e6602ee5fd0c';
     }
   });
   const [bkOrigin, setBkOrigin] = useState(() => {
@@ -120,6 +121,7 @@ export const ProductImportTab: React.FC = () => {
     suggestedPrice: number;
     sellingPrice: number;
     inStock: boolean;
+    variants?: any[];
     selected: boolean;
   }>>([]);
   const [bkTargetCategory, setBkTargetCategory] = useState<string>(categories[0]?.id || 'cat-audio');
@@ -192,7 +194,13 @@ export const ProductImportTab: React.FC = () => {
       const effectiveOrigin = bkOrigin.trim() || 'https://xeeroo.com';
       queryParams.set('origin', effectiveOrigin);
 
-      const res = await fetch(`/api/businesskoro/products?${queryParams.toString()}`);
+      const res = await fetch(`/api/businesskoro/products?${queryParams.toString()}`, {
+        headers: {
+          'Accept': 'application/json',
+          'x-api-key': bkApiKey.trim(),
+          'x-origin': effectiveOrigin,
+        },
+      });
       const rawText = await res.text();
       let json: any = null;
       try {
@@ -205,7 +213,15 @@ export const ProductImportTab: React.FC = () => {
         throw new Error(json.error || json.message || `HTTP ${res.status}: Failed to fetch products from Business Koro.`);
       }
 
-      const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+      const rawList = Array.isArray(json.products)
+        ? json.products
+        : Array.isArray(json.data)
+        ? json.data
+        : Array.isArray(json.data?.products)
+        ? json.data.products
+        : Array.isArray(json)
+        ? json
+        : [];
       if (rawList.length === 0) {
         addToast('Connected to Business Koro, but no products were returned in your account feed.', 'warning');
       }
@@ -230,6 +246,7 @@ export const ProductImportTab: React.FC = () => {
           suggestedPrice: suggested,
           sellingPrice: initialSellingPrice,
           inStock: item.inStock !== false,
+          variants: Array.isArray(item.variants) ? item.variants : [],
           selected: true,
         };
       });
@@ -241,6 +258,26 @@ export const ProductImportTab: React.FC = () => {
       addToast(err.message || 'Failed to connect to Business Koro', 'error');
     } finally {
       setIsLoadingBk(false);
+    }
+  };
+
+  const handleDirectSyncBkProducts = async () => {
+    if (!bkApiKey.trim()) {
+      setBkError('Business Koro API key is required. Please paste your x-api-key.');
+      return;
+    }
+    setIsDirectSyncing(true);
+    setBkError(null);
+    try {
+      localStorage.setItem('bk_api_key', bkApiKey.trim());
+      const res = await syncBusinessKoroProducts(bkApiKey.trim(), bkTargetCategory);
+      if (res.success && res.count > 0) {
+        addToast(`Successfully synced and updated ${res.count} products in Firestore catalog!`, 'success');
+      }
+    } catch (err: any) {
+      setBkError(err.message || 'Direct sync failed.');
+    } finally {
+      setIsDirectSyncing(false);
     }
   };
 
@@ -300,10 +337,14 @@ export const ProductImportTab: React.FC = () => {
 
       const newProduct: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
         title: p.name,
+        name: p.name,
         slug,
         description: p.description,
-        price: p.sellingPrice,
+        price: p.sellingPrice || p.suggestedPrice,
+        suggestedPrice: p.suggestedPrice,
         stockQuantity: p.inStock ? 45 : 0,
+        inStock: p.inStock,
+        variants: p.variants || [],
         sku,
         categoryId: bkTargetCategory,
         images: p.images,
@@ -776,23 +817,45 @@ export const ProductImportTab: React.FC = () => {
                     ? `Total Products Loaded: ${bkProducts.length}`
                     : 'Enter API Key to fetch products'}
                 </span>
-                <button
-                  type="submit"
-                  disabled={isLoadingBk}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer disabled:opacity-60"
-                >
-                  {isLoadingBk ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Loading products...</span>
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4" />
-                      <span>Fetch Products</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDirectSyncBkProducts}
+                    disabled={isDirectSyncing || isLoadingBk || !bkApiKey.trim()}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs border border-slate-700 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    title="Directly fetch and update all products into Firestore Database"
+                  >
+                    {isDirectSyncing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                        <span>Syncing to Firestore...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 text-emerald-400" />
+                        <span>Sync/Import Products</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isLoadingBk || isDirectSyncing}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all cursor-pointer disabled:opacity-60"
+                  >
+                    {isLoadingBk ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Loading products...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        <span>Fetch for Review</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

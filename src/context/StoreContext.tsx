@@ -77,6 +77,7 @@ import {
   isValidBDPhone,
   normalizeBDPhone,
 } from '../utils/shipping';
+import { syncBusinessKoroProductsToFirestore } from '../services/productImportService';
 
 interface StoreContextType {
   // Telegram Bot Settings
@@ -198,6 +199,11 @@ interface StoreContextType {
     updates: { rating: number; comment: string }
   ) => Promise<boolean>;
   deleteProductReview: (productId: string, reviewId: string) => Promise<boolean>;
+  syncBusinessKoroProducts: (
+    apiKey: string,
+    targetCategoryId?: string,
+    onProgress?: (synced: number, total: number) => void
+  ) => Promise<{ success: boolean; count: number; message: string }>;
 
   // Notifications (Real-time system)
   notifications: AppNotification[];
@@ -704,7 +710,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         (currentPhone && notifTargetId === currentPhone)
                       )) ||
                       (currentEmail && notifEmail && notifEmail === currentEmail) ||
-                      (currentPhone && notifPhone && notifPhone === currentPhone);
+                      (currentPhone && notifPhone && notifPhone === currentPhone) ||
+                      (Boolean(n.orderId) && orders.some(o => o.id === n.orderId && (
+                        (o.userId && (o.userId === currentId || currentId.includes(o.userId) || o.userId.includes(currentId))) ||
+                        (o.userEmail && o.userEmail.toLowerCase() === currentEmail) ||
+                        (currentPhone && o.shippingAddress?.phone && o.shippingAddress.phone.replace(/[^0-9]/g, '') === currentPhone)
+                      )));
 
                     // Customers only receive order status updates and review requests
                     if (isForMe && (n.type === 'order_status' || n.type === 'review_request')) {
@@ -2295,6 +2306,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
+  const syncBusinessKoroProducts = async (
+    apiKey: string,
+    targetCategoryId: string = categories[0]?.id || 'cat-audio',
+    onProgress?: (synced: number, total: number) => void
+  ): Promise<{ success: boolean; count: number; message: string }> => {
+    if (!canEditProduct) {
+      addToast('Access Denied: Only Staff and Admin can import products.', 'error');
+      return { success: false, count: 0, message: 'Access Denied.' };
+    }
+
+    try {
+      const res = await syncBusinessKoroProductsToFirestore(apiKey, targetCategoryId, onProgress);
+      if (res.success && res.count > 0) {
+        addToast(`Successfully synced ${res.count} products from BusinessKoro to Firestore!`, 'success');
+      } else {
+        addToast(res.message, res.success ? 'info' : 'error');
+      }
+      return { success: res.success, count: res.count, message: res.message };
+    } catch (err: any) {
+      const msg = err.message || 'Failed to sync products from BusinessKoro.';
+      addToast(msg, 'error');
+      return { success: false, count: 0, message: msg };
+    }
+  };
+
   // Category CRUD (Admin & Staff)
   const addCategory = (name: string, description?: string): boolean => {
     if (!canManageCategories) {
@@ -2635,7 +2671,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // 2. Update local state
     setOrders(prev => prev.map(o => (o.id === orderId ? updatedOrder : o)));
 
-    // 3. Resolve customer ID, email, and phone for the notification document
+    // 3. Resolve target customer ID, email, and phone strictly for customer notification
     let customerId = (targetOrder.userId || (targetOrder as any).customerId || '').trim();
     let customerEmail = (targetOrder.userEmail || '').trim();
     let customerPhone = (targetOrder.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
@@ -2649,12 +2685,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (match) customerId = match.id;
     }
 
+    const targetCustomerId = customerId || targetOrder.userId || (targetOrder as any).customerId || undefined;
+
     // 4. Create and trigger real-time notification document for customer in Firestore
+    // STRICT RULE: Status update notifications (Processing, Shipped, Delivered) MUST be sent ONLY to the target customer's ID!
     const notifId = `notif-status-${orderId}-${Date.now()}`;
     await addNotification({
       id: notifId,
-      userId: customerId || undefined,
-      customerId: customerId || undefined,
+      userId: targetCustomerId,
+      customerId: targetCustomerId,
       userEmail: customerEmail || undefined,
       phone: customerPhone || undefined,
       targetRole: 'customer',
@@ -2665,14 +2704,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       orderStatus: status,
     });
 
-    // Auto-trigger: Send a "Review Request" notification when status is 'delivered'
+    // Auto-trigger: Send a "Review Request" notification when status is 'delivered' strictly to the customer
     if (status === 'delivered' && targetOrder.items && targetOrder.items.length > 0) {
       for (const item of targetOrder.items) {
         const revNotifId = `notif-rev-${orderId}-${item.productId}-${Date.now()}`;
         await addNotification({
           id: revNotifId,
-          userId: customerId || undefined,
-          customerId: customerId || undefined,
+          userId: targetCustomerId,
+          customerId: targetCustomerId,
           userEmail: customerEmail || undefined,
           phone: customerPhone || undefined,
           targetRole: 'customer',
@@ -2701,15 +2740,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       createdAt: data.createdAt || new Date().toISOString(),
     };
 
-    setNotifications(prev => {
-      const next = [newNotification, ...prev.filter(n => n.id !== newNotification.id)];
-      try {
-        localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
-      } catch (e) {
-        console.warn('LocalStorage error:', e);
-      }
-      return next;
-    });
+    const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'moderator';
+    const isCustomerNotification =
+      data.targetRole === 'customer' ||
+      data.type === 'order_status' ||
+      data.type === 'review_request' ||
+      Boolean(data.customerId) ||
+      (Boolean(data.userId) && data.userId !== currentUser?.id);
+
+    // If staff is triggering a customer status update or customer notification,
+    // NEVER put it into the staff member's local state or localStorage!
+    // It is exclusively for the target customer to receive via Firestore.
+    if (!isStaff || !isCustomerNotification) {
+      setNotifications(prev => {
+        const next = [newNotification, ...prev.filter(n => n.id !== newNotification.id)];
+        try {
+          localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(next));
+        } catch (e) {
+          console.warn('LocalStorage error:', e);
+        }
+        return next;
+      });
+    }
 
     await saveFirestoreNotification(newNotification);
     return true;
@@ -2781,7 +2833,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const currentPhone = (currentUser.phone || '').replace(/[^0-9]/g, '');
 
       return orders.filter(o => {
-        const orderUserId = (o.userId || '').trim();
+        const orderUserId = (o.userId || (o as any).customerId || '').trim();
         const orderEmail = (o.userEmail || '').toLowerCase().trim();
         const orderPhone = (o.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
 
@@ -2813,23 +2865,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const notifEmail = (n.userEmail || '').toLowerCase().trim();
       const notifPhone = (n.phone || '').replace(/[^0-9]/g, '');
 
-      const isForThisUser =
-        (notifUserId && (
-          notifUserId === currentId ||
-          currentId.includes(notifUserId) ||
-          notifUserId.includes(currentId) ||
-          (currentPhone && notifUserId === currentPhone)
-        )) ||
-        (currentEmail && notifEmail && notifEmail === currentEmail) ||
-        (currentPhone && notifPhone && notifPhone === currentPhone) ||
-        (Boolean(n.orderId) && userOrderIds.has(n.orderId!));
-
       if (isStaff) {
+        // CRITICAL BUG FIX: Staff/Admin accounts MUST NEVER receive or see customer order status updates
+        // (Processing, Shipped, Delivered) or customer review requests!
+        // These are strictly meant for the specific customer who placed the order.
+        if (n.type === 'order_status' || n.type === 'review_request' || n.targetRole === 'customer') {
+          return false;
+        }
+
         return (
           n.targetRole === 'staff' ||
           n.type === 'order_placed' ||
-          (n.targetRole === 'all' && !n.orderId) ||
-          isForThisUser
+          (n.targetRole === 'all' && !n.orderId && !n.userId)
         );
       }
 
@@ -2954,6 +3001,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addProductReview,
     updateProductReview,
     deleteProductReview,
+    syncBusinessKoroProducts,
 
     // Real-time Notifications
     notifications: visibleNotifications,
