@@ -61,6 +61,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     products,
     setSelectedProductId,
     setDashboardTab,
+    navigateToStore,
+    navigateToProduct,
+    navigateToContact,
+    navigateToOrders,
+    navigateToDashboard,
   } = useStore();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -108,18 +113,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   }, [products, searchQuery, currentUser]);
 
   const handleSelectSearchProduct = (productId: string) => {
-    setSelectedProductId(productId);
-    setViewMode('product-detail');
+    navigateToProduct(productId);
     setIsSearchFocused(false);
     setIsMobileSearchOpen(false);
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const handleViewAllSearchResults = () => {
-    setViewMode('store');
+    navigateToStore();
     setIsSearchFocused(false);
     setIsMobileSearchOpen(false);
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   // Auto-hide header when scrolling down on mobile, show when scrolling up
@@ -155,15 +157,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (viewMode !== 'store') {
-      setViewMode('store');
+      navigateToStore();
     }
   };
 
   const handleDashboardClick = () => {
     if (currentUser?.role === 'moderator') {
       setDashboardTab('orders');
+      navigateToDashboard('orders');
+    } else {
+      navigateToDashboard();
     }
-    setViewMode('dashboard');
   };
 
   return (
@@ -178,11 +182,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
         <div className="flex items-center justify-between h-16 gap-4">
           {/* Logo & Brand - Strictly XEEROO only */}
           <div className="flex items-center gap-4 shrink-0">
-            <button
+            <a
               id="nav-brand-logo"
-              onClick={() => {
-                setViewMode('store');
-                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToStore();
               }}
               className="flex items-center gap-2.5 text-gray-900 group cursor-pointer"
             >
@@ -192,14 +197,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   XEEROO
                 </span>
               </div>
-            </button>
+            </a>
 
-            {/* Nav links (Storefront and Order History removed for desktop per request) */}
+            {/* Nav links */}
             <nav className="hidden md:flex items-center space-x-1 text-sm font-medium ml-2">
+              <a
+                id="nav-link-store"
+                href="/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToStore();
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'store'
+                    ? 'text-blue-600 bg-blue-50 font-bold'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
+              >
+                Store
+              </a>
+
               {canAccessDashboard && (
-                <button
+                <a
                   id="nav-link-dashboard"
-                  onClick={handleDashboardClick}
+                  href="/dashboard"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleDashboardClick();
+                  }}
                   className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
                     viewMode === 'dashboard'
                       ? currentUser?.role === 'moderator'
@@ -210,15 +235,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 >
                   <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
                   <span>{currentUser?.role === 'moderator' ? 'Staff Operations (Orders)' : 'Admin Dashboard'}</span>
-                </button>
+                </a>
               )}
-              <button
+
+              <a
                 id="nav-link-contact"
-                onClick={() => setContactModalOpen(true)}
-                className="px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                href="/contact"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToContact();
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  viewMode === 'contact'
+                    ? 'text-blue-600 bg-blue-50 font-bold'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
                 Contact
-              </button>
+              </a>
             </nav>
           </div>
 
@@ -540,16 +574,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                           )}
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setViewMode('orders');
+                        <a
+                          href="/orders"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigateToOrders();
                             setUserDropdownOpen(false);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
                         >
                           <ShoppingBag className="w-4 h-4 text-blue-600" />
                           <span>Order History & Invoices</span>
-                        </button>
+                        </a>
 
                         <button
                           id="nav-dropdown-settings-btn"
@@ -563,16 +599,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                           <span>Account Settings & Address</span>
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setContactModalOpen(true);
+                        <a
+                          href="/contact"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigateToContact();
                             setUserDropdownOpen(false);
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer font-medium"
                         >
-                          <Phone className="w-4 h-4 text-emerald-600" />
-                          <span>Contact Support</span>
-                        </button>
+                          <MessageCircle className="w-4 h-4 text-emerald-600" />
+                          <span>Contact Support & Desk</span>
+                        </a>
                       </div>
 
                       {/* Logout Action Option */}

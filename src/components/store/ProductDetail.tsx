@@ -57,9 +57,14 @@ export const ProductDetail: React.FC = () => {
     addProductReview,
     updateProductReview,
     deleteProductReview,
+    navigateToStore,
+    navigateToDashboard,
+    navigateToProduct,
   } = useStore();
 
-  const product = products.find(p => p.id === selectedProductId) || products[0];
+  const product = products.find(
+    p => p.id === selectedProductId || (p.slug && p.slug === selectedProductId)
+  ) || (products.length > 0 && !selectedProductId ? products[0] : undefined);
   const category = categories.find(c => c.id === product?.categoryId);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -94,6 +99,7 @@ export const ProductDetail: React.FC = () => {
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!product) return;
     if (!currentUser) {
       addToast('Please sign in or create an account to write a review.', 'warning');
       openLoginModal();
@@ -134,6 +140,7 @@ export const ProductDetail: React.FC = () => {
   };
 
   const handleSaveEditReview = async (reviewId: string) => {
+    if (!product) return;
     if (!editComment.trim()) {
       addToast('Review comment cannot be empty.', 'warning');
       return;
@@ -153,6 +160,7 @@ export const ProductDetail: React.FC = () => {
   };
 
   const handleDeleteReview = async (reviewId: string) => {
+    if (!product) return;
     if (window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
       setDeletingReviewId(reviewId);
       try {
@@ -170,14 +178,23 @@ export const ProductDetail: React.FC = () => {
 
   if (!product) {
     return (
-      <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">Product not found.</p>
-        <button
-          onClick={() => setViewMode('store')}
-          className="px-4 py-2 text-xs font-semibold bg-blue-600 text-white rounded-lg cursor-pointer"
+      <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 p-8 shadow-xs max-w-lg mx-auto my-12">
+        <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+        <h3 className="text-base font-bold text-gray-900 mb-1">Product Not Found</h3>
+        <p className="text-xs text-gray-500 mb-5">
+          The requested product could not be found or may have been unlisted.
+        </p>
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigateToStore();
+          }}
+          className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer"
         >
-          Return to Storefront
-        </button>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Return to Store Catalog</span>
+        </a>
       </div>
     );
   }
@@ -226,7 +243,7 @@ export const ProductDetail: React.FC = () => {
   const handleEditInDashboard = () => {
     setSelectedProductId(product.id);
     setDashboardTab('products');
-    setViewMode('dashboard');
+    navigateToDashboard('products');
   };
 
   const currentImage =
@@ -234,10 +251,12 @@ export const ProductDetail: React.FC = () => {
     (product.images && product.images[0]) ||
     '';
 
+  const productIdentifier = product.slug || product.id;
+  const productPath = `/product/${encodeURIComponent(productIdentifier)}`;
   const productUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?product=${product.id}`
-      : `https://xeeroo.com/?product=${product.id}`;
+      ? `${window.location.origin}${productPath}`
+      : `https://xeeroo.com${productPath}`;
 
   const whatsappOrderUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
     `Hello! I would like to order this product:
@@ -253,14 +272,18 @@ My Delivery Address:`
     <div className="max-w-6xl mx-auto py-4 space-y-12">
       {/* Breadcrumb & Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <button
+        <a
           id="btn-back-to-store"
-          onClick={() => setViewMode('store')}
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigateToStore();
+          }}
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Storefront</span>
-        </button>
+        </a>
 
         {isStaff && (
           <button
@@ -1222,15 +1245,14 @@ My Delivery Address:`
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-            {relatedProducts.map(relProduct => (
-              <div
-                key={relProduct.id}
-                onClick={() => {
-                  setSelectedProductId(relProduct.id);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="group bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md hover:border-blue-500 transition-all cursor-pointer flex flex-col justify-between"
-              >
+            {relatedProducts.map(relProduct => {
+              const relIdentifier = relProduct.slug || relProduct.id;
+              return (
+                <div
+                  key={relProduct.id}
+                  onClick={() => navigateToProduct(relIdentifier)}
+                  className="group bg-white rounded-xl border border-gray-200 overflow-hidden shadow-xs hover:shadow-md hover:border-blue-500 transition-all cursor-pointer flex flex-col justify-between"
+                >
                 <div>
                   <div className="aspect-4/3 overflow-hidden bg-gray-100 relative flex items-center justify-center">
                     {relProduct.images && relProduct.images[0] ? (
@@ -1269,7 +1291,8 @@ My Delivery Address:`
                   </span>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       )}

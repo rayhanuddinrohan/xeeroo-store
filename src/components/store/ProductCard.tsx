@@ -24,16 +24,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     addToast,
     currentUser,
     setDashboardTab,
+    navigateToProduct,
   } = useStore();
 
   const isOutOfStock = product.stockQuantity <= 0;
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
+  const productIdentifier = product.slug || product.id;
+  const productPath = `/product/${encodeURIComponent(productIdentifier)}`;
   const productUrl =
     typeof window !== 'undefined'
-      ? `${window.location.origin}${window.location.pathname}?product=${product.id}`
-      : `https://xeeroo.com/?product=${product.id}`;
+      ? `${window.location.origin}${productPath}`
+      : `https://xeeroo.com${productPath}`;
 
   const whatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
     `Hello! I would like to order this product:
@@ -44,10 +47,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 My Delivery Address:`
   )}`;
 
-  const handleCardClick = () => {
-    setSelectedProductId(product.id);
-    setViewMode('product-detail');
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  const handleCardClick = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    navigateToProduct(product.slug || product.id);
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
@@ -167,9 +169,13 @@ My Delivery Address:`
             )}
           </div>
 
-          <h3 className="text-xs sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2">
+          <a
+            href={productPath}
+            onClick={handleCardClick}
+            className="block text-xs sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2"
+          >
             {product.title}
-          </h3>
+          </a>
 
           {/* Stock Quantity in Pieces - Keep only under title */}
           <div className="flex items-center justify-between text-[11px] sm:text-xs mb-2.5 sm:mb-3 py-1 sm:py-1.5 px-2 sm:px-2.5 rounded-lg bg-slate-50 border border-slate-100">

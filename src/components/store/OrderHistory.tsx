@@ -30,6 +30,9 @@ export const OrderHistory: React.FC = () => {
     canUpdateOrderStatus,
     openLoginModal,
     setSelectedProductId,
+    navigateToStore,
+    navigateToDashboard,
+    navigateToProduct,
   } = useStore();
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
@@ -110,16 +113,17 @@ export const OrderHistory: React.FC = () => {
         </div>
 
         {canUpdateOrderStatus && (
-          <button
-            onClick={() => {
-              setDashboardTab('orders');
-              setViewMode('dashboard');
+          <a
+            href="/dashboard/orders"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToDashboard('orders');
             }}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-xs"
           >
             <Shield className="w-3.5 h-3.5 text-cyan-400" />
             <span>XEEROO Admin Order Fulfillment</span>
-          </button>
+          </a>
         )}
       </div>
 
@@ -132,12 +136,16 @@ export const OrderHistory: React.FC = () => {
           <p className="text-xs text-gray-500 mb-6 leading-relaxed">
             Browse the XEEROO catalog to test the checkout and dispatch flow.
           </p>
-          <button
-            onClick={() => setViewMode('store')}
-            className="px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToStore();
+            }}
+            className="inline-flex items-center justify-center px-5 py-2.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-xs"
           >
             Start Shopping
-          </button>
+          </a>
         </div>
       ) : (
         <div className="space-y-4">
@@ -277,9 +285,7 @@ export const OrderHistory: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setSelectedProductId(item.productId);
-                                    setViewMode('product-detail');
-                                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                                    navigateToProduct(item.productId);
                                   }}
                                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 font-bold text-[11px] shadow-2xs transition-colors cursor-pointer"
                                   title="Rate & Review this delivered product"

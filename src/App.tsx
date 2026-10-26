@@ -19,6 +19,7 @@ import { SchemaDocsModal } from './components/dashboard/SchemaDocsModal';
 import { AuthModal } from './components/AuthModal';
 import { CustomerSettingsModal } from './components/CustomerSettingsModal';
 import { ContactModal } from './components/ContactModal';
+import { ContactPage } from './components/store/ContactPage';
 import {
   ShoppingBag,
   Shield,
@@ -47,6 +48,12 @@ const AppContent: React.FC = () => {
     cartTotalCount,
     openLoginModal,
     addToast,
+    navigateToStore,
+    navigateToContact,
+    navigateToOrders,
+    navigateToDashboard,
+    navigateToCheckout,
+    navigateToSchemaDocs,
   } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -62,8 +69,7 @@ const AppContent: React.FC = () => {
       openLoginModal();
       return;
     }
-    setViewMode('checkout');
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    navigateToCheckout();
   };
 
   return (
@@ -82,6 +88,8 @@ const AppContent: React.FC = () => {
 
         {viewMode === 'product-detail' && <ProductDetail />}
 
+        {viewMode === 'contact' && <ContactPage />}
+
         {viewMode === 'checkout' && <CheckoutPage />}
 
         {viewMode === 'orders' && <OrderHistory />}
@@ -92,7 +100,7 @@ const AppContent: React.FC = () => {
           <div>
             <div className="mb-4">
               <button
-                onClick={() => setViewMode('store')}
+                onClick={() => navigateToStore()}
                 className="text-xs font-semibold text-gray-600 hover:text-gray-900 flex items-center gap-1 cursor-pointer"
               >
                 ← Return to Storefront
@@ -270,46 +278,66 @@ const AppContent: React.FC = () => {
               </h4>
               <ul className="space-y-2 text-xs">
                 <li>
-                  <button
-                    onClick={() => setViewMode('store')}
-                    className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  <a
+                    href="/"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToStore();
+                    }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer block"
                   >
                     XEEROO Catalog
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => setViewMode('orders')}
-                    className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  <a
+                    href="/orders"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToOrders();
+                    }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer block"
                   >
                     Order History & Invoices
-                  </button>
+                  </a>
                 </li>
                 <li>
-                  <button
-                    onClick={() => setIsContactOpen(true)}
-                    className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  <a
+                    href="/contact"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigateToContact();
+                    }}
+                    className="text-slate-400 hover:text-white transition-colors cursor-pointer block"
                   >
                     Customer Support
-                  </button>
+                  </a>
                 </li>
                 {canAccessDashboard && (
                   <>
                     <li className="pt-2 border-t border-slate-800">
-                      <button
-                        onClick={() => setViewMode('dashboard')}
-                        className="text-purple-400 hover:text-purple-300 transition-colors cursor-pointer font-semibold"
+                      <a
+                        href="/dashboard"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateToDashboard();
+                        }}
+                        className="text-purple-400 hover:text-purple-300 transition-colors cursor-pointer font-semibold block"
                       >
                         Admin Dashboard
-                      </button>
+                      </a>
                     </li>
                     <li>
-                      <button
-                        onClick={() => setViewMode('schema-docs')}
-                        className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      <a
+                        href="/schema-docs"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigateToSchemaDocs();
+                        }}
+                        className="text-slate-400 hover:text-white transition-colors cursor-pointer block"
                       >
                         Architecture & DDL Schema
-                      </button>
+                      </a>
                     </li>
                   </>
                 )}

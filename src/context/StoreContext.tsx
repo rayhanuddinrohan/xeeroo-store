@@ -78,6 +78,7 @@ import {
   normalizeBDPhone,
 } from '../utils/shipping';
 import { syncBusinessKoroProductsToFirestore } from '../services/productImportService';
+import { parseRouteFromLocation, syncBrowserUrl } from '../utils/router';
 
 interface StoreContextType {
   // Telegram Bot Settings
@@ -168,6 +169,14 @@ interface StoreContextType {
   setSelectedProductId: (id: string | null) => void;
   dashboardTab: DashboardTab;
   setDashboardTab: (tab: DashboardTab) => void;
+  navigateTo: (path: string, options?: { replace?: boolean }) => void;
+  navigateToProduct: (productIdOrSlug: string) => void;
+  navigateToContact: () => void;
+  navigateToCheckout: () => void;
+  navigateToOrders: () => void;
+  navigateToDashboard: (tab?: DashboardTab) => void;
+  navigateToStore: () => void;
+  navigateToSchemaDocs: () => void;
 
   // Search & Filtering
   searchQuery: string;
@@ -883,40 +892,101 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 
 
-  // 7. Navigation / View
-  const [viewMode, setViewMode] = useState<ViewMode>('store');
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [dashboardTab, setDashboardTab] = useState<DashboardTab>('products');
+  // 7. Navigation / View initialized from current URL
+  const initialRoute = useMemo(() => parseRouteFromLocation(), []);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialRoute.viewMode);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(initialRoute.productId);
+  const [dashboardTab, setDashboardTab] = useState<DashboardTab>(initialRoute.dashboardTab || 'products');
 
-  // Check URL on mount for direct product link (?product=... or #product=...)
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const urlProdId =
-        params.get('product') ||
-        (window.location.hash.startsWith('#product=')
-          ? window.location.hash.replace('#product=', '')
-          : null);
-      if (urlProdId) {
-        setSelectedProductId(urlProdId);
-        setViewMode('product-detail');
-      }
-    } catch {
-      // In sandboxed environments or iframes
+  // Unified navigation methods with clean URL routing
+  const navigateTo = (path: string, options?: { replace?: boolean }) => {
+    if (typeof window === 'undefined') return;
+    if (options?.replace) {
+      window.history.replaceState({}, '', path);
+    } else {
+      window.history.pushState({}, '', path);
     }
+    const route = parseRouteFromLocation();
+    setViewMode(route.viewMode);
+    setSelectedProductId(route.productId);
+    if (route.dashboardTab) {
+      setDashboardTab(route.dashboardTab);
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
 
+  const navigateToProduct = (productIdOrSlug: string) => {
+    const clean = productIdOrSlug.trim();
+    const matched = products.find(p => p.id === clean || p.slug === clean);
+    const slugOrId = matched?.slug || clean;
+    setSelectedProductId(clean);
+    setViewMode('product-detail');
+    syncBrowserUrl('product-detail', {
+      productId: clean,
+      slug: slugOrId,
+      pageTitle: matched?.title,
+    });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToContact = () => {
+    setSelectedProductId(null);
+    setViewMode('contact');
+    syncBrowserUrl('contact');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToCheckout = () => {
+    setSelectedProductId(null);
+    setViewMode('checkout');
+    syncBrowserUrl('checkout');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToOrders = () => {
+    setSelectedProductId(null);
+    setViewMode('orders');
+    syncBrowserUrl('orders');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToDashboard = (tab?: DashboardTab) => {
+    setSelectedProductId(null);
+    const targetTab = tab || dashboardTab || 'products';
+    setDashboardTab(targetTab);
+    setViewMode('dashboard');
+    syncBrowserUrl('dashboard', { dashboardTab: targetTab });
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToStore = () => {
+    setSelectedProductId(null);
+    setViewMode('store');
+    syncBrowserUrl('store');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  const navigateToSchemaDocs = () => {
+    setSelectedProductId(null);
+    setViewMode('schema-docs');
+    syncBrowserUrl('schema-docs');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
     const handlePopState = () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const urlProdId = params.get('product');
-        if (urlProdId) {
-          setSelectedProductId(urlProdId);
-          setViewMode('product-detail');
-        } else if (viewMode === 'product-detail') {
-          setViewMode('store');
-        }
-      } catch {
-        // fallback
+      const route = parseRouteFromLocation();
+      setViewMode(route.viewMode);
+      setSelectedProductId(route.productId);
+      if (route.dashboardTab) {
+        setDashboardTab(route.dashboardTab);
+      }
+      if (route.searchQuery) {
+        setSearchQuery(route.searchQuery);
+      }
+      if (route.category) {
+        setSelectedCategory(route.category);
       }
     };
 
@@ -924,27 +994,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Sync URL when product is selected or closed
+  // Sync browser URL whenever viewMode, selectedProductId, or dashboardTab changes
   useEffect(() => {
-    try {
-      if (viewMode === 'product-detail' && selectedProductId) {
-        const searchParams = new URLSearchParams(window.location.search);
-        searchParams.set('product', selectedProductId);
-        const newUrl = `${window.location.pathname}?${searchParams.toString()}`;
-        window.history.replaceState({ product: selectedProductId }, '', newUrl);
-      } else if (viewMode === 'store') {
-        const searchParams = new URLSearchParams(window.location.search);
-        if (searchParams.has('product')) {
-          searchParams.delete('product');
-          const queryString = searchParams.toString();
-          const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [viewMode, selectedProductId]);
+    const matched = selectedProductId
+      ? products.find(p => p.id === selectedProductId || p.slug === selectedProductId)
+      : null;
+
+    syncBrowserUrl(viewMode, {
+      productId: selectedProductId,
+      slug: matched?.slug || selectedProductId,
+      dashboardTab: viewMode === 'dashboard' ? dashboardTab : null,
+      pageTitle: matched?.title,
+      replace: true,
+    });
+  }, [viewMode, selectedProductId, dashboardTab, products]);
 
   // 8. Store filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -2979,6 +3042,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSelectedProductId,
     dashboardTab,
     setDashboardTab,
+    navigateTo,
+    navigateToProduct,
+    navigateToContact,
+    navigateToCheckout,
+    navigateToOrders,
+    navigateToDashboard,
+    navigateToStore,
+    navigateToSchemaDocs,
 
     searchQuery,
     setSearchQuery,

@@ -174,6 +174,7 @@ export type ViewMode =
   | 'checkout'
   | 'orders'
   | 'dashboard'
+  | 'contact'
   | 'schema-docs';
 
 export type DashboardTab = 

@@ -50,6 +50,7 @@ export const DashboardLayout: React.FC = () => {
     banners,
     orders,
     products,
+    navigateToStore,
   } = useStore();
 
   const isModerator = currentUser?.role === 'moderator';
@@ -78,12 +79,16 @@ export const DashboardLayout: React.FC = () => {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => setViewMode('store')}
-              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToStore();
+              }}
+              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer text-center"
             >
               Return to Storefront
-            </button>
+            </a>
             <button
               onClick={() => switchUserRole('moderator')}
               className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs transition-colors cursor-pointer"
@@ -350,13 +355,17 @@ export const DashboardLayout: React.FC = () => {
 
         {/* Bottom shortcut to Storefront */}
         <div className="pt-4 border-t border-gray-100 space-y-2">
-          <button
-            onClick={() => setViewMode('store')}
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToStore();
+            }}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-gray-700 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to XEEROO Store</span>
-          </button>
+          </a>
         </div>
       </aside>
 

@@ -38,6 +38,8 @@ export const CheckoutPage: React.FC = () => {
     setViewMode,
     openSettingsModal,
     addToast,
+    navigateToStore,
+    navigateToOrders,
   } = useStore();
 
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'bkash'>('cod');
@@ -250,26 +252,28 @@ Please confirm and dispatch my order. Thank you!`;
           </div>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button
-              onClick={() => {
-                setViewMode('orders');
-                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            <a
+              href="/orders"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToOrders();
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>View Order History</span>
-            </button>
+            </a>
 
-            <button
-              onClick={() => {
-                setViewMode('store');
-                window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToStore();
               }}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer border border-gray-300"
             >
               <span>Continue Shopping</span>
-            </button>
+            </a>
           </div>
         </div>
       </div>
@@ -287,16 +291,17 @@ Please confirm and dispatch my order. Thank you!`;
         <p className="text-xs text-gray-500 mb-6 max-w-sm mx-auto">
           Explore the XEEROO collection of high-performance hardware, audio, and wearables to add products to your cart.
         </p>
-        <button
-          onClick={() => {
-            setViewMode('store');
-            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        <a
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigateToStore();
           }}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Explore Storefront</span>
-        </button>
+        </a>
       </div>
     );
   }
@@ -306,16 +311,17 @@ Please confirm and dispatch my order. Thank you!`;
       {/* Top Header & Breadcrumb */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              setViewMode('store');
-              window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          <a
+            href="/"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToStore();
             }}
             className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer shadow-xs"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Return to Store</span>
-          </button>
+          </a>
           <div className="h-4 w-px bg-gray-300" />
           <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
             Checkout & Direct Order
