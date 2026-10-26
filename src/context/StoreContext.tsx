@@ -261,10 +261,11 @@ interface StoreContextType {
     paymentMethod: PaymentMethod,
     optionalEmail?: string,
     paymentDetails?: {
-      gateway?: 'bkash' | 'nagad';
+      gateway?: 'bkash' | 'nagad' | 'rocket';
       senderNumber?: string;
       bkashNumber?: string;
       nagadNumber?: string;
+      rocketNumber?: string;
       trxId?: string;
       advanceDiscount?: number;
     },
@@ -2541,10 +2542,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     paymentMethod: PaymentMethod,
     optionalEmail?: string,
     paymentDetails?: {
-      gateway?: 'bkash' | 'nagad';
+      gateway?: 'bkash' | 'nagad' | 'rocket';
       senderNumber?: string;
       bkashNumber?: string;
       nagadNumber?: string;
+      rocketNumber?: string;
       trxId?: string;
       advanceDiscount?: number;
     },
@@ -2624,11 +2626,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       shippingAddress.thana || shippingAddress.state
     );
 
-    // If customer pays full in advance (via bKash or Nagad), apply instant 50 TK discount
+    // If customer pays full in advance (via bKash, Nagad, or Rocket), apply instant 50 TK discount
     const isAdvancePayment =
       paymentMethod === 'advance' ||
       paymentMethod === 'bkash' ||
       paymentMethod === 'nagad' ||
+      paymentMethod === 'rocket' ||
       (paymentDetails?.advanceDiscount !== undefined && paymentDetails.advanceDiscount > 0);
 
     const advanceDiscount = isAdvancePayment ? 50 : (customDiscount || 0);

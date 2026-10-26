@@ -328,13 +328,15 @@ export const OrderHistory: React.FC = () => {
                           Method:{' '}
                           {order.paymentMethod === 'advance' ? (
                             <strong className="text-emerald-700 font-bold">
-                              Full Advance ({order.paymentDetails?.gateway === 'nagad' ? 'Nagad' : 'bKash'})
+                              Full Advance ({order.paymentDetails?.gateway === 'rocket' ? 'Rocket' : order.paymentDetails?.gateway === 'nagad' ? 'Nagad' : 'bKash'})
                               {order.discountAmount ? ' [৳50 OFF]' : ''}
                             </strong>
                           ) : order.paymentMethod === 'bkash' ? (
                             <strong className="text-[#D12053] uppercase font-bold">bKash MFS</strong>
                           ) : order.paymentMethod === 'nagad' ? (
                             <strong className="text-[#F7931E] uppercase font-bold">Nagad MFS</strong>
+                          ) : order.paymentMethod === 'rocket' ? (
+                            <strong className="text-[#8C3494] uppercase font-bold">Rocket MFS</strong>
                           ) : (
                             <strong className="uppercase font-bold text-gray-900">Cash on Delivery</strong>
                           )}

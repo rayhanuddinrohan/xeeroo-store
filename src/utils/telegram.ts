@@ -132,11 +132,15 @@ export const formatOrderForTelegram = (order: Order, storeName: string = 'XEEROO
 
   const paymentDesc =
     order.paymentMethod === 'advance'
-      ? `Full Advance (${escapeHtml(order.paymentDetails?.gateway || 'bKash').toUpperCase()}) [৳50 Discount Applied! Sender: ${escapeHtml(order.paymentDetails?.senderNumber || order.paymentDetails?.bkashNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''}]`
+      ? `Full Advance (${escapeHtml(order.paymentDetails?.gateway || 'bKash').toUpperCase()}) [৳50 Discount Applied! Sender: ${escapeHtml(order.paymentDetails?.senderNumber || order.paymentDetails?.bkashNumber || order.paymentDetails?.nagadNumber || order.paymentDetails?.rocketNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''}]`
       : order.paymentMethod === 'cod'
       ? 'Cash on Delivery (COD)'
       : order.paymentMethod === 'bkash'
       ? `bKash (${escapeHtml(order.paymentDetails?.bkashNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''})`
+      : order.paymentMethod === 'nagad'
+      ? `Nagad (${escapeHtml(order.paymentDetails?.nagadNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''})`
+      : order.paymentMethod === 'rocket'
+      ? `Rocket (${escapeHtml(order.paymentDetails?.rocketNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''})`
       : escapeHtml(order.paymentMethod || 'COD').toUpperCase();
 
   const formattedDate = new Date(order.createdAt || Date.now()).toLocaleString('en-US', {

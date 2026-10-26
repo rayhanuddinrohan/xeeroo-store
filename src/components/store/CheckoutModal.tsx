@@ -127,14 +127,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const [paymentMethod, setPaymentMethod] = useState<'advance' | 'cod'>('advance');
-  const [advanceGateway, setAdvanceGateway] = useState<'bkash' | 'nagad'>('bkash');
+  const [advanceGateway, setAdvanceGateway] = useState<'bkash' | 'nagad' | 'rocket'>('bkash');
   const [senderNumber, setSenderNumber] = useState(currentUser?.phone || '');
   const [trxId, setTrxId] = useState('');
   const [copiedNumber, setCopiedNumber] = useState(false);
 
   const officialBkashNumber = '01780417575';
   const officialNagadNumber = '01780417575';
-  const currentOfficialNumber = advanceGateway === 'bkash' ? officialBkashNumber : officialNagadNumber;
+  const officialRocketNumber = '017804175752';
+  const currentOfficialNumber =
+    advanceGateway === 'bkash'
+      ? officialBkashNumber
+      : advanceGateway === 'nagad'
+      ? officialNagadNumber
+      : officialRocketNumber;
 
   const handleCopyNumber = (num: string, gatewayName: string) => {
     navigator.clipboard.writeText(num);
@@ -180,7 +186,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
 
     if (paymentMethod === 'advance') {
-      const gatewayName = advanceGateway === 'bkash' ? 'bKash' : 'Nagad';
+      const gatewayName =
+        advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket';
       if (!senderNumber.trim()) {
         addToast(`Please enter your ${gatewayName} mobile account number.`, 'warning');
         return;
@@ -200,6 +207,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               senderNumber: senderNumber.trim(),
               bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
               nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
+              rocketNumber: advanceGateway === 'rocket' ? senderNumber.trim() : undefined,
               trxId: trxId.trim().toUpperCase(),
               advanceDiscount: 50,
             }
@@ -236,6 +244,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               senderNumber: senderNumber.trim(),
               bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
               nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
+              rocketNumber: advanceGateway === 'rocket' ? senderNumber.trim() : undefined,
               trxId: trxId.trim().toUpperCase(),
               advanceDiscount: 50,
             }
@@ -255,9 +264,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )
         .join('\n');
 
+      const gatewayName =
+        advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket';
+
       const paymentLabel =
         paymentMethod === 'advance'
-          ? `Full Advance Payment (${advanceGateway === 'bkash' ? 'bKash' : 'Nagad'}) [৳50 Discount Applied! Sender: ${senderNumber || 'N/A'}, TrxID: ${trxId || 'N/A'}]`
+          ? `Full Advance Payment (${gatewayName}) [৳50 Discount Applied! Sender: ${senderNumber || 'N/A'}, TrxID: ${trxId || 'N/A'}]`
           : 'Cash on Delivery (COD)';
 
       const discountLine =
@@ -336,7 +348,7 @@ Please confirm and dispatch the order. Thank you!`;
               <span className="text-xs text-slate-400">
                 {step === 'shipping' && 'Step 1: Delivery Details'}
                 {step === 'payment' && 'Step 2: Payment Method'}
-                {step === 'advance_gateway' && 'Step 3: bKash / Nagad Payment'}
+                {step === 'advance_gateway' && 'Step 3: bKash / Nagad / Rocket Payment'}
                 {step === 'success' && 'Step 4: Order Receipt'}
               </span>
             </div>
@@ -609,7 +621,7 @@ Please confirm and dispatch the order. Thank you!`;
                   <span className="text-[10px] text-emerald-700 font-bold block">
                     Save ৳50 Instantly
                   </span>
-                  <span className="text-[9px] text-gray-500 block">bKash / Nagad Send Money</span>
+                  <span className="text-[9px] text-gray-500 block">bKash / Nagad / Rocket Send Money</span>
                 </button>
 
                 {/* 2. Cash on Delivery */}
@@ -645,7 +657,7 @@ Please confirm and dispatch the order. Thank you!`;
                     <div className="space-y-0.5">
                       <span className="font-bold block text-xs">Advance Payment Selected (৳50 Discount Applied)</span>
                       <p className="text-[11px] text-emerald-800 leading-relaxed">
-                        An instant ৳50 discount is deducted from your bill. Click <strong>&quot;Proceed to Payment&quot;</strong> to view bKash and Nagad payment details on the next page.
+                        An instant ৳50 discount is deducted from your bill. Click <strong>&quot;Proceed to Payment&quot;</strong> to view bKash, Nagad, and Rocket payment details on the next page.
                       </p>
                     </div>
                   </div>
@@ -811,41 +823,59 @@ Please confirm and dispatch the order. Thank you!`;
               <label className="block text-xs font-bold text-gray-700 mb-1.5">
                 Select Mobile Wallet:
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setAdvanceGateway('bkash')}
-                  className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
+                  className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
                     advanceGateway === 'bkash'
                       ? 'border-[#D12053] bg-pink-50 ring-2 ring-[#D12053]/25 font-bold text-[#D12053]'
                       : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="px-1.5 py-0.5 rounded bg-[#D12053] text-white font-bold text-[10px]">
                       bKash
                     </span>
-                    <span>Send Money</span>
+                    <span className="hidden sm:inline">Send Money</span>
                   </div>
-                  {advanceGateway === 'bkash' && <CheckCircle2 className="w-3.5 h-3.5 text-[#D12053]" />}
+                  {advanceGateway === 'bkash' && <CheckCircle2 className="w-3.5 h-3.5 text-[#D12053] shrink-0" />}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setAdvanceGateway('nagad')}
-                  className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
+                  className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
                     advanceGateway === 'nagad'
                       ? 'border-[#F7931E] bg-orange-50 ring-2 ring-[#F7931E]/25 font-bold text-[#F7931E]'
                       : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
                   }`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="px-1.5 py-0.5 rounded bg-[#F7931E] text-white font-bold text-[10px]">
                       Nagad
                     </span>
-                    <span>Send Money</span>
+                    <span className="hidden sm:inline">Send Money</span>
                   </div>
-                  {advanceGateway === 'nagad' && <CheckCircle2 className="w-3.5 h-3.5 text-[#F7931E]" />}
+                  {advanceGateway === 'nagad' && <CheckCircle2 className="w-3.5 h-3.5 text-[#F7931E] shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdvanceGateway('rocket')}
+                  className={`p-2 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
+                    advanceGateway === 'rocket'
+                      ? 'border-[#8C3494] bg-purple-50 ring-2 ring-[#8C3494]/25 font-bold text-[#8C3494]'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded bg-[#8C3494] text-white font-bold text-[10px]">
+                      Rocket
+                    </span>
+                    <span className="hidden sm:inline">Send Money</span>
+                  </div>
+                  {advanceGateway === 'rocket' && <CheckCircle2 className="w-3.5 h-3.5 text-[#8C3494] shrink-0" />}
                 </button>
               </div>
             </div>
@@ -857,7 +887,7 @@ Please confirm and dispatch the order. Thank you!`;
                   1
                 </span>
                 <p className="flex-1 text-[11px]">
-                  Open your <strong>{advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} App</strong> and select <strong>Send Money</strong>.
+                  Open your <strong>{advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket'} App</strong> and select <strong>Send Money</strong>.
                 </p>
               </div>
 
@@ -872,22 +902,24 @@ Please confirm and dispatch the order. Thank you!`;
 
               {/* Copyable Account Box */}
               <div className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-gray-300">
-                <Phone className={`w-3.5 h-3.5 ${advanceGateway === 'bkash' ? 'text-[#D12053]' : 'text-[#F7931E]'} shrink-0`} />
+                <Phone className={`w-3.5 h-3.5 ${advanceGateway === 'bkash' ? 'text-[#D12053]' : advanceGateway === 'nagad' ? 'text-[#F7931E]' : 'text-[#8C3494]'} shrink-0`} />
                 <div className="flex-1 min-w-0">
                   <span className="font-mono text-xs font-black text-gray-900 tracking-wider">
                     {currentOfficialNumber}
                   </span>
                   <span className="text-[9px] text-gray-500 block uppercase font-medium">
-                    Official {advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} (Personal / Send Money)
+                    Official {advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket'} (Personal / Send Money)
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => handleCopyNumber(currentOfficialNumber, advanceGateway === 'bkash' ? 'bKash' : 'Nagad')}
+                  onClick={() => handleCopyNumber(currentOfficialNumber, advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket')}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer ${
                     advanceGateway === 'bkash'
                       ? 'bg-pink-100 hover:bg-pink-200 text-[#D12053]'
-                      : 'bg-orange-100 hover:bg-orange-200 text-[#F7931E]'
+                      : advanceGateway === 'nagad'
+                      ? 'bg-orange-100 hover:bg-orange-200 text-[#F7931E]'
+                      : 'bg-purple-100 hover:bg-purple-200 text-[#8C3494]'
                   }`}
                 >
                   {copiedNumber ? (
@@ -918,7 +950,7 @@ Please confirm and dispatch the order. Thank you!`;
             <div className="grid grid-cols-2 gap-2.5">
               <div>
                 <label className="block text-[10px] font-bold text-gray-700 mb-1">
-                  Your {advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} Number <span className="text-rose-500">*</span>
+                  Your {advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket'} Number <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="tel"
@@ -937,7 +969,13 @@ Please confirm and dispatch the order. Thank you!`;
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 9J87K2L1P0"
+                  placeholder={
+                    advanceGateway === 'bkash'
+                      ? 'e.g. 9J87K2L1P0'
+                      : advanceGateway === 'nagad'
+                      ? 'e.g. 7N38D9A1'
+                      : 'e.g. 8K42M9B1'
+                  }
                   value={trxId}
                   onChange={e => setTrxId(e.target.value.toUpperCase())}
                   className="w-full px-2.5 py-2 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono uppercase"

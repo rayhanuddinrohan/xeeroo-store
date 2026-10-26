@@ -219,7 +219,7 @@ My Delivery Address:`
                 <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span>
-                    <strong>Save ৳50:</strong> Pay in full advance via bKash or Nagad to get an instant ৳50 discount!
+                    <strong>Save ৳50:</strong> Pay in full advance via bKash, Nagad, or Rocket to get an instant ৳50 discount!
                   </span>
                 </div>
               </div>

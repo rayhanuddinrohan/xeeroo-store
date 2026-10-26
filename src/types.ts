@@ -138,7 +138,7 @@ export interface OrderItem {
   sku?: string;
 }
 
-export type PaymentMethod = 'advance' | 'cod' | 'bkash' | 'nagad' | 'card' | 'paypal';
+export type PaymentMethod = 'advance' | 'cod' | 'bkash' | 'nagad' | 'rocket' | 'card' | 'paypal';
 
 export interface Order {
   id: string;
@@ -153,10 +153,11 @@ export interface Order {
   items: OrderItem[];
   paymentMethod: PaymentMethod;
   paymentDetails?: {
-    gateway?: 'bkash' | 'nagad';
+    gateway?: 'bkash' | 'nagad' | 'rocket';
     senderNumber?: string;
     bkashNumber?: string;
     nagadNumber?: string;
+    rocketNumber?: string;
     trxId?: string;
     advanceDiscount?: number;
   };
