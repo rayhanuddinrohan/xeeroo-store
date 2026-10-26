@@ -131,7 +131,9 @@ export const formatOrderForTelegram = (order: Order, storeName: string = 'XEEROO
     .join('\n');
 
   const paymentDesc =
-    order.paymentMethod === 'cod'
+    order.paymentMethod === 'advance'
+      ? `Full Advance (${escapeHtml(order.paymentDetails?.gateway || 'bKash').toUpperCase()}) [৳50 Discount Applied! Sender: ${escapeHtml(order.paymentDetails?.senderNumber || order.paymentDetails?.bkashNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''}]`
+      : order.paymentMethod === 'cod'
       ? 'Cash on Delivery (COD)'
       : order.paymentMethod === 'bkash'
       ? `bKash (${escapeHtml(order.paymentDetails?.bkashNumber || 'N/A')}${order.paymentDetails?.trxId ? ' | TrxID: ' + escapeHtml(order.paymentDetails.trxId) : ''})`

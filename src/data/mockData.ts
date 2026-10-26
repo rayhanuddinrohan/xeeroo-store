@@ -11,6 +11,7 @@ export const XEEROO_CONTACT = {
   displayPhone: '+880 1570-243005',
   email: 'xeeroo.0@outlook.com',
   bkashNumber: '01780417575',
+  nagadNumber: '01780417575',
   whatsapp: 'https://wa.me/8801570243005',
   whatsappDisplay: '+880 1570-243005',
   whatsappPng: '/whatsapp.png',

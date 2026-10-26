@@ -26,6 +26,10 @@ import {
   Loader2,
   MapPin,
   ChevronDown,
+  Phone,
+  Copy,
+  Check,
+  Sparkles,
 } from 'lucide-react';
 
 interface CheckoutModalProps {
@@ -52,7 +56,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     addToast,
   } = useStore();
 
-  const [step, setStep] = useState<'shipping' | 'payment' | 'success'>('shipping');
+  const [step, setStep] = useState<'shipping' | 'payment' | 'advance_gateway' | 'success'>('shipping');
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [customerEmail, setCustomerEmail] = useState(currentUser?.email || '');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -122,7 +126,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   };
 
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'paypal'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'advance' | 'cod'>('advance');
+  const [advanceGateway, setAdvanceGateway] = useState<'bkash' | 'nagad'>('bkash');
+  const [senderNumber, setSenderNumber] = useState(currentUser?.phone || '');
+  const [trxId, setTrxId] = useState('');
+  const [copiedNumber, setCopiedNumber] = useState(false);
+
+  const officialBkashNumber = '01780417575';
+  const officialNagadNumber = '01780417575';
+  const currentOfficialNumber = advanceGateway === 'bkash' ? officialBkashNumber : officialNagadNumber;
+
+  const handleCopyNumber = (num: string, gatewayName: string) => {
+    navigator.clipboard.writeText(num);
+    setCopiedNumber(true);
+    addToast(`Official ${gatewayName} number copied to clipboard: ${num}`, 'success');
+    setTimeout(() => setCopiedNumber(false), 2500);
+  };
+
+  const modalAdvanceDiscount = paymentMethod === 'advance' ? 50 : 0;
+  const modalPayableTotal = Math.max(0, modalCartTotal - modalAdvanceDiscount);
 
   if (!isOpen) return null;
 
@@ -156,9 +178,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setStep('shipping');
       return;
     }
+
+    if (paymentMethod === 'advance') {
+      const gatewayName = advanceGateway === 'bkash' ? 'bKash' : 'Nagad';
+      if (!senderNumber.trim()) {
+        addToast(`Please enter your ${gatewayName} mobile account number.`, 'warning');
+        return;
+      }
+      if (!trxId.trim()) {
+        addToast(`Please enter the ${gatewayName} Transaction ID (TrxID) after sending money.`, 'warning');
+        return;
+      }
+    }
+
     setIsPlacingOrder(true);
     try {
-      const order = await createOrder(currentAddress, paymentMethod, customerEmail);
+      const paymentDetails =
+        paymentMethod === 'advance'
+          ? {
+              gateway: advanceGateway,
+              senderNumber: senderNumber.trim(),
+              bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
+              nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
+              trxId: trxId.trim().toUpperCase(),
+              advanceDiscount: 50,
+            }
+          : undefined;
+
+      const order = await createOrder(
+        currentAddress,
+        paymentMethod,
+        customerEmail,
+        paymentDetails,
+        modalAdvanceDiscount
+      );
       if (order) {
         setCreatedOrder(order);
         setStep('success');
@@ -176,7 +229,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setIsPlacingOrder(true);
     try {
-      const order = await createOrder(currentAddress, paymentMethod, customerEmail);
+      const paymentDetails =
+        paymentMethod === 'advance'
+          ? {
+              gateway: advanceGateway,
+              senderNumber: senderNumber.trim(),
+              bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
+              nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
+              trxId: trxId.trim().toUpperCase(),
+              advanceDiscount: 50,
+            }
+          : undefined;
+
+      const order = await createOrder(
+        currentAddress,
+        paymentMethod,
+        customerEmail,
+        paymentDetails,
+        modalAdvanceDiscount
+      );
       const cartItemsText = cart
         .map(
           (item, idx) =>
@@ -185,9 +256,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         .join('\n');
 
       const paymentLabel =
-        paymentMethod === 'cod'
-          ? 'Cash on Delivery'
-          : 'bKash / Nagad (MFS)';
+        paymentMethod === 'advance'
+          ? `Full Advance Payment (${advanceGateway === 'bkash' ? 'bKash' : 'Nagad'}) [৳50 Discount Applied! Sender: ${senderNumber || 'N/A'}, TrxID: ${trxId || 'N/A'}]`
+          : 'Cash on Delivery (COD)';
+
+      const discountLine =
+        paymentMethod === 'advance'
+          ? `Advance Payment Discount: -${formatBDT(50)} (Instant ৳50 Discount)\n`
+          : '';
 
       const orderMsg = `Hello! I would like to confirm my order:
 
@@ -196,7 +272,7 @@ ${cartItemsText}
 
 Subtotal: ${formatBDT(cartSubtotal)}
 Delivery Charge: ${formatBDT(modalDeliveryCharge)} (${shippingInfo.label})
-Total Payable: ${formatBDT(modalCartTotal)}
+${discountLine}Total Payable: ${formatBDT(modalPayableTotal)}
 
 Payment Method: ${paymentLabel}
 
@@ -259,13 +335,15 @@ Please confirm and dispatch the order. Thank you!`;
               </span>
               <span className="text-xs text-slate-400">
                 {step === 'shipping' && 'Step 1: Delivery Details'}
-                {step === 'payment' && 'Step 2: Payment & Review'}
-                {step === 'success' && 'Step 3: Order Receipt'}
+                {step === 'payment' && 'Step 2: Payment Method'}
+                {step === 'advance_gateway' && 'Step 3: bKash / Nagad Payment'}
+                {step === 'success' && 'Step 4: Order Receipt'}
               </span>
             </div>
             <h3 className="text-base font-bold text-white mt-1">
               {step === 'shipping' && 'Shipping & Delivery Address'}
-              {step === 'payment' && 'Payment Method & Final Confirmation'}
+              {step === 'payment' && 'Select Payment Method'}
+              {step === 'advance_gateway' && 'Advance Payment Gateway'}
               {step === 'success' && 'Order Placed Successfully'}
             </h3>
           </div>
@@ -491,40 +569,97 @@ Please confirm and dispatch the order. Thank you!`;
               </div>
             </div>
 
-            {/* Payment Method Selector */}
+            {/* Payment Method Selector - Exactly 2 Options */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-2">
-                Select Payment Method
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-gray-800">
+                  Select Payment Method
+                </label>
+                {paymentMethod === 'advance' && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    <span>Save ৳50 Instantly</span>
+                  </span>
+                )}
+              </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* 1. Full TK Pay (Advance Payment - Default Selected) */}
                 <button
                   type="button"
+                  id="modal-btn-payment-full-pay"
+                  onClick={() => setPaymentMethod('advance')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
+                    paymentMethod === 'advance'
+                      ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20 shadow-xs'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">
+                        ৳
+                      </span>
+                      <span className="text-xs font-black text-gray-900 block">Full TK Pay</span>
+                    </div>
+                    {paymentMethod === 'advance' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold block">
+                    Save ৳50 Instantly
+                  </span>
+                  <span className="text-[9px] text-gray-500 block">bKash / Nagad Send Money</span>
+                </button>
+
+                {/* 2. Cash on Delivery */}
+                <button
+                  type="button"
+                  id="modal-btn-payment-cod"
                   onClick={() => setPaymentMethod('cod')}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
                     paymentMethod === 'cod'
-                      ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold ring-2 ring-blue-100'
+                      ? 'border-blue-600 bg-blue-50/50 text-blue-900 font-bold ring-2 ring-blue-100 shadow-xs'
                       : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <Truck className="w-5 h-5 mx-auto mb-1 text-emerald-600" />
-                  <span className="text-xs block font-semibold">Cash on Delivery</span>
-                  <span className="text-[10px] text-gray-500 block">Pay at Doorstep</span>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-blue-600" />
+                      <span className="text-xs font-bold text-gray-900 block">Cash on Delivery</span>
+                    </div>
+                    {paymentMethod === 'cod' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                    )}
+                  </div>
+                  <span className="text-[10px] text-gray-600 block">Pay at Doorstep</span>
+                  <span className="text-[9px] text-gray-400 block">Regular Total</span>
                 </button>
+              </div>
 
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('paypal')}
-                  className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                    paymentMethod === 'paypal'
-                      ? 'border-[#D12053] bg-pink-50/50 text-[#D12053] font-bold ring-2 ring-[#D12053]/20'
-                      : 'border-gray-200 text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="text-base font-extrabold text-[#D12053] block mb-0.5">bKash</span>
-                  <span className="text-xs block font-semibold">bKash / Nagad</span>
-                  <span className="text-[10px] text-gray-500 block">Mobile Wallet</span>
-                </button>
+              {/* Selected Method Guidance Note */}
+              <div className="mt-3">
+                {paymentMethod === 'advance' ? (
+                  <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start gap-2.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block text-xs">Advance Payment Selected (৳50 Discount Applied)</span>
+                      <p className="text-[11px] text-emerald-800 leading-relaxed">
+                        An instant ৳50 discount is deducted from your bill. Click <strong>&quot;Proceed to Payment&quot;</strong> to view bKash and Nagad payment details on the next page.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50/60 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2.5">
+                    <Truck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="font-bold block text-xs">Cash on Delivery Selected</span>
+                      <p className="text-[11px] text-blue-800 leading-relaxed">
+                        Pay <strong>{formatBDT(modalCartTotal)}</strong> in cash when the delivery person arrives at your doorstep with your authentic package.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -543,33 +678,67 @@ Please confirm and dispatch the order. Thank you!`;
                 </span>
                 <span className="font-mono font-semibold text-gray-900">{formatBDT(modalDeliveryCharge)}</span>
               </div>
+
+              {/* Advance discount */}
+              {paymentMethod === 'advance' && (
+                <div className="flex justify-between items-center text-emerald-700 bg-emerald-50 px-2 py-1 rounded border border-emerald-200">
+                  <span className="flex items-center gap-1 font-bold">
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    <span>Advance Payment Discount</span>
+                  </span>
+                  <span className="font-mono font-bold">-{formatBDT(modalAdvanceDiscount)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                 <span>Total Amount Due</span>
-                <span className="font-mono text-blue-600 text-base">{formatBDT(modalCartTotal)}</span>
+                <div className="text-right">
+                  {paymentMethod === 'advance' && (
+                    <del className="text-[11px] text-gray-400 font-normal font-mono block">
+                      {formatBDT(modalCartTotal)}
+                    </del>
+                  )}
+                  <span className={`font-mono text-base ${paymentMethod === 'advance' ? 'text-emerald-700 font-black' : 'text-blue-600'}`}>
+                    {formatBDT(modalPayableTotal)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Action Buttons: Online Order & WhatsApp */}
+            {/* Action Buttons: Proceed to Payment or Confirm Order */}
             <div className="space-y-2.5 pt-1">
-              <button
-                id="btn-confirm-online-order"
-                type="button"
-                disabled={isPlacingOrder}
-                onClick={handlePlaceOnlineOrder}
-                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98 disabled:opacity-50"
-              >
-                {isPlacingOrder ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                    <span>Placing Order & Saving to Database...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 shrink-0" />
-                    <span>Confirm Online Order ({formatBDT(cartTotal)})</span>
-                  </>
-                )}
-              </button>
+              {paymentMethod === 'advance' ? (
+                <button
+                  id="btn-modal-proceed-to-payment"
+                  type="button"
+                  onClick={() => setStep('advance_gateway')}
+                  className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98"
+                >
+                  <span>Proceed to Payment • {formatBDT(modalPayableTotal)}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  id="btn-confirm-online-order"
+                  type="button"
+                  disabled={isPlacingOrder}
+                  onClick={handlePlaceOnlineOrder}
+                  className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98 disabled:opacity-50"
+                >
+                  {isPlacingOrder ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                      <span>Placing Order & Saving to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 shrink-0" />
+                      <span>Confirm & Place Order • {formatBDT(modalCartTotal)}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              )}
 
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -599,6 +768,220 @@ Please confirm and dispatch the order. Thank you!`;
                   onClick={handlePlaceOrderViaWhatsApp}
                   className="py-2.5 px-4 text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl shadow-md shadow-[#25D366]/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-98"
                   title="Confirm and send order via WhatsApp"
+                >
+                  <WhatsAppIcon className="w-3.5 h-3.5 text-white shrink-0" />
+                  <span>Send via WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Dedicated Advance Payment Gateway Page (bKash & Nagad) */}
+        {step === 'advance_gateway' && (
+          <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+            {/* Header with Back Button */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setStep('payment')}
+                  className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 cursor-pointer mb-1"
+                >
+                  <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  <span>Back to Payment Method</span>
+                </button>
+                <h4 className="text-sm font-black text-gray-900">
+                  Make Advance Payment
+                </h4>
+              </div>
+
+              <div className="text-right">
+                <span className="text-[10px] text-gray-400 line-through block font-mono">
+                  {formatBDT(modalCartTotal)}
+                </span>
+                <span className="text-sm font-black text-emerald-700 font-mono">
+                  {formatBDT(modalPayableTotal)}
+                </span>
+              </div>
+            </div>
+
+            {/* Gateway Selector Tabs */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5">
+                Select Mobile Wallet:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAdvanceGateway('bkash')}
+                  className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
+                    advanceGateway === 'bkash'
+                      ? 'border-[#D12053] bg-pink-50 ring-2 ring-[#D12053]/25 font-bold text-[#D12053]'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded bg-[#D12053] text-white font-bold text-[10px]">
+                      bKash
+                    </span>
+                    <span>Send Money</span>
+                  </div>
+                  {advanceGateway === 'bkash' && <CheckCircle2 className="w-3.5 h-3.5 text-[#D12053]" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAdvanceGateway('nagad')}
+                  className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-xs ${
+                    advanceGateway === 'nagad'
+                      ? 'border-[#F7931E] bg-orange-50 ring-2 ring-[#F7931E]/25 font-bold text-[#F7931E]'
+                      : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="px-1.5 py-0.5 rounded bg-[#F7931E] text-white font-bold text-[10px]">
+                      Nagad
+                    </span>
+                    <span>Send Money</span>
+                  </div>
+                  {advanceGateway === 'nagad' && <CheckCircle2 className="w-3.5 h-3.5 text-[#F7931E]" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Step-by-Step Payment Instructions */}
+            <div className="bg-slate-50 p-3.5 rounded-xl border border-gray-200 text-xs text-gray-700 space-y-2.5 leading-relaxed">
+              <div className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  1
+                </span>
+                <p className="flex-1 text-[11px]">
+                  Open your <strong>{advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} App</strong> and select <strong>Send Money</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  2
+                </span>
+                <p className="flex-1 text-[11px]">
+                  Send exact amount <strong className="text-emerald-700 font-mono">{formatBDT(modalPayableTotal)}</strong> (with ৳50 discount applied) to our official personal account number:
+                </p>
+              </div>
+
+              {/* Copyable Account Box */}
+              <div className="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-gray-300">
+                <Phone className={`w-3.5 h-3.5 ${advanceGateway === 'bkash' ? 'text-[#D12053]' : 'text-[#F7931E]'} shrink-0`} />
+                <div className="flex-1 min-w-0">
+                  <span className="font-mono text-xs font-black text-gray-900 tracking-wider">
+                    {currentOfficialNumber}
+                  </span>
+                  <span className="text-[9px] text-gray-500 block uppercase font-medium">
+                    Official {advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} (Personal / Send Money)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopyNumber(currentOfficialNumber, advanceGateway === 'bkash' ? 'bKash' : 'Nagad')}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                    advanceGateway === 'bkash'
+                      ? 'bg-pink-100 hover:bg-pink-200 text-[#D12053]'
+                      : 'bg-orange-100 hover:bg-orange-200 text-[#F7931E]'
+                  }`}
+                >
+                  {copiedNumber ? (
+                    <>
+                      <Check className="w-3 h-3" />
+                      <span>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-start gap-2">
+                <span className="w-4 h-4 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
+                  3
+                </span>
+                <p className="flex-1 text-[11px]">
+                  After sending money, enter your mobile account number and the Transaction ID (TrxID) below:
+                </p>
+              </div>
+            </div>
+
+            {/* Inputs for Sender Mobile & TrxID */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-700 mb-1">
+                  Your {advanceGateway === 'bkash' ? 'bKash' : 'Nagad'} Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="017XXXXXXXX"
+                  value={senderNumber}
+                  onChange={e => setSenderNumber(e.target.value)}
+                  className="w-full px-2.5 py-2 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-gray-700 mb-1">
+                  TrxID <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 9J87K2L1P0"
+                  value={trxId}
+                  onChange={e => setTrxId(e.target.value.toUpperCase())}
+                  className="w-full px-2.5 py-2 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono uppercase"
+                />
+              </div>
+            </div>
+
+            {/* Confirm Payment Button */}
+            <div className="space-y-2 pt-2">
+              <button
+                id="btn-confirm-advance-order"
+                type="button"
+                disabled={isPlacingOrder}
+                onClick={handlePlaceOnlineOrder}
+                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/25 transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-98 disabled:opacity-50"
+              >
+                {isPlacingOrder ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span>Verifying Payment & Placing Order...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>Confirm Payment & Place Order • {formatBDT(modalPayableTotal)}</span>
+                  </>
+                )}
+              </button>
+
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={() => setStep('payment')}
+                  className="text-xs font-semibold text-gray-600 hover:text-gray-900 cursor-pointer py-2 px-1"
+                >
+                  ← Back to Payment Options
+                </button>
+
+                <button
+                  id="btn-confirm-advance-whatsapp"
+                  type="button"
+                  disabled={isPlacingOrder}
+                  onClick={handlePlaceOrderViaWhatsApp}
+                  className="py-2 px-3 text-xs font-bold bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl shadow-md shadow-[#25D366]/20 transition-all cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01] active:scale-98"
                 >
                   <WhatsAppIcon className="w-3.5 h-3.5 text-white shrink-0" />
                   <span>Send via WhatsApp</span>

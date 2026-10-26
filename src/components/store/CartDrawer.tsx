@@ -7,7 +7,7 @@ import React from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
-import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, AlertCircle, Package } from 'lucide-react';
+import { ShoppingBag, X, Trash2, ArrowRight, ShieldCheck, AlertCircle, Package, Sparkles } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -213,6 +213,14 @@ My Delivery Address:`
                 <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
                   <span>Total Amount Due</span>
                   <span className="font-mono text-blue-600 font-bold">{formatBDT(cartTotal)}</span>
+                </div>
+
+                {/* Advance Payment Discount Notice */}
+                <div className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>
+                    <strong>Save ৳50:</strong> Pay in full advance via bKash or Nagad to get an instant ৳50 discount!
+                  </span>
                 </div>
               </div>
 

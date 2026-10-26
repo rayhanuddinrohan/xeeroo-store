@@ -438,13 +438,21 @@ export const OrderManagementTab: React.FC = () => {
                                 </p>
                                 <p className="text-gray-600">
                                   Payment Method:{' '}
-                                  <strong className={`uppercase font-mono ${order.paymentMethod === 'bkash' ? 'text-[#D12053]' : ''}`}>
-                                    {order.paymentMethod === 'bkash' ? 'bKash (MFS)' : order.paymentMethod}
-                                  </strong>
+                                  {order.paymentMethod === 'advance' ? (
+                                    <strong className="text-emerald-700 font-bold uppercase font-mono">
+                                      Full Advance ({order.paymentDetails?.gateway === 'nagad' ? 'Nagad' : 'bKash'})
+                                      {order.discountAmount ? ' [৳50 OFF]' : ''}
+                                    </strong>
+                                  ) : (
+                                    <strong className={`uppercase font-mono ${order.paymentMethod === 'bkash' ? 'text-[#D12053]' : ''}`}>
+                                      {order.paymentMethod === 'bkash' ? 'bKash (MFS)' : order.paymentMethod === 'cod' ? 'Cash on Delivery' : order.paymentMethod}
+                                    </strong>
+                                  )}
                                   {order.paymentDetails?.trxId && (
-                                    <span className="block mt-1 text-[11px] font-mono text-gray-800 bg-pink-50 p-1.5 rounded border border-pink-200">
-                                      bKash TrxID: <strong className="text-[#D12053]">{order.paymentDetails.trxId}</strong>
-                                      {order.paymentDetails.bkashNumber && ` | Sender: ${order.paymentDetails.bkashNumber}`}
+                                    <span className="block mt-1 text-[11px] font-mono text-gray-800 bg-slate-100 p-1.5 rounded border border-gray-300">
+                                      Wallet: <strong className={order.paymentDetails.gateway === 'nagad' ? 'text-[#F7931E]' : 'text-[#D12053]'}>{order.paymentDetails.gateway === 'nagad' ? 'Nagad' : 'bKash'}</strong> | TrxID: <strong>{order.paymentDetails.trxId}</strong>
+                                      {(order.paymentDetails.senderNumber || order.paymentDetails.bkashNumber || order.paymentDetails.nagadNumber) &&
+                                        ` | Sender: ${order.paymentDetails.senderNumber || order.paymentDetails.bkashNumber || order.paymentDetails.nagadNumber}`}
                                     </span>
                                   )}
                                 </p>

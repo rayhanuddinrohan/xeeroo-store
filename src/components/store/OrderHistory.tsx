@@ -326,13 +326,30 @@ export const OrderHistory: React.FC = () => {
                         </span>
                         <p className="text-gray-600 leading-relaxed">
                           Method:{' '}
-                          <strong className={`uppercase ${order.paymentMethod === 'bkash' ? 'text-[#D12053]' : ''}`}>
-                            {order.paymentMethod === 'bkash' ? 'bKash MFS' : order.paymentMethod}
-                          </strong>
+                          {order.paymentMethod === 'advance' ? (
+                            <strong className="text-emerald-700 font-bold">
+                              Full Advance ({order.paymentDetails?.gateway === 'nagad' ? 'Nagad' : 'bKash'})
+                              {order.discountAmount ? ' [৳50 OFF]' : ''}
+                            </strong>
+                          ) : order.paymentMethod === 'bkash' ? (
+                            <strong className="text-[#D12053] uppercase font-bold">bKash MFS</strong>
+                          ) : order.paymentMethod === 'nagad' ? (
+                            <strong className="text-[#F7931E] uppercase font-bold">Nagad MFS</strong>
+                          ) : (
+                            <strong className="uppercase font-bold text-gray-900">Cash on Delivery</strong>
+                          )}
                           {order.paymentDetails?.trxId && (
                             <>
                               <br />
-                              TrxID: <span className="font-mono text-gray-900 font-bold bg-pink-50 px-1.5 py-0.5 rounded border border-pink-200">{order.paymentDetails.trxId}</span>
+                              TrxID:{' '}
+                              <span className="font-mono text-gray-900 font-bold bg-slate-100 px-1.5 py-0.5 rounded border border-gray-300">
+                                {order.paymentDetails.trxId}
+                              </span>
+                              {order.paymentDetails.senderNumber && (
+                                <span className="text-[10px] text-gray-500 ml-1">
+                                  (from {order.paymentDetails.senderNumber})
+                                </span>
+                              )}
                             </>
                           )}
                           <br />

@@ -12,6 +12,7 @@ import {
   NotificationToast,
   Order,
   OrderStatus,
+  PaymentMethod,
   Product,
   ShippingAddress,
   User,
@@ -257,9 +258,17 @@ interface StoreContextType {
   orders: Order[];
   createOrder: (
     shippingAddress: ShippingAddress,
-    paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash',
+    paymentMethod: PaymentMethod,
     optionalEmail?: string,
-    paymentDetails?: { bkashNumber?: string; trxId?: string }
+    paymentDetails?: {
+      gateway?: 'bkash' | 'nagad';
+      senderNumber?: string;
+      bkashNumber?: string;
+      nagadNumber?: string;
+      trxId?: string;
+      advanceDiscount?: number;
+    },
+    customDiscount?: number
   ) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<boolean>;
   userOrders: Order[];
@@ -2529,9 +2538,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Order creation & Inventory Deduction
   const createOrder = async (
     shippingAddress: ShippingAddress,
-    paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash',
+    paymentMethod: PaymentMethod,
     optionalEmail?: string,
-    paymentDetails?: { bkashNumber?: string; trxId?: string }
+    paymentDetails?: {
+      gateway?: 'bkash' | 'nagad';
+      senderNumber?: string;
+      bkashNumber?: string;
+      nagadNumber?: string;
+      trxId?: string;
+      advanceDiscount?: number;
+    },
+    customDiscount: number = 0
   ): Promise<Order | null> => {
     if (cart.length === 0) {
       addToast('Cannot checkout an empty cart.', 'warning');
@@ -2606,7 +2623,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       shippingAddress.district || shippingAddress.city,
       shippingAddress.thana || shippingAddress.state
     );
-    const orderTotalAmount = cartSubtotal + orderDeliveryCharge;
+
+    // If customer pays full in advance (via bKash or Nagad), apply instant 50 TK discount
+    const isAdvancePayment =
+      paymentMethod === 'advance' ||
+      paymentMethod === 'bkash' ||
+      paymentMethod === 'nagad' ||
+      (paymentDetails?.advanceDiscount !== undefined && paymentDetails.advanceDiscount > 0);
+
+    const advanceDiscount = isAdvancePayment ? 50 : (customDiscount || 0);
+    const orderTotalAmount = Math.max(0, cartSubtotal + orderDeliveryCharge - advanceDiscount);
 
     const orderId = `ORD-${Date.now().toString().slice(-6)}`;
 
@@ -2616,9 +2642,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       userEmail: orderCustomer.email,
       status: 'pending',
       totalAmount: orderTotalAmount,
+      subtotalAmount: cartSubtotal,
+      deliveryCharge: orderDeliveryCharge,
+      discountAmount: advanceDiscount,
       shippingAddress,
       paymentMethod,
-      ...(paymentDetails ? { paymentDetails } : {}),
+      ...(paymentDetails
+        ? {
+            paymentDetails: {
+              ...paymentDetails,
+              advanceDiscount,
+            },
+          }
+        : {}),
       createdAt: nowIso,
       updatedAt: nowIso,
       items: cart.map(item => ({

@@ -248,7 +248,7 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
             >
               <span className="flex items-center gap-1.5">
                 <HelpCircle className="w-4 h-4 text-sky-600" />
-                <span>How to set up Telegram Bot (Step-by-Step Bangla Guide)</span>
+                <span>How to set up Telegram Bot (Step-by-Step Guide)</span>
               </span>
               <span className="text-[11px] font-medium text-sky-600">
                 {showInstructions ? 'Hide Guide ▲' : 'Show Guide ▼'}
@@ -259,35 +259,35 @@ export const TelegramSettingsModal: React.FC<TelegramSettingsModalProps> = ({
               <div className="mt-3 pt-3 border-t border-sky-200/60 text-xs text-gray-700 space-y-2.5">
                 <div className="p-2.5 bg-white rounded-xl border border-sky-100 space-y-1.5">
                   <p className="font-bold text-gray-900">
-                    ধাপ ১: Telegram Bot তৈরি করুন (Get Bot Token)
+                    Step 1: Create a Telegram Bot (Get Bot Token)
                   </p>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-gray-600 leading-relaxed">
-                    <li>Telegram অ্যাপে গিয়ে সার্চ করুন <strong>@BotFather</strong></li>
-                    <li>চ্যাটে <code>/newbot</code> লিখে পাঠান</li>
-                    <li>বটের একটি নাম দিন (যেমন: <em>XEEROO Order Bot</em>)</li>
-                    <li>বটের একটি ইউজারনেম দিন যার শেষে <code>bot</code> থাকবে (যেমন: <em>xeeroo_store_order_bot</em>)</li>
-                    <li>BotFather আপনাকে একটি <strong>HTTP API Token</strong> দেবে। সেটি কপি করে উপরের <strong>Bot Token</strong> ঘরে বসান।</li>
+                    <li>Open Telegram and search for <strong>@BotFather</strong></li>
+                    <li>Send <code>/newbot</code> in the chat</li>
+                    <li>Enter a display name for your bot (e.g. <em>XEEROO Order Bot</em>)</li>
+                    <li>Enter a unique username ending with <code>bot</code> (e.g. <em>xeeroo_store_order_bot</em>)</li>
+                    <li>BotFather will give you an <strong>HTTP API Token</strong>. Copy and paste it into the <strong>Bot Token</strong> field above.</li>
                   </ol>
                 </div>
 
                 <div className="p-2.5 bg-white rounded-xl border border-sky-100 space-y-1.5">
                   <p className="font-bold text-gray-900">
-                    ধাপ ২: নিজের Chat ID বের করুন (Get Chat ID)
+                    Step 2: Get Your Chat ID
                   </p>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-gray-600 leading-relaxed">
-                    <li>Telegram-এ সার্চ করুন <strong>@userinfobot</strong></li>
-                    <li><code>/start</code> বাটনে চাপ দিলে এটি আপনার <strong>Id:</strong> (যেমন: 123456789) পাঠিয়ে দেবে।</li>
-                    <li>সেই নম্বরটি কপি করে উপরের <strong>Telegram Chat ID</strong> ঘরে বসান।</li>
-                    <li>⚠️ <strong>গুরুত্বপূর্ণ:</strong> আপনার তৈরি করা নতুন বটে গিয়ে একবার <code>/start</code> দিন, যাতে বট আপনাকে মেসেজ পাঠানোর অনুমতি পায়।</li>
+                    <li>Search for <strong>@userinfobot</strong> on Telegram</li>
+                    <li>Press <code>/start</code> and it will reply with your <strong>Id:</strong> (e.g. 123456789)</li>
+                    <li>Copy and paste that number into the <strong>Telegram Chat ID</strong> field above.</li>
+                    <li>⚠️ <strong>Important:</strong> Open a chat with your newly created bot and click <code>/start</code> once so the bot has permission to message you.</li>
                   </ol>
                 </div>
 
                 <div className="p-2.5 bg-white rounded-xl border border-sky-100 space-y-1.5">
                   <p className="font-bold text-gray-900">
-                    ধাপ ৩: টেস্ট করুন ও সেভ করুন
+                    Step 3: Test and Save
                   </p>
                   <p className="text-[11px] text-gray-600">
-                    নিচের <strong>"Send Test Message"</strong> বাটনে ক্লিক করুন। টেলিগ্রামে টেস্ট মেসেজ চলে আসলে <strong>"Save Configuration"</strong> বাটনে চাপ দিন। এখন থেকে যেকোনো কাস্টমার অর্ডার করার সাথে সাথে সম্পূর্ণ ডিটেইলস আপনার টেলিগ্রামে চলে আসবে!
+                    Click the <strong>&quot;Send Test Message&quot;</strong> button below. Once you receive the test alert on Telegram, click <strong>&quot;Save Configuration&quot;</strong>. Going forward, every new customer order will immediately notify your Telegram!
                   </p>
                 </div>
               </div>

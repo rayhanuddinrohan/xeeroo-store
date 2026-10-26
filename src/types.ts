@@ -138,18 +138,27 @@ export interface OrderItem {
   sku?: string;
 }
 
+export type PaymentMethod = 'advance' | 'cod' | 'bkash' | 'nagad' | 'card' | 'paypal';
+
 export interface Order {
   id: string;
   userId: string;
   userEmail: string;
   status: OrderStatus;
   totalAmount: number;
+  subtotalAmount?: number;
+  deliveryCharge?: number;
+  discountAmount?: number;
   shippingAddress: ShippingAddress;
   items: OrderItem[];
-  paymentMethod: 'card' | 'paypal' | 'cod' | 'bkash';
+  paymentMethod: PaymentMethod;
   paymentDetails?: {
+    gateway?: 'bkash' | 'nagad';
+    senderNumber?: string;
     bkashNumber?: string;
+    nagadNumber?: string;
     trxId?: string;
+    advanceDiscount?: number;
   };
   createdAt: string;
   updatedAt: string;
