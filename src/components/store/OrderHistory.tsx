@@ -114,7 +114,7 @@ export const OrderHistory: React.FC = () => {
 
         {canUpdateOrderStatus && (
           <a
-            href="/dashboard/orders"
+            href="/#/dashboard/orders"
             onClick={(e) => {
               e.preventDefault();
               navigateToDashboard('orders');
@@ -137,7 +137,7 @@ export const OrderHistory: React.FC = () => {
             Browse the XEEROO catalog to test the checkout and dispatch flow.
           </p>
           <a
-            href="/"
+            href="/#/"
             onClick={(e) => {
               e.preventDefault();
               navigateToStore();

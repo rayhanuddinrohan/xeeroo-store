@@ -32,7 +32,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
   const productIdentifier = product.slug || product.id;
-  const productPath = `/product/${encodeURIComponent(productIdentifier)}`;
+  const productPath = `/#/product/${encodeURIComponent(productIdentifier)}`;
   const productUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}${productPath}`

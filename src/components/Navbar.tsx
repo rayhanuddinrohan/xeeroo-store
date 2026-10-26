@@ -184,7 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
           <div className="flex items-center gap-4 shrink-0">
             <a
               id="nav-brand-logo"
-              href="/"
+              href="/#/"
               onClick={(e) => {
                 e.preventDefault();
                 navigateToStore();
@@ -203,7 +203,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             <nav className="hidden md:flex items-center space-x-1 text-sm font-medium ml-2">
               <a
                 id="nav-link-store"
-                href="/"
+                href="/#/"
                 onClick={(e) => {
                   e.preventDefault();
                   navigateToStore();
@@ -220,7 +220,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               {canAccessDashboard && (
                 <a
                   id="nav-link-dashboard"
-                  href="/dashboard"
+                  href="/#/dashboard"
                   onClick={(e) => {
                     e.preventDefault();
                     handleDashboardClick();
@@ -240,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
 
               <a
                 id="nav-link-contact"
-                href="/contact"
+                href="/#/contact"
                 onClick={(e) => {
                   e.preventDefault();
                   navigateToContact();
@@ -575,7 +575,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                         </button>
 
                         <a
-                          href="/orders"
+                          href="/#/orders"
                           onClick={(e) => {
                             e.preventDefault();
                             navigateToOrders();
@@ -600,7 +600,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                         </button>
 
                         <a
-                          href="/contact"
+                          href="/#/contact"
                           onClick={(e) => {
                             e.preventDefault();
                             navigateToContact();

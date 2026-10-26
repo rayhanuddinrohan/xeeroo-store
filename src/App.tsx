@@ -279,7 +279,7 @@ const AppContent: React.FC = () => {
               <ul className="space-y-2 text-xs">
                 <li>
                   <a
-                    href="/"
+                    href="/#/"
                     onClick={(e) => {
                       e.preventDefault();
                       navigateToStore();
@@ -291,7 +291,7 @@ const AppContent: React.FC = () => {
                 </li>
                 <li>
                   <a
-                    href="/orders"
+                    href="/#/orders"
                     onClick={(e) => {
                       e.preventDefault();
                       navigateToOrders();
@@ -303,7 +303,7 @@ const AppContent: React.FC = () => {
                 </li>
                 <li>
                   <a
-                    href="/contact"
+                    href="/#/contact"
                     onClick={(e) => {
                       e.preventDefault();
                       navigateToContact();
@@ -317,7 +317,7 @@ const AppContent: React.FC = () => {
                   <>
                     <li className="pt-2 border-t border-slate-800">
                       <a
-                        href="/dashboard"
+                        href="/#/dashboard"
                         onClick={(e) => {
                           e.preventDefault();
                           navigateToDashboard();
@@ -329,7 +329,7 @@ const AppContent: React.FC = () => {
                     </li>
                     <li>
                       <a
-                        href="/schema-docs"
+                        href="/#/schema-docs"
                         onClick={(e) => {
                           e.preventDefault();
                           navigateToSchemaDocs();

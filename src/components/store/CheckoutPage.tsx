@@ -253,7 +253,7 @@ Please confirm and dispatch my order. Thank you!`;
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="/orders"
+              href="/#/orders"
               onClick={(e) => {
                 e.preventDefault();
                 navigateToOrders();
@@ -265,7 +265,7 @@ Please confirm and dispatch my order. Thank you!`;
             </a>
 
             <a
-              href="/"
+              href="/#/"
               onClick={(e) => {
                 e.preventDefault();
                 navigateToStore();
@@ -292,7 +292,7 @@ Please confirm and dispatch my order. Thank you!`;
           Explore the XEEROO collection of high-performance hardware, audio, and wearables to add products to your cart.
         </p>
         <a
-          href="/"
+          href="/#/"
           onClick={(e) => {
             e.preventDefault();
             navigateToStore();
@@ -312,7 +312,7 @@ Please confirm and dispatch my order. Thank you!`;
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <a
-            href="/"
+            href="/#/"
             onClick={(e) => {
               e.preventDefault();
               navigateToStore();

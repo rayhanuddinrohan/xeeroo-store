@@ -80,7 +80,7 @@ export const DashboardLayout: React.FC = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a
-              href="/"
+              href="/#/"
               onClick={(e) => {
                 e.preventDefault();
                 navigateToStore();
@@ -356,7 +356,7 @@ export const DashboardLayout: React.FC = () => {
         {/* Bottom shortcut to Storefront */}
         <div className="pt-4 border-t border-gray-100 space-y-2">
           <a
-            href="/"
+            href="/#/"
             onClick={(e) => {
               e.preventDefault();
               navigateToStore();

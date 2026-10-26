@@ -973,7 +973,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
-  // Listen to browser Back/Forward navigation
+  // Listen to browser Back/Forward navigation & Hash changes
   useEffect(() => {
     const handlePopState = () => {
       const route = parseRouteFromLocation();
@@ -991,7 +991,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
   }, []);
 
   // Sync browser URL whenever viewMode, selectedProductId, or dashboardTab changes

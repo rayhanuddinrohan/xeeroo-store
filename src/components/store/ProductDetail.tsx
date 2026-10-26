@@ -177,6 +177,16 @@ export const ProductDetail: React.FC = () => {
   }, [product?.id]);
 
   if (!product) {
+    if (products.length === 0) {
+      return (
+        <div className="text-center py-24 bg-white rounded-2xl border border-gray-200 p-8 shadow-xs max-w-lg mx-auto my-12 space-y-4">
+          <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <h3 className="text-sm font-bold text-gray-900">Loading Product Details...</h3>
+          <p className="text-xs text-gray-400">Connecting to XEEROO database</p>
+        </div>
+      );
+    }
+
     return (
       <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 p-8 shadow-xs max-w-lg mx-auto my-12">
         <Package className="w-12 h-12 text-gray-400 mx-auto mb-3" />
@@ -185,7 +195,7 @@ export const ProductDetail: React.FC = () => {
           The requested product could not be found or may have been unlisted.
         </p>
         <a
-          href="/"
+          href="/#/"
           onClick={(e) => {
             e.preventDefault();
             navigateToStore();
@@ -252,7 +262,7 @@ export const ProductDetail: React.FC = () => {
     '';
 
   const productIdentifier = product.slug || product.id;
-  const productPath = `/product/${encodeURIComponent(productIdentifier)}`;
+  const productPath = `/#/product/${encodeURIComponent(productIdentifier)}`;
   const productUrl =
     typeof window !== 'undefined'
       ? `${window.location.origin}${productPath}`
@@ -274,7 +284,7 @@ My Delivery Address:`
       <div className="flex flex-wrap items-center justify-between gap-4">
         <a
           id="btn-back-to-store"
-          href="/"
+          href="/#/"
           onClick={(e) => {
             e.preventDefault();
             navigateToStore();
