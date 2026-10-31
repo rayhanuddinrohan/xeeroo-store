@@ -172,7 +172,15 @@ My Delivery Address:`
           <a
             href={productPath}
             onClick={handleCardClick}
-            className="block text-xs sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 leading-snug mb-2"
+            className="block text-xs sm:text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 h-9 sm:h-10 leading-snug mb-2 overflow-hidden"
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+            }}
+            title={product.title}
           >
             {product.title}
           </a>

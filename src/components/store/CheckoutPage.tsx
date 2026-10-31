@@ -961,7 +961,17 @@ Please confirm and dispatch my order. Thank you!`;
                     className="w-12 h-12 rounded-lg object-cover bg-gray-100 border border-gray-200 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-gray-900 truncate">
+                    <h4
+                      className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                      }}
+                      title={item.product.title}
+                    >
                       {item.product.title}
                     </h4>
                     <p className="text-[11px] text-gray-500">
@@ -1029,7 +1039,7 @@ Please confirm and dispatch my order. Thank you!`;
               </div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                <span>7-Day Direct Replacement Warranty Included</span>
+                <span>Official Brand Warranty & Support Included</span>
               </div>
             </div>
           </div>

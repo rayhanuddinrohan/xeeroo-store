@@ -196,4 +196,6 @@ export type DashboardTab =
   | 'banners'
   | 'importer'
   | 'database'
-  | 'docs';
+  | 'docs'
+  | 'my-orders'
+  | 'settings';

@@ -105,6 +105,8 @@ export function parseRouteFromLocation(): ParsedRoute {
         'importer',
         'database',
         'docs',
+        'my-orders',
+        'settings',
       ];
       const resolvedTab = (validTabs.includes(rawTab as DashboardTab) ? rawTab : 'products') as DashboardTab;
       return { viewMode: 'dashboard', productId: null, dashboardTab: resolvedTab };
@@ -164,6 +166,8 @@ export function parseRouteFromLocation(): ParsedRoute {
       'importer',
       'database',
       'docs',
+      'my-orders',
+      'settings',
     ];
     const resolvedTab = (validTabs.includes(rawTab as DashboardTab) ? rawTab : 'products') as DashboardTab;
     return {

@@ -139,7 +139,17 @@ My Delivery Address:`
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <h4 className="text-xs font-semibold text-gray-900 truncate">
+                          <h4
+                            className="text-xs font-semibold text-gray-900 line-clamp-2 leading-snug"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              wordBreak: 'break-word',
+                            }}
+                            title={product.title}
+                          >
                             {product.title}
                           </h4>
                           <span className="text-[11px] font-mono text-gray-400">

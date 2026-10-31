@@ -15,6 +15,8 @@ import { BannerManagementTab } from './BannerManagementTab';
 import { ProductImportTab } from './ProductImportTab';
 import { DatabaseManagementTab } from './DatabaseManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
+import { AccountSettingsTab } from './AccountSettingsTab';
+import { OrderHistory } from '../store/OrderHistory';
 import { BrandLogo } from '../common/BrandLogo';
 import { UserAvatar } from '../common/UserAvatar';
 import {
@@ -33,6 +35,7 @@ import {
   Image as ImageIcon,
   DownloadCloud,
   Database,
+  Settings,
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -51,56 +54,54 @@ export const DashboardLayout: React.FC = () => {
     orders,
     products,
     navigateToStore,
+    openLoginModal,
   } = useStore();
 
+  const isCustomer = currentUser?.role === 'customer';
   const isModerator = currentUser?.role === 'moderator';
   const isAdmin = currentUser?.role === 'admin';
 
-  // Ensure moderators automatically land on staff tabs (orders by default)
+  // Ensure customer stays on customer tabs, moderator on staff tabs
   useEffect(() => {
-    if (isModerator && ['analytics', 'users', 'database', 'docs', 'importer'].includes(dashboardTab)) {
+    if (isCustomer && !['my-orders', 'settings'].includes(dashboardTab)) {
+      setDashboardTab('my-orders');
+    } else if (isModerator && ['analytics', 'users', 'database', 'docs', 'importer'].includes(dashboardTab)) {
       setDashboardTab('orders');
     }
-  }, [isModerator, dashboardTab, setDashboardTab]);
+  }, [isCustomer, isModerator, dashboardTab, setDashboardTab]);
 
-  // RBAC Access Guard: Customers cannot access Dashboard
-  if (!canAccessDashboard) {
+  // Guest Guard: Prompt to log in
+  if (!currentUser) {
     return (
       <div className="max-w-xl mx-auto py-16 px-4 text-center">
-        <div className="bg-white rounded-2xl border border-rose-200 p-8 shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-7 h-7" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Restricted Dashboard Access
+            Please Sign In to Access Your Dashboard
           </h2>
           <p className="text-xs text-gray-600 mb-6 leading-relaxed">
-            You are currently authenticated with the <strong className="text-blue-600">Customer</strong> role. Only staff members with <strong className="text-amber-600">Moderator</strong> or <strong className="text-purple-600">Admin</strong> privileges may access the back-office management console.
+            Sign in to track orders, download invoices, update your delivery address, and view your account dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={openLoginModal}
+              className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
+            >
+              Sign In to Account
+            </button>
             <a
               href="/#/"
               onClick={(e) => {
                 e.preventDefault();
                 navigateToStore();
               }}
-              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer text-center"
+              className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer text-center"
             >
               Return to Storefront
             </a>
-            <button
-              onClick={() => switchUserRole('moderator')}
-              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              Switch to Moderator
-            </button>
-            <button
-              onClick={() => switchUserRole('admin')}
-              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-xs transition-colors cursor-pointer"
-            >
-              Switch to Admin
-            </button>
           </div>
         </div>
       </div>
@@ -117,7 +118,7 @@ export const DashboardLayout: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <BrandLogo size="xs" />
               <h2 className="text-xs font-black text-gray-900 uppercase tracking-wider">
-                {isModerator ? 'Staff Dashboard' : 'Admin Console'}
+                {isCustomer ? 'Customer Dashboard' : isModerator ? 'Staff Dashboard' : 'Admin Console'}
               </h2>
             </div>
             <div className="flex items-center gap-2.5 pt-1">
@@ -130,23 +131,71 @@ export const DashboardLayout: React.FC = () => {
               />
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-bold text-gray-900 truncate">
-                  {currentUser?.fullName || (isModerator ? 'Staff Member' : 'Administrator')}
+                  {currentUser?.fullName}
                 </p>
                 <span
                   className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase font-mono ${
-                    isModerator ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                    currentUser?.role === 'admin'
+                      ? 'bg-purple-100 text-purple-800'
+                      : currentUser?.role === 'moderator'
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-800'
                   }`}
                 >
-                  {isModerator ? 'Staff Moderator' : 'Master Admin'}
+                  {currentUser?.role === 'admin'
+                    ? 'Master Admin'
+                    : currentUser?.role === 'moderator'
+                    ? 'Staff Moderator'
+                    : 'Verified Customer'}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Navigation Links */}
-          <nav className="space-y-4 text-xs font-medium">
-            {/* SECTION 1: STAFF OPERATIONS (Moderator & Admin) */}
-            <div className="space-y-1">
+          {isCustomer ? (
+            /* Customer Tabs */
+            <nav className="space-y-1">
+              <div className="px-2 pb-1 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 font-mono">
+                  My Account
+                </span>
+              </div>
+
+              <button
+                id="tab-btn-my-orders"
+                onClick={() => setDashboardTab('my-orders')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer text-xs ${
+                  dashboardTab === 'my-orders'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Package className="w-4 h-4" />
+                  <span>My Orders & Invoices</span>
+                </div>
+              </button>
+
+              <button
+                id="tab-btn-account-settings"
+                onClick={() => setDashboardTab('settings')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer text-xs ${
+                  dashboardTab === 'settings'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-gray-700 hover:bg-gray-100 font-medium'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Settings className="w-4 h-4" />
+                  <span>Account Settings & Address</span>
+                </div>
+              </button>
+            </nav>
+          ) : (
+            /* Admin & Staff Tabs */
+            <nav className="space-y-1">
+              {/* Staff Operations Group */}
               <div className="px-2 pb-1 flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 font-mono">
                   Staff Operations
@@ -246,111 +295,156 @@ export const DashboardLayout: React.FC = () => {
                   <span>Categories</span>
                 </div>
               </button>
-            </div>
 
-            {/* SECTION 2: ADMINISTRATIVE CONTROLS (Admin Only) */}
-            {isAdmin ? (
-              <div className="space-y-1 pt-2 border-t border-gray-100">
-                <div className="px-2 pb-1">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 font-mono">
-                    Admin Controls
+              {/* ADMIN ONLY MANAGEMENT SECTION */}
+              {isAdmin ? (
+                <div className="pt-3 border-t border-gray-100 space-y-1">
+                  <div className="px-2 pb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 font-mono">
+                      Administration
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-purple-50 text-purple-700 font-bold">
+                      Master
+                    </span>
+                  </div>
+
+                  {/* Analytics */}
+                  <button
+                    id="tab-btn-analytics"
+                    onClick={() => setDashboardTab('analytics')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'analytics'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <BarChart3 className="w-4 h-4" />
+                      <span>Sales Analytics</span>
+                    </div>
+                  </button>
+
+                  {/* Users */}
+                  <button
+                    id="tab-btn-users"
+                    onClick={() => setDashboardTab('users')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'users'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Users className="w-4 h-4" />
+                      <span>Users & Approvals</span>
+                    </div>
+                  </button>
+
+                  {/* Product Importer */}
+                  <button
+                    id="tab-btn-importer"
+                    onClick={() => setDashboardTab('importer')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'importer'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <DownloadCloud className="w-4 h-4 text-emerald-600" />
+                      <span>Product Importer</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 font-bold">
+                      API
+                    </span>
+                  </button>
+
+                  {/* Cloud Database (Firestore) */}
+                  <button
+                    id="tab-btn-database"
+                    onClick={() => setDashboardTab('database')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'database'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Database className="w-4 h-4 text-blue-500" />
+                      <span>Cloud Database</span>
+                    </div>
+                  </button>
+
+                  {/* Schema & SQL Docs */}
+                  <button
+                    id="tab-btn-docs"
+                    onClick={() => setDashboardTab('docs')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'docs'
+                        ? 'bg-purple-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <FileCode className="w-4 h-4" />
+                      <span>Schema & SQL Docs</span>
+                    </div>
+                  </button>
+                </div>
+              ) : (
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900">
+                    <div className="flex items-center gap-1.5 font-bold text-xs mb-1 text-amber-900">
+                      <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Staff Privileges</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      You have active authorization to manage orders and the product catalog.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Personal Account Group for Staff / Admin */}
+              <div className="pt-3 border-t border-gray-100 space-y-1">
+                <div className="px-2 pb-1 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 font-mono">
+                    Personal Account
                   </span>
                 </div>
 
-                {/* Sales Analytics */}
                 <button
-                  id="tab-btn-analytics"
-                  onClick={() => setDashboardTab('analytics')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                    dashboardTab === 'analytics'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  id="tab-btn-my-orders"
+                  onClick={() => setDashboardTab('my-orders')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors cursor-pointer text-xs ${
+                    dashboardTab === 'my-orders'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100 font-medium'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <BarChart3 className="w-4 h-4" />
-                    <span>Sales Analytics</span>
+                    <Package className="w-4 h-4" />
+                    <span>My Personal Orders</span>
                   </div>
                 </button>
 
-                {/* Users & Roles */}
                 <button
-                  id="tab-btn-users"
-                  onClick={() => setDashboardTab('users')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                    dashboardTab === 'users'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-gray-700 hover:bg-gray-100'
+                  id="tab-btn-account-settings"
+                  onClick={() => setDashboardTab('settings')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors cursor-pointer text-xs ${
+                    dashboardTab === 'settings'
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'text-gray-700 hover:bg-gray-100 font-medium'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Users className="w-4 h-4" />
-                    <span>Users & Staff</span>
-                  </div>
-                </button>
-
-                {/* API Product Importer */}
-                <button
-                  id="tab-btn-importer"
-                  onClick={() => setDashboardTab('importer')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                    dashboardTab === 'importer'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <DownloadCloud className="w-4 h-4" />
-                    <span>API Product Importer</span>
-                  </div>
-                </button>
-
-                {/* Cloud Database */}
-                <button
-                  id="tab-btn-database"
-                  onClick={() => setDashboardTab('database')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                    dashboardTab === 'database'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Database className="w-4 h-4" />
-                    <span>Cloud Database</span>
-                  </div>
-                </button>
-
-                {/* Schema & SQL Docs */}
-                <button
-                  id="tab-btn-docs"
-                  onClick={() => setDashboardTab('docs')}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
-                    dashboardTab === 'docs'
-                      ? 'bg-purple-600 text-white font-bold shadow-xs'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <FileCode className="w-4 h-4" />
-                    <span>Schema & SQL Docs</span>
+                    <Settings className="w-4 h-4" />
+                    <span>Account Settings</span>
                   </div>
                 </button>
               </div>
-            ) : (
-              <div className="pt-2 border-t border-gray-100">
-                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl text-amber-900">
-                  <div className="flex items-center gap-1.5 font-bold text-xs mb-1 text-amber-900">
-                    <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>Staff Privileges</span>
-                  </div>
-                  <p className="text-[11px] text-amber-800 leading-relaxed">
-                    You have active authorization to manage orders and the product catalog. Advanced system settings are reserved for the Master Admin.
-                  </p>
-                </div>
-              </div>
-            )}
-          </nav>
+            </nav>
+          )}
         </div>
 
         {/* Bottom shortcut to Storefront */}
@@ -393,20 +487,26 @@ export const DashboardLayout: React.FC = () => {
                 ? 'API & External Website Product Importer'
                 : dashboardTab === 'database'
                 ? 'Cloud Database Collections & Customer Tables'
+                : dashboardTab === 'my-orders'
+                ? 'My Personal Orders & Tracking'
+                : dashboardTab === 'settings'
+                ? 'Account Settings & Delivery Address'
                 : 'PostgreSQL DDL & RLS Policies'}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium hidden sm:inline">Authority:</span>
+            <span className="text-xs text-gray-500 font-medium hidden sm:inline">Role:</span>
             <span
               className={`text-xs font-mono font-bold px-2 py-0.5 rounded uppercase ${
                 currentUser?.role === 'admin'
                   ? 'bg-purple-100 text-purple-800'
-                  : 'bg-amber-100 text-amber-800'
+                  : currentUser?.role === 'moderator'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-emerald-100 text-emerald-800'
               }`}
             >
-              {currentUser?.role || 'Guest'}
+              {currentUser?.role || 'Customer'}
             </span>
           </div>
         </div>
@@ -421,6 +521,8 @@ export const DashboardLayout: React.FC = () => {
         {dashboardTab === 'importer' && <ProductImportTab />}
         {dashboardTab === 'database' && <DatabaseManagementTab />}
         {dashboardTab === 'docs' && <SchemaDocsModal />}
+        {dashboardTab === 'my-orders' && <OrderHistory />}
+        {dashboardTab === 'settings' && <AccountSettingsTab />}
       </main>
     </div>
   );

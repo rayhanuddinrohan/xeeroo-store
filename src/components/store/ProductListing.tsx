@@ -133,8 +133,8 @@ export const ProductListing: React.FC = () => {
 
   return (
     <div ref={listingContainerRef} id="product-listing-section" className="w-full scroll-mt-20">
-      {/* Listing controls & active filters header (Sticky category bar on mobile) */}
-      <div className="sticky top-0 md:static z-30 bg-white/95 md:bg-white backdrop-blur-md md:backdrop-blur-none border-b md:border border-gray-200 -mx-4 px-4 py-2.5 sm:mx-0 sm:px-4 sm:rounded-xl mb-6 shadow-xs">
+      {/* Listing controls & active filters header (Desktop only - on mobile controls are inside the 3-line hamburger menu) */}
+      <div className="hidden md:block z-30 bg-white border border-gray-200 sm:rounded-xl mb-6 p-4 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Categories Tab Pill Strip - Horizontally scrollable with lively animation */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 touch-pan-x">
@@ -257,6 +257,23 @@ export const ProductListing: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Mobile Active Filter Chips & Item Count Bar */}
+      <div className="md:hidden flex items-center justify-between mb-3 px-1 text-xs text-gray-500">
+        <span>
+          Showing <strong className="text-gray-900 font-bold">{filteredProducts.length}</strong> items
+        </span>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 underline flex items-center gap-1 cursor-pointer"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Reset Filters</span>
+          </button>
+        )}
       </div>
 
       {/* Products Grid with Lively Transition - Stable min-height prevents scroll jumps */}

@@ -13,7 +13,7 @@ export const ToastContainer: React.FC = () => {
   if (toasts.length === 0) return null;
 
   return (
-    <div id="toast-container" className="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 max-w-md w-full px-4 pointer-events-none">
+    <div id="toast-container" className="fixed top-5 right-5 sm:right-6 z-50 flex flex-col space-y-2 max-w-md w-full px-4 pointer-events-none animate-in slide-in-from-top-3 duration-200">
       {toasts.map(toast => {
         let icon = <Info className="w-5 h-5 text-blue-500 shrink-0" />;
         let borderClass = 'border-blue-200 bg-blue-50 text-blue-900';

@@ -276,6 +276,7 @@ interface StoreContextType {
 
   // RBAC Permission Helpers
   canAccessDashboard: boolean;
+  isStaff: boolean;
   canManageUsers: boolean;
   canDeleteProduct: boolean;
   canEditProduct: boolean;
@@ -807,7 +808,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       openLoginModal();
     } else {
       setSettingsModalInitialTab(initialTab);
-      setIsSettingsModalOpen(true);
+      navigateToDashboard('settings');
     }
   };
 
@@ -955,9 +956,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const navigateToOrders = () => {
     setSelectedProductId(null);
-    setViewMode('orders');
-    syncBrowserUrl('orders');
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    navigateToDashboard('my-orders');
   };
 
   const navigateToDashboard = (tab?: DashboardTab) => {
@@ -1079,13 +1078,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentUserId]);
 
   // RBAC permissions check
-  const canAccessDashboard = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+  const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+  const canAccessDashboard = !!currentUser;
   const canManageUsers = currentUser?.role === 'admin';
-  const canDeleteProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
-  const canEditProduct = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
-  const canManageCategories = currentUser?.role === 'moderator' || currentUser?.role === 'admin' || canAccessDashboard;
+  const canDeleteProduct = isStaff;
+  const canEditProduct = isStaff;
+  const canManageCategories = isStaff;
   const canViewAnalytics = currentUser?.role === 'admin';
-  const canUpdateOrderStatus = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+  const canUpdateOrderStatus = isStaff;
 
   // Auth Operations: Unified Database & Firebase Password Validation
   const login = async (
@@ -1982,7 +1982,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Banner Management (Admin/Staff up to 10 banners)
   const addBanner = (bannerData: Omit<BannerSlide, 'id' | 'createdAt'>): boolean => {
-    if (!canAccessDashboard) {
+    if (!isStaff) {
       addToast('Access Denied: Only Staff can add banners.', 'error');
       return false;
     }
@@ -2005,7 +2005,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateBanner = (id: string, updates: Partial<BannerSlide>): boolean => {
-    if (!canAccessDashboard) {
+    if (!isStaff) {
       addToast('Access Denied: Only Staff can edit banners.', 'error');
       return false;
     }
@@ -2018,7 +2018,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteBanner = (id: string): boolean => {
-    if (!canAccessDashboard) {
+    if (!isStaff) {
       addToast('Access Denied: Only Staff can delete banners.', 'error');
       return false;
     }
@@ -2034,7 +2034,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toggleBannerActive = (id: string): boolean => {
-    if (!canAccessDashboard) {
+    if (!isStaff) {
       addToast('Access Denied: Only Staff can modify banners.', 'error');
       return false;
     }
@@ -2047,7 +2047,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const reorderBanners = (orderedIds: string[]): boolean => {
-    if (!canAccessDashboard) return false;
+    if (!isStaff) return false;
 
     setBanners(prev => {
       const bannerMap = new Map(prev.map(b => [b.id, b]));
@@ -3157,6 +3157,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     userOrders,
 
     canAccessDashboard,
+    isStaff,
     canManageUsers,
     canDeleteProduct,
     canEditProduct,

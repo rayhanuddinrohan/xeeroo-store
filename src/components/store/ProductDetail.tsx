@@ -702,11 +702,11 @@ My Delivery Address:`
 
                 <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs space-y-1.5">
                   <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                    <RotateCcw className="w-4 h-4" />
+                    <Award className="w-4 h-4" />
                   </div>
-                  <h4 className="text-xs font-bold text-gray-900">7-Day Replacement</h4>
+                  <h4 className="text-xs font-bold text-gray-900">Official Brand Support</h4>
                   <p className="text-[11px] text-gray-500 leading-relaxed">
-                    Hassle-free replacement policy for manufacturing issues.
+                    Direct manufacturer warranty coverage and dedicated technical support.
                   </p>
                 </div>
               </div>
@@ -782,7 +782,7 @@ My Delivery Address:`
                     <tr>
                       <td className="py-3 px-4 font-bold text-gray-600">Support & Warranty</td>
                       <td className="py-3 px-4 text-gray-700">
-                        Official Brand Warranty + 7-Day Direct Replacement Guarantee
+                        Official Brand Warranty & Dedicated Technical Support
                       </td>
                     </tr>
                   </tbody>
@@ -1222,7 +1222,7 @@ My Delivery Address:`
                   <ul className="space-y-2.5 text-xs text-gray-700">
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
-                      <span><strong>7-Day Replacement:</strong> Free instant replacement for manufacturing defects.</span>
+                      <span><strong>Official Warranty:</strong> Direct brand authorized warranty and technical assistance.</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <CheckCircle className="w-3.5 h-3.5 text-blue-600 shrink-0 mt-0.5" />
@@ -1282,7 +1282,17 @@ My Delivery Address:`
                     <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
                       {relProduct.brand}
                     </span>
-                    <h3 className="text-sm font-bold text-gray-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
+                    <h3
+                      className="text-sm font-bold text-gray-900 line-clamp-2 h-10 leading-snug group-hover:text-blue-600 transition-colors overflow-hidden"
+                      style={{
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        wordBreak: 'break-word',
+                      }}
+                      title={relProduct.title}
+                    >
                       {relProduct.title}
                     </h3>
                     <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">

@@ -140,35 +140,7 @@ const AppContent: React.FC = () => {
       {/* Toast Notification Stack */}
       <ToastContainer />
 
-      {/* Floating Cart Quick Button */}
-      <button
-        id="btn-floating-cart"
-        type="button"
-        onClick={handleOpenCart}
-        className="fixed bottom-20 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-full shadow-lg shadow-blue-600/30 hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-        title="Open Shopping Cart"
-      >
-        <ShoppingBag className="w-5 h-5 text-white" />
-        <span className="hidden sm:inline">Shopping Cart</span>
-        {cartTotalCount > 0 && (
-          <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-white text-blue-700 text-[11px] font-black shadow-xs">
-            {cartTotalCount}
-          </span>
-        )}
-      </button>
 
-      {/* Floating WhatsApp Quick Order Button */}
-      <a
-        id="btn-floating-whatsapp"
-        href="https://wa.me/8801570243005?text=Hello%20XEEROO%2C%20I%20want%20to%20place%20an%20order"
-        target="_blank"
-        rel="noreferrer"
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs rounded-full shadow-lg shadow-[#25D366]/30 hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-        title="Direct WhatsApp Order"
-      >
-        <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5 object-contain" />
-        <span className="hidden sm:inline">Order on WhatsApp</span>
-      </a>
 
       {/* XEEROO Official Global Footer */}
       <footer className="bg-slate-950 text-slate-300 border-t border-slate-800 mt-16 pt-12 pb-8 text-xs">

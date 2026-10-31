@@ -33,6 +33,7 @@ export const CustomerSettingsModal: React.FC = () => {
     setIsSettingsModalOpen,
     settingsModalInitialTab,
     updateUserProfile,
+    addToast,
   } = useStore();
 
   const addressSectionRef = useRef<HTMLDivElement>(null);
@@ -178,12 +179,10 @@ export const CustomerSettingsModal: React.FC = () => {
       });
 
       if (success) {
-        setSuccessMsg('All account details and delivery address updated successfully!');
+        addToast('Account details and delivery address updated successfully!', 'success');
         setNewPassword('');
         setConfirmPassword('');
-        setTimeout(() => {
-          setSuccessMsg('');
-        }, 3500);
+        setIsSettingsModalOpen(false);
       }
     } catch (err: unknown) {
       const error = err as { message?: string };

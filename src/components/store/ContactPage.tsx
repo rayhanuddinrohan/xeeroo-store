@@ -407,11 +407,11 @@ export const ContactPage: React.FC = () => {
 
               <div className="flex items-start gap-2.5">
                 <div className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <span className="font-bold text-white block">7-Day Return Policy</span>
-                  <span className="text-[11px] text-slate-400">Hassle-free replacement for defective items within 7 days.</span>
+                  <span className="font-bold text-white block">Official Brand Warranty</span>
+                  <span className="text-[11px] text-slate-400">Authentic manufacturer warranty & direct support.</span>
                 </div>
               </div>
             </div>
