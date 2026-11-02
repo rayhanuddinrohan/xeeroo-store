@@ -479,11 +479,26 @@ export const deleteFirestoreProduct = async (productId: string): Promise<boolean
  * Real-time real-world subscription to Products in Firestore.
  * Automatically synchronizes across all browsers and users!
  */
+/**
+ * Fisher-Yates array shuffle utility to randomize product listing order on every fetch/reload
+ */
+export const shuffleArray = <T>(array: T[]): T[] => {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export const subscribeToFirestoreProducts = (
   onProductsUpdate: (products: Product[]) => void,
   onError?: (err: Error) => void
 ) => {
   const colRef = collection(db, 'products');
+  let isFirstLoad = true;
+  const initialOrderMap = new Map<string, number>();
+
   return onSnapshot(
     colRef,
     (snapshot) => {
@@ -524,7 +539,24 @@ export const subscribeToFirestoreProducts = (
           });
         }
       });
-      onProductsUpdate(list);
+
+      if (isFirstLoad) {
+        // Randomize product list order on page reload / initial fetch
+        isFirstLoad = false;
+        const shuffledList = shuffleArray(list);
+        shuffledList.forEach((prod, idx) => {
+          initialOrderMap.set(prod.id, idx);
+        });
+        onProductsUpdate(shuffledList);
+      } else {
+        // Real-time updates during active session: preserve the randomized order and append new items
+        const sortedList = [...list].sort((a, b) => {
+          const posA = initialOrderMap.has(a.id) ? initialOrderMap.get(a.id)! : 999999;
+          const posB = initialOrderMap.has(b.id) ? initialOrderMap.get(b.id)! : 999999;
+          return posA - posB;
+        });
+        onProductsUpdate(sortedList);
+      }
     },
     (err) => {
       console.warn('Firestore onSnapshot products error:', err);
@@ -574,7 +606,8 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
         });
       }
     });
-    return list;
+    // Shuffle products randomly on every fetch/reload
+    return shuffleArray(list);
   } catch (err) {
     console.warn('Firestore fetch products error:', err);
     return [];

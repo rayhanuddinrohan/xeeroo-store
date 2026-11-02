@@ -41,6 +41,7 @@ import {
   deleteFirestoreProduct,
   fetchFirestoreProducts,
   subscribeToFirestoreProducts,
+  shuffleArray,
   saveFirestoreCategory,
   fetchFirestoreCategories,
   saveFirestoreOrder,
@@ -471,7 +472,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       let pulledCount = 0;
       if (dbProds.length > 0) {
-        setProducts(dbProds);
+        setProducts(shuffleArray(dbProds));
         pulledCount += dbProds.length;
       }
       if (dbCats.length > 0) {
@@ -551,9 +552,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           if (!isMounted) return;
 
-          // If database has products, use them directly
+          // If database has products, use them directly with randomized order
           if (dbProds.length > 0) {
-            setProducts(dbProds);
+            setProducts(shuffleArray(dbProds));
           } else {
             // First time seeding: Upload initial products to Firestore so all browsers have them!
             console.log('Seeding initial catalog to Firestore for multi-browser sync...');
@@ -808,8 +809,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       openLoginModal();
     } else {
       setSettingsModalInitialTab(initialTab);
-      navigateToDashboard('settings');
+      setIsSettingsModalOpen(true);
     }
+  };
+  const closeSettingsModal = () => {
+    setIsSettingsModalOpen(false);
   };
 
   // 2. Categories state
@@ -846,12 +850,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return sanitizeWithRating(parsed);
+          return shuffleArray(sanitizeWithRating(parsed));
         }
       }
-      return sanitizeWithRating(INITIAL_PRODUCTS);
+      return shuffleArray(sanitizeWithRating(INITIAL_PRODUCTS));
     } catch {
-      return sanitizeWithRating(INITIAL_PRODUCTS);
+      return shuffleArray(sanitizeWithRating(INITIAL_PRODUCTS));
     }
   });
 
@@ -956,10 +960,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const navigateToOrders = () => {
     setSelectedProductId(null);
-    navigateToDashboard('my-orders');
+    setViewMode('orders');
+    syncBrowserUrl('orders');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
   const navigateToDashboard = (tab?: DashboardTab) => {
+    if (currentUser?.role !== 'admin') {
+      if (tab === 'my-orders') {
+        navigateToOrders();
+        return;
+      }
+      addToast('Admin Dashboard access is restricted to administrator accounts.', 'warning');
+      navigateToStore();
+      return;
+    }
     setSelectedProductId(null);
     const targetTab = tab || dashboardTab || 'products';
     setDashboardTab(targetTab);
@@ -1077,9 +1092,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentUserId]);
 
-  // RBAC permissions check
+  // RBAC permissions check - strictly restrict admin dashboard to role === 'admin'
+  const isAdmin = currentUser?.role === 'admin';
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
-  const canAccessDashboard = !!currentUser;
+  const canAccessDashboard = currentUser?.role === 'admin';
   const canManageUsers = currentUser?.role === 'admin';
   const canDeleteProduct = isStaff;
   const canEditProduct = isStaff;
@@ -3024,7 +3040,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Reset to original mock data
   const resetDemoData = () => {
-    setProducts(INITIAL_PRODUCTS);
+    setProducts(shuffleArray(INITIAL_PRODUCTS));
     setCategories(INITIAL_CATEGORIES);
     setOrders(INITIAL_ORDERS);
     setUsers(INITIAL_USERS);

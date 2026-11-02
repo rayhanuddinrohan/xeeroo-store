@@ -149,7 +149,17 @@ const AppContent: React.FC = () => {
             {/* Col 1: Brand */}
             <div className="space-y-3 md:col-span-1">
               <div className="flex items-center gap-2.5">
-                <BrandLogo size="sm" />
+                <img
+                  src="/xeeroo.jpg"
+                  alt="XEEROO Logo"
+                  className="w-8 h-8 object-cover rounded-lg shadow-xs shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.indexOf('favicon.png') === -1) {
+                      target.src = '/favicon.png';
+                    }
+                  }}
+                />
                 <span className="text-xl font-black text-white tracking-wider">XEEROO</span>
               </div>
               <p className="text-slate-400 text-xs leading-relaxed">
@@ -285,7 +295,7 @@ const AppContent: React.FC = () => {
                     Customer Support
                   </a>
                 </li>
-                {canAccessDashboard && (
+                {currentUser?.role === 'admin' && (
                   <>
                     <li className="pt-2 border-t border-slate-800">
                       <a

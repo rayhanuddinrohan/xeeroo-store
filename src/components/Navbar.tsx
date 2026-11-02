@@ -243,7 +243,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 }}
                 className="flex items-center gap-2.5 text-gray-900 group cursor-pointer"
               >
-                <BrandLogo size="md" />
+                <img
+                  src="/xeeroo.jpg"
+                  alt="XEEROO Logo"
+                  className="w-9 h-9 object-cover rounded-xl shadow-xs shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.indexOf('favicon.png') === -1) {
+                      target.src = '/favicon.png';
+                    }
+                  }}
+                />
                 <div className="text-left">
                   <span className="text-2xl font-black tracking-widest text-gray-950 block leading-none">
                     XEEROO
@@ -269,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   Store
                 </a>
 
-                {canAccessDashboard && (
+                {currentUser?.role === 'admin' && (
                   <a
                     id="nav-link-dashboard"
                     href="/#/dashboard"
@@ -279,14 +289,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                     }}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
                       viewMode === 'dashboard'
-                        ? currentUser?.role === 'moderator'
-                          ? 'text-amber-800 bg-amber-50 font-semibold'
-                          : 'text-purple-700 bg-purple-50 font-semibold'
+                        ? 'text-purple-700 bg-purple-50 font-semibold'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                     }`}
                   >
-                    <LayoutDashboard className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
-                    <span>{currentUser?.role === 'moderator' ? 'Staff Operations (Orders)' : 'Admin Dashboard'}</span>
+                    <LayoutDashboard className="w-4 h-4 text-purple-600" />
+                    <span>Admin Dashboard</span>
                   </a>
                 )}
 
@@ -425,26 +433,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
 
             {/* Right actions: Dashboard, Cart, Notifications, Auth/Profile */}
             <div className="flex items-center space-x-2 sm:space-x-3">
-              {/* Staff / Admin Dashboard Quick Button if staff */}
-              {canAccessDashboard && (
+              {/* Admin Dashboard Quick Button - STRICTLY role === 'admin' only */}
+              {currentUser?.role === 'admin' && (
                 <button
                   id="nav-dashboard-btn"
                   onClick={handleDashboardClick}
                   className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
                     viewMode === 'dashboard'
-                      ? currentUser?.role === 'moderator'
-                        ? 'bg-amber-800 text-white border-amber-700'
-                        : 'bg-purple-900 text-white border-purple-800'
-                      : currentUser?.role === 'moderator'
-                      ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                      ? 'bg-purple-900 text-white border-purple-800'
                       : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                   }`}
-                  title={currentUser?.role === 'moderator' ? 'Open XEEROO Staff Dashboard' : 'Open XEEROO Admin Dashboard'}
+                  title="Open XEEROO Admin Dashboard"
                 >
-                  <Shield className={`w-4 h-4 ${currentUser?.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
-                  <span>
-                    {currentUser?.role === 'moderator' ? 'Staff Operations' : 'Admin Dashboard'}
-                  </span>
+                  <Shield className="w-4 h-4 text-purple-600" />
+                  <span>Admin Dashboard</span>
                 </button>
               )}
 
@@ -548,7 +550,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
 
                         {/* Dropdown Options */}
                         <div className="py-2 px-2 space-y-1">
-                          {canAccessDashboard && (
+                          {currentUser?.role === 'admin' && (
                             <button
                               onClick={() => {
                                 handleDashboardClick();
@@ -557,11 +559,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer font-semibold"
                             >
                               <Shield className="w-4 h-4 text-purple-600" />
-                              <span>
-                                {currentUser?.role === 'moderator'
-                                  ? 'Staff Orders & Operations'
-                                  : 'Admin Control Center'}
-                              </span>
+                              <span>Admin Dashboard</span>
                             </button>
                           )}
 
@@ -681,7 +679,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   }}
                   className="flex items-center gap-2 text-gray-950 group cursor-pointer"
                 >
-                  <BrandLogo size="sm" />
+                  <img
+                    src="/xeeroo.jpg"
+                    alt="XEEROO Logo"
+                    className="w-8 h-8 object-cover rounded-lg shadow-xs shrink-0"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      if (target.src.indexOf('favicon.png') === -1) {
+                        target.src = '/favicon.png';
+                      }
+                    }}
+                  />
                   <span className="text-xl font-black tracking-widest text-gray-950 leading-none">
                     XEEROO
                   </span>
@@ -895,7 +903,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             {/* Drawer Header */}
             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-slate-950 text-white">
               <div className="flex items-center gap-2.5">
-                <BrandLogo size="sm" />
+                <img
+                  src="/xeeroo.jpg"
+                  alt="XEEROO Logo"
+                  className="w-7 h-7 object-cover rounded-lg shadow-xs shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.indexOf('favicon.png') === -1) {
+                      target.src = '/favicon.png';
+                    }
+                  }}
+                />
                 <span className="text-xl font-black tracking-widest text-white">XEEROO</span>
               </div>
               <button
@@ -954,44 +972,40 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                       </div>
                     </div>
 
-                    {/* Dashboard Button (Contains Orders, Account Settings & Controls inside) */}
-                    {currentUser.role === 'customer' ? (
+                    {/* Admin Dashboard Button - Strictly ONLY visible to role === 'admin' */}
+                    {currentUser.role === 'admin' && (
+                      <button
+                        type="button"
+                        id="mobile-drawer-admin-btn"
+                        onClick={() => {
+                          handleDashboardClick();
+                          handleCloseDrawer();
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 shadow-2xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-purple-600" />
+                          <span>Admin Dashboard</span>
+                        </div>
+                        <span className="text-[10px] font-semibold text-purple-600">Open →</span>
+                      </button>
+                    )}
+
+                    {/* Customer Orders & Account Access */}
+                    {currentUser.role === 'customer' && (
                       <button
                         type="button"
                         onClick={() => {
-                          navigateToDashboard('my-orders');
+                          navigateToOrders();
                           handleCloseDrawer();
                         }}
                         className="w-full flex items-center justify-between p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
                       >
                         <div className="flex items-center gap-2">
                           <Package className="w-4 h-4 text-blue-600" />
-                          <span>My Account Dashboard</span>
+                          <span>My Orders & Invoices</span>
                         </div>
-                        <span className="text-[10px] font-semibold text-blue-600">Orders & Settings →</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleDashboardClick();
-                          handleCloseDrawer();
-                        }}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          currentUser.role === 'moderator'
-                            ? 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
-                            : 'bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Shield className={`w-4 h-4 ${currentUser.role === 'moderator' ? 'text-amber-600' : 'text-purple-600'}`} />
-                          <span>
-                            {currentUser.role === 'moderator'
-                              ? 'Staff Orders & Operations'
-                              : 'Admin Control Center'}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-semibold text-gray-400">Open →</span>
+                        <span className="text-[10px] font-semibold text-blue-600">View →</span>
                       </button>
                     )}
 

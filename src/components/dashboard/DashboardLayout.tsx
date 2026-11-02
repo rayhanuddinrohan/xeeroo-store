@@ -75,22 +75,22 @@ export const DashboardLayout: React.FC = () => {
     return (
       <div className="max-w-xl mx-auto py-16 px-4 text-center">
         <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-7 h-7" />
+          <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-7 h-7" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-2">
-            Please Sign In to Access Your Dashboard
+            Administrator Sign In Required
           </h2>
           <p className="text-xs text-gray-600 mb-6 leading-relaxed">
-            Sign in to track orders, download invoices, update your delivery address, and view your account dashboard.
+            The Admin Dashboard is strictly restricted to administrator accounts. Please sign in with an authorized administrator account to access backend controls.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button
               onClick={openLoginModal}
-              className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
+              className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
             >
-              Sign In to Account
+              Sign In as Admin
             </button>
             <a
               href="/#/"
@@ -99,6 +99,38 @@ export const DashboardLayout: React.FC = () => {
                 navigateToStore();
               }}
               className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer text-center"
+            >
+              Return to Storefront
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Customer / Non-admin role guard: strictly restricted to role === 'admin'
+  if (currentUser.role !== 'admin') {
+    return (
+      <div className="max-w-xl mx-auto py-16 px-4 text-center">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">
+            Admin Access Restricted
+          </h2>
+          <p className="text-xs text-gray-600 mb-6 leading-relaxed">
+            The Admin Dashboard is only accessible to users with administrator privileges (<code className="px-1.5 py-0.5 rounded bg-gray-100 text-purple-700 font-bold font-mono">role === &apos;admin&apos;</code>). Your current account does not have access.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="/#/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigateToStore();
+              }}
+              className="w-full sm:w-auto px-6 py-2.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-xs transition-colors cursor-pointer text-center"
             >
               Return to Storefront
             </a>
