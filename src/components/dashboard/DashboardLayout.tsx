@@ -16,6 +16,7 @@ import { ProductImportTab } from './ProductImportTab';
 import { DatabaseManagementTab } from './DatabaseManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
 import { AccountSettingsTab } from './AccountSettingsTab';
+import { FacebookIntegrationTab } from './FacebookIntegrationTab';
 import { OrderHistory } from '../store/OrderHistory';
 import { BrandLogo } from '../common/BrandLogo';
 import { UserAvatar } from '../common/UserAvatar';
@@ -36,6 +37,7 @@ import {
   DownloadCloud,
   Database,
   Settings,
+  Share2,
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -391,6 +393,25 @@ export const DashboardLayout: React.FC = () => {
                     </span>
                   </button>
 
+                  {/* Facebook Auto-Post */}
+                  <button
+                    id="tab-btn-facebook"
+                    onClick={() => setDashboardTab('facebook')}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors cursor-pointer ${
+                      dashboardTab === 'facebook'
+                        ? 'bg-blue-600 text-white font-bold shadow-xs'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Share2 className={`w-4 h-4 ${dashboardTab === 'facebook' ? 'text-white' : 'text-blue-600'}`} />
+                      <span>Facebook Auto-Post</span>
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${dashboardTab === 'facebook' ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700'}`}>
+                      Active
+                    </span>
+                  </button>
+
                   {/* Cloud Database (Firestore) */}
                   <button
                     id="tab-btn-database"
@@ -519,6 +540,8 @@ export const DashboardLayout: React.FC = () => {
                 ? 'API & External Website Product Importer'
                 : dashboardTab === 'database'
                 ? 'Cloud Database Collections & Customer Tables'
+                : dashboardTab === 'facebook'
+                ? 'Facebook Page Auto-Post Integration'
                 : dashboardTab === 'my-orders'
                 ? 'My Personal Orders & Tracking'
                 : dashboardTab === 'settings'
@@ -552,6 +575,7 @@ export const DashboardLayout: React.FC = () => {
         {dashboardTab === 'categories' && <CategoryManagementTab />}
         {dashboardTab === 'importer' && <ProductImportTab />}
         {dashboardTab === 'database' && <DatabaseManagementTab />}
+        {dashboardTab === 'facebook' && <FacebookIntegrationTab />}
         {dashboardTab === 'docs' && <SchemaDocsModal />}
         {dashboardTab === 'my-orders' && <OrderHistory />}
         {dashboardTab === 'settings' && <AccountSettingsTab />}

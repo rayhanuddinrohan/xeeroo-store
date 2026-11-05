@@ -61,6 +61,9 @@ import {
   saveFirestoreTelegramConfig,
   fetchFirestoreTelegramConfig,
   subscribeToFirestoreTelegramConfig,
+  saveFirestoreFacebookConfig,
+  fetchFirestoreFacebookConfig,
+  subscribeToFirestoreFacebookConfig,
   db,
 } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -71,8 +74,14 @@ import {
   sendTelegramMessage,
   formatOrderForTelegram,
 } from '../utils/telegram';
+import {
+  getStoredFacebookConfig,
+  saveStoredFacebookConfig,
+  publishProductToFacebook,
+  verifyFacebookPage,
+} from '../utils/facebook';
 import { playNotificationChime } from '../utils/audio';
-import { TelegramConfig } from '../types';
+import { TelegramConfig, FacebookConfig } from '../types';
 import {
   calculateShippingCharge,
   getShippingZoneInfo,
@@ -86,6 +95,15 @@ interface StoreContextType {
   // Telegram Bot Settings
   telegramConfig: TelegramConfig;
   updateTelegramConfig: (config: TelegramConfig) => Promise<boolean>;
+
+  // Facebook Page Auto-Post Integration
+  facebookConfig: FacebookConfig;
+  updateFacebookConfig: (config: FacebookConfig) => Promise<boolean>;
+  postProductToFacebook: (
+    productOrId: string | Product,
+    customCaption?: string
+  ) => Promise<{ success: boolean; message: string; postUrl?: string; postId?: string }>;
+
   // Current user & Auth state
   currentUser: User | null;
   users: User[];
@@ -512,6 +530,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Store-wide Telegram Bot alert configuration (Synchronized with Firestore)
   const [telegramConfig, setTelegramConfig] = useState<TelegramConfig>(() => getStoredTelegramConfig());
 
+  // Store-wide Facebook Page Auto-Post configuration (Synchronized with Firestore)
+  const [facebookConfig, setFacebookConfig] = useState<FacebookConfig>(() => getStoredFacebookConfig());
+
   // Refs to track order statuses, seen notifications, and current user for real-time customer alerts
   const ordersStatusRef = useRef<Map<string, OrderStatus>>(new Map());
   const seenNotifsRef = useRef<Set<string>>(new Set());
@@ -529,6 +550,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let unsubscribeUsers: (() => void) | null = null;
     let unsubscribeNotifications: (() => void) | null = null;
     let unsubscribeTelegram: (() => void) | null = null;
+    let unsubscribeFacebook: (() => void) | null = null;
 
     const initDatabase = async () => {
       try {
@@ -542,12 +564,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             projectId: ping.projectId,
           }));
 
-          const [dbProds, dbCats, dbUsers, dbOrders, dbTelegram] = await Promise.all([
+          const [dbProds, dbCats, dbUsers, dbOrders, dbTelegram, dbFacebook] = await Promise.all([
             fetchFirestoreProducts(),
             fetchFirestoreCategories(),
             fetchFirestoreUsers(),
             fetchFirestoreOrders(),
             fetchFirestoreTelegramConfig(),
+            fetchFirestoreFacebookConfig(),
           ]);
 
           if (!isMounted) return;
@@ -579,6 +602,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (dbTelegram && isMounted) {
             setTelegramConfig(dbTelegram);
             saveStoredTelegramConfig(dbTelegram);
+          }
+          if (dbFacebook && isMounted) {
+            setFacebookConfig(dbFacebook);
+            saveStoredFacebookConfig(dbFacebook);
           }
 
           setDbStatus(prev => ({
@@ -763,6 +790,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setTelegramConfig(remoteCfg);
             saveStoredTelegramConfig(remoteCfg);
           });
+
+          // Attach real-time Firestore listener for Facebook Page settings
+          unsubscribeFacebook = subscribeToFirestoreFacebookConfig((remoteCfg) => {
+            if (!isMounted) return;
+            setFacebookConfig(remoteCfg);
+            saveStoredFacebookConfig(remoteCfg);
+          });
         } else {
           setDbStatus(prev => ({
             ...prev,
@@ -783,6 +817,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (unsubscribeUsers) unsubscribeUsers();
       if (unsubscribeNotifications) unsubscribeNotifications();
       if (unsubscribeTelegram) unsubscribeTelegram();
+      if (unsubscribeFacebook) unsubscribeFacebook();
     };
   }, []);
 
@@ -2104,6 +2139,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveFirestoreProduct(newProduct);
 
     addToast(`Product "${newProduct.title}" added to store & database!`, 'success');
+
+    // Auto-post to Facebook Page if enabled
+    if (facebookConfig.enabled && facebookConfig.autoPostOnAdd && facebookConfig.pageId && facebookConfig.accessToken) {
+      postProductToFacebook(newProduct).catch((fbErr) => {
+        console.warn('Auto Facebook post notice:', fbErr);
+      });
+    }
+
     return true;
   };
 
@@ -2756,6 +2799,74 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return ok;
   };
 
+  const updateFacebookConfig = async (newConfig: FacebookConfig): Promise<boolean> => {
+    setFacebookConfig(newConfig);
+    saveStoredFacebookConfig(newConfig);
+    const ok = await saveFirestoreFacebookConfig(newConfig);
+    return ok;
+  };
+
+  const postProductToFacebook = async (
+    productOrId: string | Product,
+    customCaption?: string
+  ): Promise<{ success: boolean; message: string; postUrl?: string; postId?: string }> => {
+    let targetProduct: Product | undefined;
+    if (typeof productOrId === 'string') {
+      targetProduct = products.find(p => p.id === productOrId);
+    } else {
+      targetProduct = productOrId;
+    }
+
+    if (!targetProduct) {
+      addToast('প্রোডাক্ট খুঁজে পাওয়া যায়নি।', 'error');
+      return { success: false, message: 'প্রোডাক্ট খুঁজে পাওয়া যায়নি।' };
+    }
+
+    let currentFb = facebookConfig;
+    if (!currentFb.pageId || !currentFb.accessToken) {
+      const remoteFb = await fetchFirestoreFacebookConfig();
+      if (remoteFb && remoteFb.pageId && remoteFb.accessToken) {
+        currentFb = remoteFb;
+      }
+    }
+
+    if (!currentFb.pageId || !currentFb.accessToken) {
+      addToast('Facebook Page ID বা Access Token কনফিগার করা নেই। সেটিংস চেক করুন।', 'warning');
+      return { success: false, message: 'Facebook credentials missing' };
+    }
+
+    try {
+      addToast(`ফেসবুক পেজে "${targetProduct.title}" পোস্ট করা হচ্ছে...`, 'info');
+      const storeOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com';
+      const res = await publishProductToFacebook(targetProduct, currentFb, storeOrigin, customCaption);
+
+      if (res.success) {
+        addToast(`✅ ফেসবুক পেজ "${currentFb.pageName || 'X E E R O O'}" এ পোস্ট সম্পন্ন হয়েছে!`, 'success');
+        // Update product state and Firestore with Facebook post info
+        const updates: Partial<Product> = {
+          facebookPostId: res.postId,
+          facebookPostUrl: res.postUrl,
+          facebookPostedAt: new Date().toISOString(),
+        };
+        updateProduct(targetProduct.id, updates);
+        return {
+          success: true,
+          message: res.message,
+          postUrl: res.postUrl,
+          postId: res.postId,
+        };
+      } else {
+        addToast(res.message || 'ফেসবুকে পোস্ট ব্যর্থ হয়েছে।', 'error');
+        return { success: false, message: res.message };
+      }
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      const msg = error.message || 'ফেসবুক পোস্ট করার সময় অপ্রত্যাশিত ত্রুটি ঘটেছে।';
+      addToast(msg, 'error');
+      return { success: false, message: msg };
+    }
+  };
+
   const updateOrderStatus = async (orderId: string, status: OrderStatus): Promise<boolean> => {
     if (!canUpdateOrderStatus) {
       addToast('Access Denied: Only Staff can update order status.', 'error');
@@ -3054,6 +3165,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Telegram Bot Settings
     telegramConfig,
     updateTelegramConfig,
+
+    // Facebook Auto-Post Settings & Actions
+    facebookConfig,
+    updateFacebookConfig,
+    postProductToFacebook,
 
     currentUser,
     users,

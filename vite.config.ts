@@ -945,6 +945,193 @@ function productImporterPlugin(): Plugin {
           res.end(JSON.stringify({ success: false, error: error.message || 'MongoDB pull failed' }));
         }
       });
+
+      // 7. Facebook Graph API Integration: Verify Page & Token
+      server.middlewares.use('/api/facebook/verify', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const { pageId, accessToken } = JSON.parse(Buffer.concat(buffers).toString('utf-8') || '{}');
+
+          if (!pageId || !accessToken) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Page ID এবং Access Token আবশ্যক।' }));
+            return;
+          }
+
+          const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId.trim())}?fields=id,name,link,is_published&access_token=${encodeURIComponent(accessToken.trim())}`;
+          const fbResponse = await fetch(fbUrl);
+          const fbData = await fbResponse.json();
+
+          if (fbData.error) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({
+              success: false,
+              error: fbData.error.message || 'Facebook API অথেনটিকেশন ব্যর্থ হয়েছে।',
+            }));
+            return;
+          }
+
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: true,
+            page: {
+              id: fbData.id,
+              name: fbData.name,
+              link: fbData.link || `https://www.facebook.com/${fbData.id}`,
+              is_published: fbData.is_published,
+            },
+          }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Facebook verification failed.' }));
+        }
+      });
+
+      // 8. Facebook Graph API Integration: Publish Post (Photo with Caption)
+      server.middlewares.use('/api/facebook/publish', async (req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 200;
+          res.end();
+          return;
+        }
+
+        try {
+          const buffers: Buffer[] = [];
+          for await (const chunk of req) {
+            buffers.push(Buffer.from(chunk));
+          }
+          const { pageId, accessToken, caption, imageUrl, productUrl, productTitle } = JSON.parse(
+            Buffer.concat(buffers).toString('utf-8') || '{}'
+          );
+
+          const cleanPageId = String(pageId || '').trim();
+          const cleanToken = String(accessToken || '').trim();
+
+          if (!cleanPageId || !cleanToken) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ success: false, error: 'Facebook Page ID এবং Access Token পাওয়া যায়নি।' }));
+            return;
+          }
+
+          // Meta Graph API Requirement:
+          // A User/System-User token cannot post directly to a Page. It must be exchanged for the Page Access Token.
+          let effectiveToken = cleanToken;
+          try {
+            const pageTokRes = await fetch(
+              `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}?fields=access_token&access_token=${encodeURIComponent(cleanToken)}`
+            );
+            const pageTokData = await pageTokRes.json();
+            if (pageTokData && pageTokData.access_token) {
+              effectiveToken = pageTokData.access_token;
+              console.log('[Facebook API] Successfully resolved Page Access Token for Page:', cleanPageId);
+            }
+          } catch (tokErr) {
+            console.warn('[Facebook API] Page token resolution notice:', tokErr);
+          }
+
+          let postId = '';
+          let postUrl = '';
+
+          // 1. Try Photo posting if public imageUrl is available
+          const isPublicImage = imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http') && !imageUrl.includes('localhost') && !imageUrl.includes('127.0.0.1');
+
+          if (isPublicImage) {
+            try {
+              const photoUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}/photos`;
+              const photoParams = new URLSearchParams();
+              photoParams.append('url', imageUrl);
+              photoParams.append('caption', caption || `${productTitle || 'Product'}`);
+              photoParams.append('access_token', effectiveToken);
+
+              const photoRes = await fetch(photoUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: photoParams.toString(),
+              });
+
+              const photoData = await photoRes.json();
+              if (photoData.id || photoData.post_id) {
+                postId = photoData.post_id || photoData.id;
+                postUrl = `https://www.facebook.com/${postId}`;
+              } else if (photoData.error) {
+                console.warn('[Facebook API] Photo post notice:', photoData.error.message);
+              }
+            } catch (photoErr) {
+              console.warn('[Facebook API] Photo post failed, falling back to feed:', photoErr);
+            }
+          }
+
+          // 2. Fallback to Feed post if photo wasn't posted
+          if (!postId) {
+            const feedUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}/feed`;
+            const feedParams = new URLSearchParams();
+            feedParams.append('message', caption || `${productTitle || 'Product'}`);
+            if (productUrl && typeof productUrl === 'string' && productUrl.startsWith('http')) {
+              feedParams.append('link', productUrl);
+            }
+            feedParams.append('access_token', effectiveToken);
+
+            const feedRes = await fetch(feedUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: feedParams.toString(),
+            });
+
+            const feedData = await feedRes.json();
+            if (feedData.id) {
+              postId = feedData.id;
+              postUrl = `https://www.facebook.com/${postId}`;
+            } else if (feedData.error) {
+              res.statusCode = 400;
+              res.end(JSON.stringify({
+                success: false,
+                error: `Facebook API: ${feedData.error.message || 'পোস্ট প্রকাশ করা যায়নি'}`,
+                details: feedData.error,
+              }));
+              return;
+            }
+          }
+
+          if (postId) {
+            console.log(`[Facebook API] Successfully posted product to Page ${cleanPageId}: Post ID ${postId}`);
+            res.statusCode = 200;
+            res.end(JSON.stringify({
+              success: true,
+              postId,
+              postUrl,
+              message: 'ফেসবুক পেজে সফলভাবে প্রোডাক্টটি পোস্ট হয়েছে!',
+            }));
+            return;
+          }
+
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: 'ফেসবুকে পোস্ট সম্পন্ন করা যায়নি।' }));
+        } catch (err: unknown) {
+          const error = err as { message?: string };
+          res.statusCode = 500;
+          res.end(JSON.stringify({ success: false, error: error.message || 'Facebook publish failed.' }));
+        }
+      });
     },
   };
 }

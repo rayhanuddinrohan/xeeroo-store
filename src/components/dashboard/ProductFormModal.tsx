@@ -74,7 +74,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onClose,
   productToEdit,
 }) => {
-  const { categories, addProduct, updateProduct, currentUser, addToast, addCategory } = useStore();
+  const { categories, addProduct, updateProduct, currentUser, addToast, addCategory, facebookConfig, postProductToFacebook } = useStore();
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
@@ -84,6 +84,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [sku, setSku] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [postToFacebook, setPostToFacebook] = useState(true);
   const [brand, setBrand] = useState('');
   const [featuresText, setFeaturesText] = useState('');
 
@@ -351,7 +352,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         brand: brand.trim(),
         features,
       });
-      if (ok) onClose();
+      if (ok) {
+        if (postToFacebook && facebookConfig.pageId && facebookConfig.accessToken) {
+          postProductToFacebook(productToEdit.id);
+        }
+        onClose();
+      }
     } else {
       const ok = addProduct({
         title: title.trim(),
@@ -977,6 +983,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   type="checkbox"
                   checked={isPublished}
                   onChange={e => setIsPublished(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Facebook Auto-Post Checkbox */}
+            <div className="sm:col-span-2 flex items-center justify-between p-3.5 rounded-xl bg-blue-50/70 border border-blue-200">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-xs shrink-0">
+                  f
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-gray-900 block">
+                    Publish to Facebook Page ({facebookConfig?.pageName || 'X E E R O O'})
+                  </span>
+                  <span className="text-[11px] text-gray-500">
+                    {postToFacebook
+                      ? 'Enabled: Product photo, price, details, and order link will be posted to Facebook Page.'
+                      : 'Disabled: Product will not be posted to Facebook.'}
+                  </span>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                <input
+                  type="checkbox"
+                  checked={postToFacebook}
+                  onChange={e => setPostToFacebook(e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>

@@ -35,6 +35,7 @@ import {
   ExternalLink,
   Clipboard,
   Package,
+  Share2,
 } from 'lucide-react';
 
 export const ProductManagementTab: React.FC = () => {
@@ -49,6 +50,8 @@ export const ProductManagementTab: React.FC = () => {
     canDeleteProduct,
     setDashboardTab,
     addToast,
+    facebookConfig,
+    postProductToFacebook,
   } = useStore();
 
   const [search, setSearch] = useState('');
@@ -58,6 +61,7 @@ export const ProductManagementTab: React.FC = () => {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [postingProdId, setPostingProdId] = useState<string | null>(null);
 
   // Quick URL Scraper state
   const [scrapeUrl, setScrapeUrl] = useState('');
@@ -186,6 +190,15 @@ export const ProductManagementTab: React.FC = () => {
     }
     if (window.confirm(`Are you sure you want to permanently delete "${product.title}"?`)) {
       deleteProduct(product.id);
+    }
+  };
+
+  const handlePostToFacebook = async (p: Product) => {
+    setPostingProdId(p.id);
+    try {
+      await postProductToFacebook(p);
+    } finally {
+      setPostingProdId(null);
     }
   };
 
@@ -437,6 +450,19 @@ export const ProductManagementTab: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <button
+            id="btn-fb-autopost"
+            onClick={() => setDashboardTab('facebook')}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
+            title="Facebook Page Auto-Post Settings & Live Preview"
+          >
+            <Share2 className="w-3.5 h-3.5 text-sky-200" />
+            <span>Facebook Auto-Post</span>
+            {facebookConfig?.enabled && facebookConfig?.autoPostOnAdd && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Auto-Post Enabled"></span>
+            )}
+          </button>
+
+          <button
             id="btn-sync-api-products"
             onClick={() => setIsSyncModalOpen(true)}
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
@@ -609,6 +635,29 @@ export const ProductManagementTab: React.FC = () => {
                       {/* Action buttons */}
                       <td className="py-3 px-4 text-right">
                         <div className="inline-flex items-center gap-1">
+                          {/* Post to Facebook Page Button */}
+                          <button
+                            type="button"
+                            disabled={postingProdId === product.id}
+                            onClick={() => handlePostToFacebook(product)}
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              product.facebookPostId
+                                ? 'text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200'
+                                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                            }`}
+                            title={
+                              product.facebookPostId
+                                ? `Posted to Facebook on ${product.facebookPostedAt ? new Date(product.facebookPostedAt).toLocaleDateString() : 'earlier'}. Click to repost.`
+                                : 'Post this product with photo & caption to Facebook Page'
+                            }
+                          >
+                            {postingProdId === product.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                            ) : (
+                              <Share2 className="w-4 h-4" />
+                            )}
+                          </button>
+
                           <button
                             id={`btn-edit-prod-${product.id}`}
                             onClick={() => handleOpenEditModal(product)}

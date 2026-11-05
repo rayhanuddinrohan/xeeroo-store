@@ -89,6 +89,20 @@ export interface TelegramConfig {
   updatedAt?: string;
 }
 
+export interface FacebookConfig {
+  pageId: string;
+  accessToken: string;
+  enabled: boolean;
+  autoPostOnAdd: boolean;
+  customHashtags?: string;
+  customPrefix?: string;
+  includePrice?: boolean;
+  includeLink?: boolean;
+  pageName?: string;
+  pageLink?: string;
+  updatedAt?: string;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -113,6 +127,9 @@ export interface Product {
   reviews?: ProductReview[];
   brand: string;
   features?: string[];
+  facebookPostId?: string;
+  facebookPostedAt?: string;
+  facebookPostUrl?: string;
 }
 
 export interface ShippingAddress {
@@ -198,4 +215,5 @@ export type DashboardTab =
   | 'database'
   | 'docs'
   | 'my-orders'
-  | 'settings';
+  | 'settings'
+  | 'facebook';

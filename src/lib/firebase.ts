@@ -21,7 +21,7 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig } from "../types";
+import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -1147,3 +1147,93 @@ export const subscribeToFirestoreTelegramConfig = (
     }
   );
 };
+
+// ==========================================
+// 10. Store Settings (Facebook Page Auto-Post Config)
+// ==========================================
+export const saveFirestoreFacebookConfig = async (config: FacebookConfig): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'settings', 'facebook');
+    await setDoc(
+      docRef,
+      {
+        pageId: config.pageId.trim(),
+        accessToken: config.accessToken.trim(),
+        enabled: Boolean(config.enabled),
+        autoPostOnAdd: Boolean(config.autoPostOnAdd),
+        customPrefix: config.customPrefix || '🔥 NEW ARRIVAL AT XEEROO!',
+        customHashtags: config.customHashtags || '#XEEROO #OnlineShopping #Bangladesh #EcommerceBD #Gadgets #Tech',
+        includePrice: config.includePrice !== false,
+        includeLink: config.includeLink !== false,
+        pageName: config.pageName || 'X E E R O O',
+        pageLink: config.pageLink || `https://www.facebook.com/${config.pageId}`,
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn('Failed to save Facebook config to Firestore:', err);
+    return false;
+  }
+};
+
+export const fetchFirestoreFacebookConfig = async (): Promise<FacebookConfig | null> => {
+  try {
+    const docRef = doc(db, 'settings', 'facebook');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const d = snap.data();
+      return {
+        pageId: d.pageId || '103314657990315',
+        accessToken: d.accessToken || '',
+        enabled: d.enabled !== undefined ? Boolean(d.enabled) : true,
+        autoPostOnAdd: d.autoPostOnAdd !== undefined ? Boolean(d.autoPostOnAdd) : true,
+        customPrefix: d.customPrefix || '🔥 NEW ARRIVAL AT XEEROO!',
+        customHashtags: d.customHashtags || '#XEEROO #OnlineShopping #Bangladesh #EcommerceBD #Gadgets #Tech',
+        includePrice: d.includePrice !== false,
+        includeLink: d.includeLink !== false,
+        pageName: d.pageName || 'X E E R O O',
+        pageLink: d.pageLink || 'https://www.facebook.com/103314657990315',
+        updatedAt: d.updatedAt,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch Facebook config from Firestore:', err);
+    return null;
+  }
+};
+
+export const subscribeToFirestoreFacebookConfig = (
+  onUpdate: (config: FacebookConfig) => void,
+  onError?: (err: unknown) => void
+) => {
+  const docRef = doc(db, 'settings', 'facebook');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        onUpdate({
+          pageId: d.pageId || '103314657990315',
+          accessToken: d.accessToken || '',
+          enabled: d.enabled !== undefined ? Boolean(d.enabled) : true,
+          autoPostOnAdd: d.autoPostOnAdd !== undefined ? Boolean(d.autoPostOnAdd) : true,
+          customPrefix: d.customPrefix || '🔥 NEW ARRIVAL AT XEEROO!',
+          customHashtags: d.customHashtags || '#XEEROO #OnlineShopping #Bangladesh #EcommerceBD #Gadgets #Tech',
+          includePrice: d.includePrice !== false,
+          includeLink: d.includeLink !== false,
+          pageName: d.pageName || 'X E E R O O',
+          pageLink: d.pageLink || 'https://www.facebook.com/103314657990315',
+          updatedAt: d.updatedAt,
+        });
+      }
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot facebook settings error:', err);
+      onError?.(err);
+    }
+  );
+};
+
