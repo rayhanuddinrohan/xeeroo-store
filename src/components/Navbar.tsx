@@ -84,8 +84,38 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
   const [isDrawerClosing, setIsDrawerClosing] = useState(false);
-  const [showHeader, setShowHeader] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+
+  // Persistent horizontal scroll position for mobile category bar across page transitions
+  const categoryScrollRef = useRef<HTMLDivElement | null>(null);
+  const savedCategoryScrollLeft = useRef<number>(0);
+
+  // Restore horizontal scroll position when returning to store view
+  useEffect(() => {
+    if (viewMode === 'store' && categoryScrollRef.current) {
+      categoryScrollRef.current.scrollLeft = savedCategoryScrollLeft.current;
+    }
+  }, [viewMode]);
+
+  const handleCategoryScroll = () => {
+    if (categoryScrollRef.current) {
+      savedCategoryScrollLeft.current = categoryScrollRef.current.scrollLeft;
+    }
+  };
+
+  const handleCategoryClick = (catId: string, e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (selectedCategory === catId) return;
+    setSelectedCategory(catId);
+    if (viewMode !== 'store') {
+      navigateToStore();
+    }
+    // Smoothly ensure the selected pill is in view without jumping the page layout
+    e.currentTarget.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'nearest',
+    });
+  };
 
   const handleCloseDrawer = () => {
     setIsDrawerClosing(true);
@@ -174,36 +204,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     navigateToStore();
     setIsSearchFocused(false);
   };
-
-  // Auto-hide header when scrolling down on mobile, show when scrolling up
-  useEffect(() => {
-    let ticking = false;
-
-    const handleScroll = () => {
-      if (!ticking) {
-        window.requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY;
-          if (window.innerWidth < 768) {
-            if (currentScrollY > 70 && currentScrollY > lastScrollY) {
-              // Scrolling down - hide header on mobile
-              setShowHeader(false);
-            } else if (currentScrollY < lastScrollY || currentScrollY <= 20) {
-              // Scrolling up or at top - reveal header
-              setShowHeader(true);
-            }
-          } else {
-            setShowHeader(true);
-          }
-          setLastScrollY(currentScrollY);
-          ticking = false;
-        });
-        ticking = true;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -645,189 +645,170 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                - Full-width long search bar with real-time dropdown results
            ========================================================================= */}
         <div className="md:hidden">
-          {/* Collapsible Top Bar and Search Row (Auto-hides on scroll down, reveals on scroll up) */}
-          <div
-            className={`transition-all duration-300 ease-in-out overflow-hidden ${
-              !showHeader && viewMode === 'store'
-                ? 'max-h-0 opacity-0 pointer-events-none'
-                : 'max-h-64 opacity-100'
-            }`}
-          >
-            {/* Top Bar Row */}
-            <div className="flex items-center justify-between h-14 px-3 gap-2 border-b border-gray-100">
-              {/* Top Left: 3-Line Hamburger Menu Button */}
-              <button
-                type="button"
-                id="mobile-drawer-btn"
-                onClick={() => setIsMobileDrawerOpen(true)}
-                className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer shrink-0"
-                aria-label="Open Menu & Filters"
+          {/* Top Bar Row - Stable Height, Never Collapses */}
+          <div className="flex items-center justify-between h-14 px-3 gap-2 border-b border-gray-100 bg-white">
+            {/* Top Left: 3-Line Hamburger Menu Button */}
+            <button
+              type="button"
+              id="mobile-drawer-btn"
+              onClick={() => setIsMobileDrawerOpen(true)}
+              className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer shrink-0"
+              aria-label="Open Menu & Filters"
+            >
+              <Menu className="w-6 h-6 text-gray-900" />
+              {hasActiveFilters && (
+                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white" />
+              )}
+            </button>
+
+            {/* Top Middle: Centered Logo and XEEROO */}
+            <div className="flex-1 flex items-center justify-center">
+              <a
+                href="/#/"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToStore();
+                }}
+                className="flex items-center gap-2 text-gray-950 group cursor-pointer"
               >
-                <Menu className="w-6 h-6 text-gray-900" />
-                {hasActiveFilters && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white" />
-                )}
-              </button>
-
-              {/* Top Middle: Centered Logo and XEEROO */}
-              <div className="flex-1 flex items-center justify-center">
-                <a
-                  href="/#/"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigateToStore();
+                <img
+                  src="/xeeroo.jpg"
+                  alt="XEEROO Logo"
+                  className="w-8 h-8 object-cover rounded-lg shadow-xs shrink-0"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.indexOf('favicon.png') === -1) {
+                      target.src = '/favicon.png';
+                    }
                   }}
-                  className="flex items-center gap-2 text-gray-950 group cursor-pointer"
-                >
-                  <img
-                    src="/xeeroo.jpg"
-                    alt="XEEROO Logo"
-                    className="w-8 h-8 object-cover rounded-lg shadow-xs shrink-0"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      if (target.src.indexOf('favicon.png') === -1) {
-                        target.src = '/favicon.png';
-                      }
-                    }}
-                  />
-                  <span className="text-xl font-black tracking-widest text-gray-950 leading-none">
-                    XEEROO
-                  </span>
-                </a>
-              </div>
-
-              {/* Top Right: Notification Bell & Shopping Cart Button (Beside XEEROO) */}
-              <div className="flex items-center gap-1 shrink-0">
-                <NotificationBell />
-
-                <button
-                  type="button"
-                  id="mobile-cart-btn"
-                  onClick={onOpenCart}
-                  className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
-                  aria-label={`Shopping Cart (${cartTotalCount} items)`}
-                >
-                  <ShoppingBag className="w-5 h-5 text-gray-800" />
-                  {cartTotalCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-blue-600 text-[10px] font-bold text-white shadow-xs">
-                      {cartTotalCount}
-                    </span>
-                  )}
-                </button>
-              </div>
+                />
+                <span className="text-xl font-black tracking-widest text-gray-950 leading-none">
+                  XEEROO
+                </span>
+              </a>
             </div>
 
-            {/* Long Search Bar Row (Hidden on admin dashboard) */}
-            {viewMode !== 'dashboard' && (
-              <div ref={mobileSearchRef} className="px-3 py-2 bg-white relative">
-                <form onSubmit={handleSearchSubmit} className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <Search className="w-4 h-4" />
-                  </div>
-                  <input
-                    id="mobile-long-search-input"
-                    type="text"
-                    placeholder="Search XEEROO gear, acoustics, wearables..."
-                    value={searchQuery}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onChange={e => {
-                      setSearchQuery(e.target.value);
-                      setIsSearchFocused(true);
-                    }}
-                    className="w-full pl-9 pr-9 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 placeholder:text-gray-400 transition-all shadow-2xs"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setIsSearchFocused(false);
-                      }}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </form>
+            {/* Top Right: Notification Bell & Shopping Cart Button (Beside XEEROO) */}
+            <div className="flex items-center gap-1 shrink-0">
+              <NotificationBell />
 
-                {/* Real-Time Dropdown Popup on Mobile Search */}
-                {isSearchFocused && searchQuery.trim().length > 0 && (
-                  <div className="absolute left-3 right-3 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50 divide-y divide-gray-100 max-h-80 overflow-y-auto">
-                    <div className="p-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-700">
-                      <span>Found {matchingProducts.length} results</span>
-                      <span className="text-[10px] text-gray-400 font-normal">Real-time Search</span>
-                    </div>
-
-                    <div className="divide-y divide-gray-100">
-                      {matchingProducts.length > 0 ? (
-                        matchingProducts.map(product => {
-                          const hasImg = product.images && product.images.length > 0 && product.images[0];
-                          return (
-                            <div
-                              key={product.id}
-                              onClick={() => handleSelectSearchProduct(product.id)}
-                              className="p-2.5 hover:bg-blue-50/70 flex items-center gap-2.5 cursor-pointer"
-                            >
-                              {hasImg ? (
-                                <img src={product.images[0]} alt={product.title} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
-                              ) : (
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0">
-                                  <Package className="w-4 h-4 text-gray-300" />
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <span className="text-[9px] font-bold text-blue-600 uppercase block">{product.brand}</span>
-                                <h4 className="text-xs font-bold text-gray-900 truncate">{product.title}</h4>
-                                <span className="text-xs font-black text-emerald-600 font-mono">{formatBDT(product.price)}</span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <div className="p-4 text-center text-xs text-gray-400">No products found</div>
-                      )}
-                    </div>
-
-                    {matchingProducts.length > 0 && (
-                      <div className="p-2 bg-gray-50 text-center">
-                        <button
-                          type="button"
-                          onClick={handleViewAllSearchResults}
-                          className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
-                        >
-                          View all ({matchingProducts.length}) →
-                        </button>
-                      </div>
-                    )}
-                  </div>
+              <button
+                type="button"
+                id="mobile-cart-btn"
+                onClick={onOpenCart}
+                className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
+                aria-label={`Shopping Cart (${cartTotalCount} items)`}
+              >
+                <ShoppingBag className="w-5 h-5 text-gray-800" />
+                {cartTotalCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-blue-600 text-[10px] font-bold text-white shadow-xs">
+                    {cartTotalCount}
+                  </span>
                 )}
-              </div>
-            )}
+              </button>
+            </div>
           </div>
 
-          {/* Row 3: Horizontal Scrollable Category Pills Bar (STAYS STICKY AT VERY TOP ON SCROLL DOWN, NEVER HIDES!) */}
-          {viewMode === 'store' && (
-            <div className="px-3 pb-2 pt-1 border-t border-gray-100 bg-white/95 backdrop-blur-md flex items-center gap-1.5 shadow-2xs">
-              {!showHeader && (
-                <button
-                  type="button"
-                  id="mobile-drawer-mini-btn"
-                  onClick={() => setIsMobileDrawerOpen(true)}
-                  className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg transition-colors cursor-pointer shrink-0 animate-in fade-in"
-                  title="Open Menu & Filters"
-                  aria-label="Open Menu & Filters"
-                >
-                  <Menu className="w-4 h-4 text-gray-900" />
-                </button>
-              )}
-              <div className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 touch-pan-x">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory('all');
-                    if (viewMode !== 'store') navigateToStore();
+          {/* Long Search Bar Row (Hidden on admin dashboard) */}
+          {viewMode !== 'dashboard' && (
+            <div ref={mobileSearchRef} className="px-3 py-2 bg-white border-b border-gray-100 relative">
+              <form onSubmit={handleSearchSubmit} className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  id="mobile-long-search-input"
+                  type="text"
+                  placeholder="Search XEEROO gear, acoustics, wearables..."
+                  value={searchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onChange={e => {
+                    setSearchQuery(e.target.value);
+                    setIsSearchFocused(true);
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                  className="w-full pl-9 pr-9 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-gray-900 placeholder:text-gray-400 transition-all shadow-2xs"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setIsSearchFocused(false);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </form>
+
+              {/* Real-Time Dropdown Popup on Mobile Search */}
+              {isSearchFocused && searchQuery.trim().length > 0 && (
+                <div className="absolute left-3 right-3 top-full mt-1.5 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50 divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                  <div className="p-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-xs font-semibold text-gray-700">
+                    <span>Found {matchingProducts.length} results</span>
+                    <span className="text-[10px] text-gray-400 font-normal">Real-time Search</span>
+                  </div>
+
+                  <div className="divide-y divide-gray-100">
+                    {matchingProducts.length > 0 ? (
+                      matchingProducts.map(product => {
+                        const hasImg = product.images && product.images.length > 0 && product.images[0];
+                        return (
+                          <div
+                            key={product.id}
+                            onClick={() => handleSelectSearchProduct(product.id)}
+                            className="p-2.5 hover:bg-blue-50/70 flex items-center gap-2.5 cursor-pointer"
+                          >
+                            {hasImg ? (
+                              <img src={product.images[0]} alt={product.title} className="w-10 h-10 rounded-lg object-cover bg-gray-100 shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-300 shrink-0">
+                                <Package className="w-4 h-4 text-gray-300" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <span className="text-[9px] font-bold text-blue-600 uppercase block">{product.brand}</span>
+                              <h4 className="text-xs font-bold text-gray-900 truncate">{product.title}</h4>
+                              <span className="text-xs font-black text-emerald-600 font-mono">{formatBDT(product.price)}</span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-4 text-center text-xs text-gray-400">No products found</div>
+                    )}
+                  </div>
+
+                  {matchingProducts.length > 0 && (
+                    <div className="p-2 bg-gray-50 text-center">
+                      <button
+                        type="button"
+                        onClick={handleViewAllSearchResults}
+                        className="text-xs font-bold text-blue-600 hover:underline cursor-pointer"
+                      >
+                        View all ({matchingProducts.length}) →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Row 3: Stable, Smooth Horizontal Scrollable Category Pills Bar */}
+          {viewMode === 'store' && (
+            <div className="px-3 py-1.5 bg-white/95 backdrop-blur-md shadow-2xs border-b border-gray-100">
+              <div
+                ref={categoryScrollRef}
+                onScroll={handleCategoryScroll}
+                className="w-full flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 touch-pan-x scroll-smooth overscroll-x-contain"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => handleCategoryClick('all', e)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
                     selectedCategory === 'all'
                       ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
@@ -849,11 +830,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat.id);
-                      if (viewMode !== 'store') navigateToStore();
-                    }}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                    onClick={(e) => handleCategoryClick(cat.id, e)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
                       selectedCategory === cat.id
                         ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'

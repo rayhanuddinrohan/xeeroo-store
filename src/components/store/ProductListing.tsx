@@ -155,10 +155,10 @@ export const ProductListing: React.FC = () => {
                 e.preventDefault();
                 handleSelectCategory('all');
               }}
-              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-300 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
                 selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-500/40 scale-105'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 hover:scale-102'
+                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
               }`}
             >
               <span>All Products</span>
@@ -180,10 +180,10 @@ export const ProductListing: React.FC = () => {
                   e.preventDefault();
                   handleSelectCategory(cat.id);
                 }}
-                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-all duration-300 cursor-pointer flex items-center gap-1.5 active:scale-95 ${
+                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
                   selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 ring-2 ring-blue-500/40 scale-105'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 hover:scale-102'
+                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
                 }`}
               >
                 <span>{cat.name}</span>
