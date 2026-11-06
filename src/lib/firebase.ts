@@ -20,6 +20,7 @@ import {
   onSnapshot,
   query,
   where,
+  limit,
 } from "firebase/firestore";
 import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
@@ -455,6 +456,11 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
     if (product.suggestedPrice !== undefined) cleanPayload.suggestedPrice = Number(product.suggestedPrice);
     if (product.inStock !== undefined) cleanPayload.inStock = Boolean(product.inStock);
     if (product.variants !== undefined) cleanPayload.variants = product.variants;
+    if (product.priority !== undefined && product.priority !== null && Number(product.priority) > 0) {
+      cleanPayload.priority = Number(product.priority);
+    } else {
+      cleanPayload.priority = null;
+    }
 
     await setDoc(prodRef, cleanPayload, { merge: true });
     return true;
@@ -476,10 +482,6 @@ export const deleteFirestoreProduct = async (productId: string): Promise<boolean
 };
 
 /**
- * Real-time real-world subscription to Products in Firestore.
- * Automatically synchronizes across all browsers and users!
- */
-/**
  * Fisher-Yates array shuffle utility to randomize product listing order on every fetch/reload
  */
 export const shuffleArray = <T>(array: T[]): T[] => {
@@ -491,6 +493,36 @@ export const shuffleArray = <T>(array: T[]): T[] => {
   return shuffled;
 };
 
+/**
+ * Sorts products so that items with an explicit 'priority' rank (1, 2, 3...)
+ * strictly stay at the top in ascending order across page refreshes.
+ * Non-priority / unranked products below the top ranked items are randomized/shuffled on each refresh.
+ */
+export const sortProductsWithPriorityAndShuffle = (products: Product[]): Product[] => {
+  const prioritized: Product[] = [];
+  const unranked: Product[] = [];
+
+  for (const prod of products) {
+    if (prod.priority !== undefined && prod.priority !== null && Number(prod.priority) > 0) {
+      prioritized.push(prod);
+    } else {
+      unranked.push(prod);
+    }
+  }
+
+  // Sort ranked items in ascending priority: 1, 2, 3...
+  prioritized.sort((a, b) => Number(a.priority) - Number(b.priority));
+
+  // Randomize unranked products below the top priority items
+  const randomizedUnranked = shuffleArray(unranked);
+
+  return [...prioritized, ...randomizedUnranked];
+};
+
+/**
+ * Real-time real-world subscription to Products in Firestore.
+ * Automatically synchronizes across all browsers and users!
+ */
 export const subscribeToFirestoreProducts = (
   onProductsUpdate: (products: Product[]) => void,
   onError?: (err: Error) => void
@@ -533,6 +565,7 @@ export const subscribeToFirestoreProducts = (
             reviews: reviewsList,
             brand: data.brand || 'XEEROO',
             features: Array.isArray(data.features) ? data.features : [],
+            priority: (data.priority !== undefined && data.priority !== null && Number(data.priority) > 0) ? Number(data.priority) : undefined,
             suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
             inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
             variants: Array.isArray(data.variants) ? data.variants : undefined,
@@ -541,16 +574,26 @@ export const subscribeToFirestoreProducts = (
       });
 
       if (isFirstLoad) {
-        // Randomize product list order on page reload / initial fetch
+        // Arrange with priority rank 1, 2, 3... at top and randomize unranked products below
         isFirstLoad = false;
-        const shuffledList = shuffleArray(list);
-        shuffledList.forEach((prod, idx) => {
+        const arrangedList = sortProductsWithPriorityAndShuffle(list);
+        arrangedList.forEach((prod, idx) => {
           initialOrderMap.set(prod.id, idx);
         });
-        onProductsUpdate(shuffledList);
+        onProductsUpdate(arrangedList);
       } else {
-        // Real-time updates during active session: preserve the randomized order and append new items
+        // Real-time updates during active session:
+        // Priority items remain strictly sorted 1, 2, 3... at top; unranked items preserve session order
         const sortedList = [...list].sort((a, b) => {
+          const aPrio = a.priority !== undefined && a.priority !== null && Number(a.priority) > 0;
+          const bPrio = b.priority !== undefined && b.priority !== null && Number(b.priority) > 0;
+
+          if (aPrio && bPrio) {
+            return Number(a.priority) - Number(b.priority);
+          }
+          if (aPrio && !bPrio) return -1;
+          if (!aPrio && bPrio) return 1;
+
           const posA = initialOrderMap.has(a.id) ? initialOrderMap.get(a.id)! : 999999;
           const posB = initialOrderMap.has(b.id) ? initialOrderMap.get(b.id)! : 999999;
           return posA - posB;
@@ -600,16 +643,73 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           reviews: reviewsList,
           brand: data.brand || 'XEEROO',
           features: Array.isArray(data.features) ? data.features : [],
+          priority: (data.priority !== undefined && data.priority !== null && Number(data.priority) > 0) ? Number(data.priority) : undefined,
           suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
           inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
           variants: Array.isArray(data.variants) ? data.variants : undefined,
         });
       }
     });
-    // Shuffle products randomly on every fetch/reload
-    return shuffleArray(list);
+    // Priority ranked products at the top in ascending order (1, 2, 3...) and unranked shuffled below
+    return sortProductsWithPriorityAndShuffle(list);
   } catch (err) {
     console.warn('Firestore fetch products error:', err);
+    return [];
+  }
+};
+
+/**
+ * Optimized Firestore query to fetch related products from the exact same category
+ */
+export const fetchRelatedCategoryProducts = async (
+  categoryId: string,
+  excludeProductId?: string,
+  maxCount = 8
+): Promise<Product[]> => {
+  try {
+    const q = query(
+      collection(db, 'products'),
+      where('categoryId', '==', categoryId),
+      where('isPublished', '==', true),
+      limit(maxCount + 1)
+    );
+    const snap = await getDocs(q);
+    const list: Product[] = [];
+    snap.forEach(docSnap => {
+      const data = docSnap.data();
+      const pid = data.id || docSnap.id;
+      if (pid !== excludeProductId) {
+        const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
+        const calculatedRating = reviewsList.length > 0
+          ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
+          : 0;
+
+        list.push({
+          id: pid,
+          title: String(data.title || data.name || 'Product'),
+          name: String(data.name || data.title || 'Product'),
+          slug: data.slug || String(data.title || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          description: data.description || '',
+          price: Number(data.price) || 0,
+          stockQuantity: Number(data.stockQuantity) || 0,
+          soldCount: Number(data.soldCount) || 0,
+          sku: data.sku || '',
+          categoryId: data.categoryId || categoryId,
+          images: Array.isArray(data.images) ? data.images : [],
+          isPublished: true,
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString(),
+          rating: calculatedRating,
+          reviewsCount: reviewsList.length || Number(data.reviewsCount) || 0,
+          brand: data.brand || 'XEEROO',
+          priority: (data.priority !== undefined && data.priority !== null && Number(data.priority) > 0) ? Number(data.priority) : undefined,
+        });
+      }
+    });
+
+    return sortProductsWithPriorityAndShuffle(list).slice(0, maxCount);
+  } catch (err) {
+    console.warn('fetchRelatedCategoryProducts error:', err);
     return [];
   }
 };

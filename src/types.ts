@@ -111,6 +111,7 @@ export interface Product {
   slug: string;
   description: string;
   price: number;
+  priority?: number;
   suggestedPrice?: number;
   stockQuantity: number;
   inStock?: boolean;

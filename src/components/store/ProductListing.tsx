@@ -65,10 +65,21 @@ export const ProductListing: React.FC = () => {
 
       return true;
     }).sort((a, b) => {
+      const aPriority = typeof a.priority === 'number' && a.priority > 0 ? a.priority : null;
+      const bPriority = typeof b.priority === 'number' && b.priority > 0 ? b.priority : null;
+
+      // 1. Products with priority rank always stay at the top in ascending order (1, 2, 3...)
+      if (aPriority !== null && bPriority !== null) {
+        return aPriority - bPriority;
+      }
+      if (aPriority !== null) return -1;
+      if (bPriority !== null) return 1;
+
+      // 2. Non-priority/unranked products below maintain active sort or page-refresh randomized order
       if (sortBy === 'price-asc') return a.price - b.price;
       if (sortBy === 'price-desc') return b.price - a.price;
       if (sortBy === 'rating') return b.rating - a.rating;
-      return 0; // 'featured' keeps original ordering
+      return 0; // 'featured' preserves randomized shuffle from page refresh
     });
   }, [products, isStaff, searchQuery, selectedCategory, inStockOnly, priceRange, sortBy]);
 

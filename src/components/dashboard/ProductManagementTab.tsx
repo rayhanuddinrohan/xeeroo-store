@@ -38,6 +38,99 @@ import {
   Share2,
 } from 'lucide-react';
 
+const InlinePriorityEditor: React.FC<{
+  product: Product;
+  onUpdate: (id: string, priority: number | undefined) => void;
+}> = ({ product, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [val, setVal] = useState<string>(product.priority ? String(product.priority) : '');
+
+  const handleSave = () => {
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num > 0) {
+      onUpdate(product.id, num);
+    } else {
+      onUpdate(product.id, undefined);
+      setVal('');
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') {
+      setVal(product.priority ? String(product.priority) : '');
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          autoFocus
+          placeholder="Rank #"
+          value={val}
+          onChange={e => setVal(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className="w-16 px-1.5 py-0.5 text-xs font-bold font-mono border border-blue-400 rounded focus:ring-1 focus:ring-blue-500 bg-white"
+        />
+        <button
+          type="button"
+          onClick={handleSave}
+          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded cursor-pointer"
+          title="Save rank"
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setVal(product.priority ? String(product.priority) : '');
+            setIsEditing(false);
+          }}
+          className="p-1 text-gray-400 hover:bg-gray-100 rounded cursor-pointer"
+          title="Cancel"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setVal(product.priority ? String(product.priority) : '');
+        setIsEditing(true);
+      }}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold border transition-colors cursor-pointer group ${
+        typeof product.priority === 'number' && product.priority > 0
+          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+          : 'bg-gray-50 text-gray-400 border-gray-200 hover:text-gray-700 hover:bg-gray-100'
+      }`}
+      title="Click to set or change priority rank at any time"
+    >
+      {typeof product.priority === 'number' && product.priority > 0 ? (
+        <>
+          <span className="text-amber-500">⭐</span>
+          <span>Rank #{product.priority}</span>
+        </>
+      ) : (
+        <>
+          <span className="text-gray-400 group-hover:text-gray-600">+</span>
+          <span>Unranked</span>
+        </>
+      )}
+      <Edit className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-gray-400 ml-0.5" />
+    </button>
+  );
+};
+
 export const ProductManagementTab: React.FC = () => {
   const {
     products,
@@ -45,6 +138,7 @@ export const ProductManagementTab: React.FC = () => {
     currentUser,
     addProduct,
     updateProductStock,
+    updateProductPriority,
     toggleProductPublish,
     deleteProduct,
     canDeleteProduct,
@@ -156,19 +250,28 @@ export const ProductManagementTab: React.FC = () => {
     }
   };
 
-  // Filtered products list
-  const filteredProducts = products.filter(p => {
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchesTitle = p.title.toLowerCase().includes(q);
-      const matchesSku = p.sku ? p.sku.toLowerCase().includes(q) : false;
-      if (!matchesTitle && !matchesSku) return false;
-    }
-    if (selectedCat !== 'all' && p.categoryId !== selectedCat) return false;
-    if (statusFilter === 'published' && !p.isPublished) return false;
-    if (statusFilter === 'draft' && p.isPublished) return false;
-    return true;
-  });
+  // Filtered products list with priority ranks 1, 2, 3... strictly at the top
+  const filteredProducts = products
+    .filter(p => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesTitle = p.title.toLowerCase().includes(q);
+        const matchesSku = p.sku ? p.sku.toLowerCase().includes(q) : false;
+        if (!matchesTitle && !matchesSku) return false;
+      }
+      if (selectedCat !== 'all' && p.categoryId !== selectedCat) return false;
+      if (statusFilter === 'published' && !p.isPublished) return false;
+      if (statusFilter === 'draft' && p.isPublished) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const aPriority = typeof a.priority === 'number' && a.priority > 0 ? a.priority : null;
+      const bPriority = typeof b.priority === 'number' && b.priority > 0 ? b.priority : null;
+      if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+      if (aPriority !== null) return -1;
+      if (bPriority !== null) return 1;
+      return 0;
+    });
 
   const handleOpenAddModal = () => {
     setEditingProduct(null);
@@ -510,6 +613,7 @@ export const ProductManagementTab: React.FC = () => {
               <tr>
                 <th className="py-3 px-4 font-semibold">Product</th>
                 <th className="py-3 px-4 font-semibold">Department</th>
+                <th className="py-3 px-4 font-semibold">Priority / Rank</th>
                 <th className="py-3 px-4 font-semibold">Unit Price</th>
                 <th className="py-3 px-4 font-semibold">Stock Quantity</th>
                 <th className="py-3 px-4 font-semibold">Status</th>
@@ -519,7 +623,7 @@ export const ProductManagementTab: React.FC = () => {
             <tbody className="divide-y divide-gray-100">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
+                  <td colSpan={7} className="py-8 text-center text-gray-500">
                     No products found matching active filters.
                   </td>
                 </tr>
@@ -558,6 +662,14 @@ export const ProductManagementTab: React.FC = () => {
                       {/* Category */}
                       <td className="py-3 px-4 text-gray-600">
                         {cat?.name || 'Unassigned'}
+                      </td>
+
+                      {/* Priority / Rank */}
+                      <td className="py-3 px-4">
+                        <InlinePriorityEditor
+                          product={product}
+                          onUpdate={updateProductPriority}
+                        />
                       </td>
 
                       {/* Price */}

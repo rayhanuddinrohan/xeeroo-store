@@ -42,6 +42,7 @@ import {
   fetchFirestoreProducts,
   subscribeToFirestoreProducts,
   shuffleArray,
+  sortProductsWithPriorityAndShuffle,
   saveFirestoreCategory,
   fetchFirestoreCategories,
   saveFirestoreOrder,
@@ -215,6 +216,7 @@ interface StoreContextType {
   categories: Category[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => boolean;
   updateProduct: (id: string, updates: Partial<Product>) => boolean;
+  updateProductPriority: (id: string, priority: number | undefined) => boolean;
   updateProductStock: (id: string, newStock: number) => boolean;
   deleteProduct: (id: string) => boolean;
   toggleProductPublish: (id: string) => boolean;
@@ -490,7 +492,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       let pulledCount = 0;
       if (dbProds.length > 0) {
-        setProducts(shuffleArray(dbProds));
+        setProducts(sortProductsWithPriorityAndShuffle(dbProds));
         pulledCount += dbProds.length;
       }
       if (dbCats.length > 0) {
@@ -575,9 +577,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           if (!isMounted) return;
 
-          // If database has products, use them directly with randomized order
+          // If database has products, arrange priority 1, 2, 3... at top and shuffle unranked below
           if (dbProds.length > 0) {
-            setProducts(shuffleArray(dbProds));
+            setProducts(sortProductsWithPriorityAndShuffle(dbProds));
           } else {
             // First time seeding: Upload initial products to Firestore so all browsers have them!
             console.log('Seeding initial catalog to Firestore for multi-browser sync...');
@@ -885,12 +887,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return shuffleArray(sanitizeWithRating(parsed));
+          return sortProductsWithPriorityAndShuffle(sanitizeWithRating(parsed));
         }
       }
-      return shuffleArray(sanitizeWithRating(INITIAL_PRODUCTS));
+      return sortProductsWithPriorityAndShuffle(sanitizeWithRating(INITIAL_PRODUCTS));
     } catch {
-      return shuffleArray(sanitizeWithRating(INITIAL_PRODUCTS));
+      return sortProductsWithPriorityAndShuffle(sanitizeWithRating(INITIAL_PRODUCTS));
     }
   });
 
@@ -2134,7 +2136,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       soldCount: 0,
     };
 
-    setProducts(prev => [newProduct, ...prev]);
+    setProducts(prev => sortProductsWithPriorityAndShuffle([newProduct, ...prev]));
     // Save directly to Firestore database!
     saveFirestoreProduct(newProduct);
 
@@ -2156,8 +2158,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
 
-    setProducts(prev =>
-      prev.map(p => {
+    setProducts(prev => {
+      const updatedList = prev.map(p => {
         if (p.id === id) {
           const updated = {
             ...p,
@@ -2170,9 +2172,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return updated;
         }
         return p;
-      })
-    );
+      });
+      return sortProductsWithPriorityAndShuffle(updatedList);
+    });
     addToast('Product details updated and saved to database', 'success');
+    return true;
+  };
+
+  const updateProductPriority = (id: string, priority: number | undefined): boolean => {
+    if (!canEditProduct) {
+      addToast('Access Denied: Only Staff can update product priority/rank.', 'error');
+      return false;
+    }
+
+    const cleanPriority =
+      typeof priority === 'number' && !isNaN(priority) && priority > 0
+        ? Math.floor(priority)
+        : undefined;
+
+    setProducts(prev => {
+      const updatedList = prev.map(p => {
+        if (p.id === id) {
+          const updated: Product = {
+            ...p,
+            priority: cleanPriority,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser?.id || 'admin',
+          };
+          saveFirestoreProduct(updated);
+          return updated;
+        }
+        return p;
+      });
+      return sortProductsWithPriorityAndShuffle(updatedList);
+    });
+
+    addToast(
+      cleanPriority ? `Priority rank set to #${cleanPriority}` : 'Priority rank cleared',
+      'success'
+    );
     return true;
   };
 
@@ -3151,7 +3189,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Reset to original mock data
   const resetDemoData = () => {
-    setProducts(shuffleArray(INITIAL_PRODUCTS));
+    setProducts(sortProductsWithPriorityAndShuffle(INITIAL_PRODUCTS));
     setCategories(INITIAL_CATEGORIES);
     setOrders(INITIAL_ORDERS);
     setUsers(INITIAL_USERS);
@@ -3241,6 +3279,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     categories,
     addProduct,
     updateProduct,
+    updateProductPriority,
     updateProductStock,
     deleteProduct,
     toggleProductPublish,

@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { XEEROO_CONTACT } from '../../data/mockData';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { UserAvatar } from '../common/UserAvatar';
-import { ProductReview } from '../../types';
+import { ProductReview, Product } from '../../types';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -213,10 +213,20 @@ export const ProductDetail: React.FC = () => {
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
-  // Related products from the same category (excluding current product)
-  const relatedProducts = products
-    .filter(p => p.categoryId === product.categoryId && p.id !== product.id && p.isPublished)
-    .slice(0, 4);
+  // Related products dynamically from the exact same category (excluding current product), with priority items first
+  const relatedProducts = useMemo(() => {
+    return products
+      .filter(p => p.categoryId === product.categoryId && p.id !== product.id && p.isPublished)
+      .sort((a, b) => {
+        const aPriority = typeof a.priority === 'number' && a.priority > 0 ? a.priority : null;
+        const bPriority = typeof b.priority === 'number' && b.priority > 0 ? b.priority : null;
+        if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+        if (aPriority !== null) return -1;
+        if (bPriority !== null) return 1;
+        return 0;
+      })
+      .slice(0, 4);
+  }, [products, product.categoryId, product.id]);
 
   const handleQuantityChange = (delta: number) => {
     setSelectedQuantity(prev => {
@@ -1265,6 +1275,11 @@ My Delivery Address:`
                 >
                 <div>
                   <div className="aspect-4/3 overflow-hidden bg-gray-100 relative flex items-center justify-center">
+                    {typeof relProduct.priority === 'number' && relProduct.priority > 0 && (
+                      <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-600 text-white shadow-xs">
+                        ⭐ Rank #{relProduct.priority}
+                      </span>
+                    )}
                     {relProduct.images && relProduct.images[0] ? (
                       <img
                         src={relProduct.images[0]}

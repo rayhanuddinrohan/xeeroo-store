@@ -86,6 +86,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isPublished, setIsPublished] = useState(true);
   const [postToFacebook, setPostToFacebook] = useState(true);
   const [brand, setBrand] = useState('');
+  const [priority, setPriority] = useState<number | ''>('');
   const [featuresText, setFeaturesText] = useState('');
 
   // Primary Thumbnail Image URL
@@ -183,6 +184,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setCategoryId(productToEdit.categoryId);
       setIsPublished(productToEdit.isPublished);
       setBrand(productToEdit.brand || '');
+      setPriority(
+        productToEdit.priority !== undefined && productToEdit.priority !== null && Number(productToEdit.priority) > 0
+          ? Number(productToEdit.priority)
+          : ''
+      );
       setFeaturesText(productToEdit.features?.join('\n') || '');
 
       const productImgs = productToEdit.images || [];
@@ -195,6 +201,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setDescription('');
       setPrice(0);
       setStockQuantity(10);
+      setPriority('');
       setSku(`PRD-${Math.floor(1000 + Math.random() * 9000)}`);
       setCategoryId(categories[0]?.id || '');
       setIsPublished(true);
@@ -338,6 +345,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       .map(f => f.trim())
       .filter(Boolean);
 
+    const priorityNum =
+      priority === '' || isNaN(Number(priority)) || Number(priority) <= 0
+        ? undefined
+        : Math.floor(Number(priority));
+
     if (productToEdit) {
       const ok = updateProduct(productToEdit.id, {
         title: title.trim(),
@@ -351,6 +363,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         isPublished,
         brand: brand.trim(),
         features,
+        priority: priorityNum,
       });
       if (ok) {
         if (postToFacebook && facebookConfig.pageId && facebookConfig.accessToken) {
@@ -370,6 +383,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         images: allImages,
         isPublished,
         brand: brand.trim(),
+        priority: priorityNum,
         rating: 0,
         reviewsCount: 0,
         reviews: [],
@@ -610,6 +624,33 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 onChange={e => setStockQuantity(Number(e.target.value))}
                 className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
               />
+            </div>
+
+            {/* Priority / Rank (Optional) */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Priority / Rank (Optional)
+                </label>
+                <span className="text-[10px] text-amber-700 font-bold bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                  Top Pin
+                </span>
+              </div>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                placeholder="e.g. 1, 2, 3... (blank = unranked)"
+                value={priority}
+                onChange={e => {
+                  const val = e.target.value;
+                  setPriority(val === '' ? '' : Math.max(1, parseInt(val, 10) || 1));
+                }}
+                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-amber-900 bg-amber-50/30"
+              />
+              <p className="text-[10px] text-gray-500 mt-1">
+                Rank 1, 2, 3... stays strictly at the top. Unranked products shuffle below.
+              </p>
             </div>
           </div>
 

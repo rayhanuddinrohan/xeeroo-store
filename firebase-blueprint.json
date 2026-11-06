@@ -19,7 +19,8 @@
         "updatedBy": { "type": "string" },
         "rating": { "type": "number" },
         "reviewsCount": { "type": "number" },
-        "brand": { "type": "string" }
+        "brand": { "type": "string" },
+        "priority": { "type": "number", "description": "Optional rank priority (1, 2, 3...) to pin product at top" }
       },
       "required": ["title", "price"]
     },

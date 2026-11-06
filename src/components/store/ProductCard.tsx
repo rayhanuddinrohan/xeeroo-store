@@ -110,9 +110,18 @@ My Delivery Address:`
           </div>
         )}
 
+        {/* Priority Rank Badge if ranked */}
+        {typeof product.priority === 'number' && product.priority > 0 && (
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-600 text-white shadow-xs flex items-center gap-1 uppercase tracking-wide">
+              ⭐ Rank #{product.priority}
+            </span>
+          </div>
+        )}
+
         {/* Staff Draft Badge if unpublished */}
         {!product.isPublished && (
-          <div className="absolute top-2.5 left-2.5 z-10">
+          <div className={`absolute ${typeof product.priority === 'number' && product.priority > 0 ? 'top-8' : 'top-2.5'} left-2.5 z-10`}>
             <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-500 text-white shadow-xs uppercase tracking-wide">
               Draft (Staff View)
             </span>
