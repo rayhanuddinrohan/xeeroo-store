@@ -112,7 +112,12 @@ export const FacebookIntegrationTab: React.FC = () => {
         addToast(`✅ ফেসবুক পেজ "${res.name}" ভেরিফাইড!`, 'success');
         // Update stored name
         if (res.name) {
-          setConfig(prev => ({ ...prev, pageName: res.name, pageLink: res.link }));
+          setConfig(prev => ({
+            ...prev,
+            pageName: res.name,
+            pageLink: res.link || prev.pageLink,
+            accessToken: res.resolvedToken || prev.accessToken,
+          }));
         }
       } else {
         setVerifyStatus({
@@ -196,7 +201,7 @@ export const FacebookIntegrationTab: React.FC = () => {
   const previewCaption = formatProductCaption(
     sampleProduct,
     config,
-    typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com'
+    config.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com')
   );
 
   return (
@@ -436,6 +441,23 @@ export const FacebookIntegrationTab: React.FC = () => {
               />
               <p className="text-[11px] text-gray-500 mt-1">
                 রিচ এবং সার্চ দৃশ্যমানতা বৃদ্ধির জন্য স্পেস দিয়ে হ্যাশট্যাগ লিখুন।
+              </p>
+            </div>
+
+            {/* Website Base URL */}
+            <div>
+              <label className="block text-xs font-bold text-gray-800 mb-1.5">
+                ক্যাপশনে ওয়েবসাইট লিঙ্ক / ডোমেইন (Store Website URL)
+              </label>
+              <input
+                type="url"
+                value={config.websiteUrl || ''}
+                onChange={(e) => setConfig({ ...config, websiteUrl: e.target.value })}
+                placeholder="https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app"
+                className="w-full px-3.5 py-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none text-gray-800 font-mono transition-all"
+              />
+              <p className="text-[11px] text-gray-500 mt-1">
+                ফেসবুক পোস্টের নিচে অর্ডার করার যে লিঙ্কটি যাবে (ডিফল্ট: পাবলিক শেয়ার লিঙ্ক বা আপনার ওয়েবসাইট ডোমেইন)।
               </p>
             </div>
 

@@ -1167,6 +1167,7 @@ export const saveFirestoreFacebookConfig = async (config: FacebookConfig): Promi
         includeLink: config.includeLink !== false,
         pageName: config.pageName || 'X E E R O O',
         pageLink: config.pageLink || `https://www.facebook.com/${config.pageId}`,
+        websiteUrl: config.websiteUrl || 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app',
         updatedAt: new Date().toISOString(),
       },
       { merge: true }
@@ -1195,6 +1196,7 @@ export const fetchFirestoreFacebookConfig = async (): Promise<FacebookConfig | n
         includeLink: d.includeLink !== false,
         pageName: d.pageName || 'X E E R O O',
         pageLink: d.pageLink || 'https://www.facebook.com/103314657990315',
+        websiteUrl: d.websiteUrl || 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app',
         updatedAt: d.updatedAt,
       };
     }
@@ -1226,6 +1228,7 @@ export const subscribeToFirestoreFacebookConfig = (
           includeLink: d.includeLink !== false,
           pageName: d.pageName || 'X E E R O O',
           pageLink: d.pageLink || 'https://www.facebook.com/103314657990315',
+          websiteUrl: d.websiteUrl || 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app',
           updatedAt: d.updatedAt,
         });
       }

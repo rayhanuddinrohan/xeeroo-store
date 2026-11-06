@@ -23,6 +23,7 @@ export const DEFAULT_FACEBOOK_CONFIG: FacebookConfig = {
   includeLink: true,
   pageName: 'X E E R O O',
   pageLink: 'https://www.facebook.com/103314657990315',
+  websiteUrl: 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app',
 };
 
 export const getStoredFacebookConfig = (): FacebookConfig => {
@@ -41,6 +42,7 @@ export const getStoredFacebookConfig = (): FacebookConfig => {
         ...parsed,
         pageId: parsed.pageId || DEFAULT_FACEBOOK_CONFIG.pageId,
         accessToken: storedToken,
+        websiteUrl: parsed.websiteUrl || DEFAULT_FACEBOOK_CONFIG.websiteUrl,
         enabled: parsed.enabled !== undefined ? Boolean(parsed.enabled) : true,
         autoPostOnAdd: parsed.autoPostOnAdd !== undefined ? Boolean(parsed.autoPostOnAdd) : true,
       };
@@ -52,27 +54,13 @@ export const getStoredFacebookConfig = (): FacebookConfig => {
 };
 
 /**
- * Exchange a User/System-User token for a Page Access Token if required
+ * Exchange a User/System-User token for a Page Access Token if required (handled securely via backend proxy)
  */
 export const resolvePageAccessToken = async (
-  pageId: string,
+  _pageId: string,
   providedToken: string
 ): Promise<string> => {
-  const cleanId = pageId.trim();
-  const cleanTok = providedToken.trim();
-  if (!cleanId || !cleanTok) return cleanTok;
-
-  try {
-    const url = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanId)}?fields=access_token&access_token=${encodeURIComponent(cleanTok)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data && data.access_token) {
-      return data.access_token;
-    }
-  } catch (e) {
-    console.warn('Failed to resolve page access token from provided token:', e);
-  }
-  return cleanTok;
+  return providedToken.trim();
 };
 
 export const saveStoredFacebookConfig = (config: FacebookConfig): void => {
@@ -85,6 +73,12 @@ export const saveStoredFacebookConfig = (config: FacebookConfig): void => {
 
 /**
  * Format product into a rich, high-converting Facebook Page post caption
+ * Template rules per store owner:
+ * - Brand removed
+ * - Stock removed
+ * - Description removed (only Key Features kept)
+ * - WhatsApp number: +8801570243005
+ * - Canonical, accessible public product URL
  */
 export const formatProductCaption = (
   product: Product,
@@ -92,12 +86,28 @@ export const formatProductCaption = (
   storeBaseUrl?: string
 ): string => {
   const prefix = config.customPrefix || '🔥 NEW ARRIVAL AT XEEROO!';
-  const hashtags = config.customHashtags || '#XEEROO #OnlineShopping #Bangladesh';
+  const hashtags = config.customHashtags || '#XEEROO #OnlineShopping #Bangladesh #Gadgets #Tech';
   const includePrice = config.includePrice ?? true;
   const includeLink = config.includeLink ?? true;
 
-  const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
-  const productUrl = `${origin}/#/product/${product.slug || product.id}`;
+  // Resolve canonical, publicly accessible store base URL
+  let baseDomain = (config.websiteUrl || storeBaseUrl || '').trim();
+  if (!baseDomain || baseDomain.includes('localhost') || baseDomain.includes('127.0.0.1')) {
+    if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
+      baseDomain = window.location.origin;
+    } else {
+      baseDomain = 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app';
+    }
+  }
+
+  // If in development preview, convert to public shared preview so external customers can access it
+  if (baseDomain.includes('ais-dev-')) {
+    baseDomain = baseDomain.replace('ais-dev-', 'ais-pre-');
+  }
+  baseDomain = baseDomain.replace(/\/+$/, '');
+
+  const productIdentifier = product.slug || product.id;
+  const productUrl = `${baseDomain}/#/product/${encodeURIComponent(productIdentifier)}`;
 
   const lines: string[] = [];
 
@@ -107,43 +117,27 @@ export const formatProductCaption = (
     lines.push('━━━━━━━━━━━━━━━━━━━━');
   }
 
-  // 2. Product Title & Brand
+  // 2. Product Title (Brand removed)
   lines.push(`📦 ${product.title}`);
-  if (product.brand && product.brand !== 'General') {
-    lines.push(`🏷️ Brand: ${product.brand}`);
-  }
 
-  // 3. Price & Stock
+  // 3. Price (Stock removed)
   if (includePrice) {
     lines.push(`💰 Price: ${formatBDT(product.price)}`);
-    if (product.stockQuantity && product.stockQuantity > 0) {
-      lines.push(`⚡ Stock: In Stock (${product.stockQuantity} units available)`);
-    }
   }
 
-  // 4. Features & Highlights (if available)
+  // 4. Key Features Only (Description removed)
   if (product.features && product.features.length > 0) {
     lines.push('');
     lines.push('✨ Key Features:');
-    product.features.slice(0, 5).forEach(f => {
-      lines.push(` • ${f}`);
+    product.features.slice(0, 6).forEach(f => {
+      const trimmed = f.replace(/^[•\-\*]\s*/, '').trim();
+      if (trimmed) {
+        lines.push(` • ${trimmed}`);
+      }
     });
   }
 
-  // 5. Short Description (clean HTML tags if any)
-  if (product.description) {
-    const cleanDesc = product.description
-      .replace(/<[^>]*>?/gm, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (cleanDesc) {
-      lines.push('');
-      lines.push('📝 Description:');
-      lines.push(cleanDesc.length > 320 ? `${cleanDesc.slice(0, 317)}...` : cleanDesc);
-    }
-  }
-
-  // 6. Direct Order Call to Action
+  // 5. Direct Order Call to Action
   lines.push('');
   lines.push('━━━━━━━━━━━━━━━━━━━━');
   if (includeLink) {
@@ -153,10 +147,10 @@ export const formatProductCaption = (
   }
 
   lines.push('🚚 সারা বাংলাদেশে ক্যাশ অন ডেলিভারি (Cash on Delivery) সুবিধা!');
-  lines.push('📞 Hotline / WhatsApp: +880 1712-345678');
+  lines.push('📞 Hotline / WhatsApp: +8801570243005');
   lines.push('━━━━━━━━━━━━━━━━━━━━');
 
-  // 7. Hashtags
+  // 6. Hashtags
   if (hashtags) {
     lines.push(hashtags);
   }
@@ -176,16 +170,16 @@ export const verifyFacebookPage = async (
   link?: string;
   id?: string;
   isPublished?: boolean;
+  resolvedToken?: string;
   error?: string;
 }> => {
   const cleanPageId = pageId.trim();
   const cleanToken = accessToken.trim();
 
   if (!cleanPageId || !cleanToken) {
-    return { success: false, error: 'Page ID এবং Page Access Token প্রদান করুন।' };
+    return { success: false, error: 'Facebook Page ID এবং Access Token প্রদান করুন।' };
   }
 
-  // Try via backend proxy first
   try {
     const proxyRes = await fetch('/api/facebook/verify', {
       method: 'POST',
@@ -193,55 +187,32 @@ export const verifyFacebookPage = async (
       body: JSON.stringify({ pageId: cleanPageId, accessToken: cleanToken }),
     });
 
-    if (proxyRes.ok) {
-      const data = await proxyRes.json();
-      if (data.success) {
-        return {
-          success: true,
-          name: data.page?.name || 'X E E R O O',
-          link: data.page?.link || `https://www.facebook.com/${cleanPageId}`,
-          id: data.page?.id || cleanPageId,
-          isPublished: data.page?.is_published,
-        };
-      }
-      if (data.error) {
-        return { success: false, error: data.error };
-      }
-    }
-  } catch {
-    // Fall back to direct Graph API call
-  }
-
-  try {
-    const directUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}?fields=id,name,link,is_published&access_token=${encodeURIComponent(cleanToken)}`;
-    const res = await fetch(directUrl);
-    const data = await res.json();
-
-    if (data.error) {
+    const data = await proxyRes.json();
+    if (data.success) {
       return {
-        success: false,
-        error: data.error.message || `Facebook API Error: ${data.error.code}`,
+        success: true,
+        name: data.page?.name || 'X E E R O O',
+        link: data.page?.link || `https://www.facebook.com/${cleanPageId}`,
+        id: data.page?.id || cleanPageId,
+        isPublished: data.page?.is_published,
+        resolvedToken: data.resolvedToken,
       };
     }
-
-    return {
-      success: true,
-      name: data.name,
-      link: data.link || `https://www.facebook.com/${data.id}`,
-      id: data.id,
-      isPublished: data.is_published,
-    };
-  } catch (err: unknown) {
-    const e = err as { message?: string };
     return {
       success: false,
-      error: e.message || 'Facebook API-তে সংযোগ করা যায়নি। নেটওয়ার্ক চেক করুন।',
+      error: data.error || 'ফেসবুক পেজ ভেরিফিকেশন ব্যর্থ হয়েছে।',
+    };
+  } catch (err: unknown) {
+    console.warn('Facebook verify proxy error:', err);
+    return {
+      success: false,
+      error: 'সার্ভারের সাথে সংযোগ স্থাপন করা যায়নি। অনুগ্রহ করে ইন্টারনেট সংযোগ চেক করে আবার চেষ্টা করুন।',
     };
   }
 };
 
 /**
- * Publish product to Facebook Page
+ * Publish product to Facebook Page (via server-side proxy to guarantee deliverability & bypass browser CORS/Adblockers)
  */
 export const publishProductToFacebook = async (
   product: Product,
@@ -273,17 +244,13 @@ export const publishProductToFacebook = async (
   const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
   const productUrl = `${origin}/#/product/${product.slug || product.id}`;
 
-  // Automatically resolve the Page Access Token if a user or system-user token was provided
-  const effectiveToken = await resolvePageAccessToken(cleanPageId, cleanToken);
-
-  // 1. First attempt: Use backend proxy to avoid CORS and handle upload safely
   try {
     const response = await fetch('/api/facebook/publish', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         pageId: cleanPageId,
-        accessToken: effectiveToken,
+        accessToken: cleanToken,
         caption,
         imageUrl: primaryImage,
         productUrl,
@@ -299,90 +266,17 @@ export const publishProductToFacebook = async (
         postUrl: result.postUrl || `https://www.facebook.com/${result.postId || cleanPageId}`,
         message: result.message || 'ফেসবুক পেজে প্রোডাক্টটি সফলভাবে পোস্ট হয়েছে!',
       };
-    } else if (result.error && !result.canFallbackDirect) {
+    } else {
       return {
         success: false,
-        message: result.error,
+        message: result.error || 'ফেসবুক পেজে পোস্ট করতে ব্যর্থ হয়েছে।',
       };
     }
-  } catch (backendErr) {
-    console.warn('Backend Facebook proxy error, attempting direct call:', backendErr);
-  }
-
-  // 2. Second attempt: Direct call to Facebook Graph API
-  try {
-    // If we have a publicly accessible image URL (http/https not data:image or localhost)
-    const isPublicImage =
-      primaryImage &&
-      primaryImage.startsWith('http') &&
-      !primaryImage.includes('localhost') &&
-      !primaryImage.includes('127.0.0.1');
-
-    if (isPublicImage) {
-      // POST to /{page_id}/photos
-      const photoEndpoint = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}/photos`;
-      const formData = new URLSearchParams();
-      formData.append('url', primaryImage);
-      formData.append('caption', caption);
-      formData.append('access_token', effectiveToken);
-
-      const res = await fetch(photoEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString(),
-      });
-
-      const data = await res.json();
-      if (data.id || data.post_id) {
-        const id = data.post_id || data.id;
-        return {
-          success: true,
-          postId: id,
-          postUrl: `https://www.facebook.com/${id}`,
-          message: 'ফেসবুক পেজে ছবি সহ প্রোডাক্টটি সফলভাবে পোস্ট হয়েছে!',
-        };
-      }
-
-      if (data.error) {
-        console.warn('Facebook photo post error:', data.error);
-        // If photo upload failed, fallback to feed post below
-      }
-    }
-
-    // Fallback: POST to /{page_id}/feed
-    const feedEndpoint = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}/feed`;
-    const feedData = new URLSearchParams();
-    feedData.append('message', caption);
-    if (productUrl.startsWith('http')) {
-      feedData.append('link', productUrl);
-    }
-    feedData.append('access_token', effectiveToken);
-
-    const feedRes = await fetch(feedEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: feedData.toString(),
-    });
-
-    const feedResult = await feedRes.json();
-    if (feedResult.id) {
-      return {
-        success: true,
-        postId: feedResult.id,
-        postUrl: `https://www.facebook.com/${feedResult.id}`,
-        message: 'ফেসবুক পেজে প্রোডাক্টের পোস্ট সফলভাবে সম্পন্ন হয়েছে!',
-      };
-    }
-
-    return {
-      success: false,
-      message: feedResult.error?.message || 'ফেসবুক পেজে পোস্ট করতে ব্যর্থ হয়েছে।',
-    };
   } catch (err: unknown) {
-    const e = err as { message?: string };
+    console.warn('Backend Facebook publish proxy error:', err);
     return {
       success: false,
-      message: e.message || 'ফেসবুক API-র সাথে যোগাযোগ করার সময় সমস্যা হয়েছে।',
+      message: 'সার্ভারের সাথে সংযোগ স্থাপন করা যায়নি। অনুগ্রহ করে আপনার ইন্টারনেট সংযোগ চেক করুন।',
     };
   }
 };

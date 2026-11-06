@@ -2837,7 +2837,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       addToast(`ফেসবুক পেজে "${targetProduct.title}" পোস্ট করা হচ্ছে...`, 'info');
-      const storeOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com';
+      const storeOrigin = currentFb.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
       const res = await publishProductToFacebook(targetProduct, currentFb, storeOrigin, customCaption);
 
       if (res.success) {

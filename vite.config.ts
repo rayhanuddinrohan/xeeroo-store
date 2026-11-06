@@ -966,21 +966,47 @@ function productImporterPlugin(): Plugin {
           }
           const { pageId, accessToken } = JSON.parse(Buffer.concat(buffers).toString('utf-8') || '{}');
 
-          if (!pageId || !accessToken) {
-            res.statusCode = 400;
-            res.end(JSON.stringify({ success: false, error: 'Page ID এবং Access Token আবশ্যক।' }));
+          const cleanPageId = String(pageId || '').trim();
+          const cleanToken = String(accessToken || '').trim();
+
+          if (!cleanPageId || !cleanToken) {
+            res.statusCode = 200;
+            res.end(JSON.stringify({ success: false, error: 'Facebook Page ID এবং Access Token আবশ্যক।' }));
             return;
           }
 
-          const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(pageId.trim())}?fields=id,name,link,is_published&access_token=${encodeURIComponent(accessToken.trim())}`;
+          // If a System User Token or User Token was provided, exchange for the permanent Page Access Token
+          let effectiveToken = cleanToken;
+          try {
+            const pageTokRes = await fetch(
+              `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}?fields=access_token&access_token=${encodeURIComponent(cleanToken)}`
+            );
+            const pageTokData = await pageTokRes.json();
+            if (pageTokData && pageTokData.access_token) {
+              effectiveToken = pageTokData.access_token;
+            }
+          } catch {
+            // ignore exchange error, proceed with cleanToken
+          }
+
+          const fbUrl = `https://graph.facebook.com/v19.0/${encodeURIComponent(cleanPageId)}?fields=id,name,link,is_published&access_token=${encodeURIComponent(effectiveToken)}`;
           const fbResponse = await fetch(fbUrl);
           const fbData = await fbResponse.json();
 
           if (fbData.error) {
-            res.statusCode = 400;
+            let errorMsg = fbData.error.message || 'Facebook API অথেনটিকেশন ব্যর্থ হয়েছে।';
+            if (fbData.error.code === 190) {
+              errorMsg = 'Facebook Access Token টি অকার্যকর (Invalid) বা মেয়াদোত্তীর্ণ (Expired) হয়ে গেছে।';
+            } else if (fbData.error.code === 200 || fbData.error.code === 10) {
+              errorMsg = `Facebook পারমিশন সমস্যা: পেজে পোস্ট বা পরিচালনা করার পর্যাপ্ত পারমিশন নেই (${fbData.error.message})।`;
+            } else if (fbData.error.code === 100) {
+              errorMsg = 'প্রদত্ত Facebook Page ID টি সঠিক নয়। সঠিক পেজ আইডি যাচাই করুন।';
+            }
+            res.statusCode = 200;
             res.end(JSON.stringify({
               success: false,
-              error: fbData.error.message || 'Facebook API অথেনটিকেশন ব্যর্থ হয়েছে।',
+              error: errorMsg,
+              details: fbData.error,
             }));
             return;
           }
@@ -994,10 +1020,11 @@ function productImporterPlugin(): Plugin {
               link: fbData.link || `https://www.facebook.com/${fbData.id}`,
               is_published: fbData.is_published,
             },
+            resolvedToken: effectiveToken !== cleanToken ? effectiveToken : undefined,
           }));
         } catch (err: unknown) {
           const error = err as { message?: string };
-          res.statusCode = 500;
+          res.statusCode = 200;
           res.end(JSON.stringify({ success: false, error: error.message || 'Facebook verification failed.' }));
         }
       });
@@ -1028,8 +1055,8 @@ function productImporterPlugin(): Plugin {
           const cleanToken = String(accessToken || '').trim();
 
           if (!cleanPageId || !cleanToken) {
-            res.statusCode = 400;
-            res.end(JSON.stringify({ success: false, error: 'Facebook Page ID এবং Access Token পাওয়া যায়নি।' }));
+            res.statusCode = 200;
+            res.end(JSON.stringify({ success: false, error: 'Facebook Page ID এবং Access Token পাওয়া যায়নি।' }));
             return;
           }
 
@@ -1043,7 +1070,7 @@ function productImporterPlugin(): Plugin {
             const pageTokData = await pageTokRes.json();
             if (pageTokData && pageTokData.access_token) {
               effectiveToken = pageTokData.access_token;
-              console.log('[Facebook API] Successfully resolved Page Access Token for Page:', cleanPageId);
+              console.log('[Facebook API] Resolved Page Access Token for Page:', cleanPageId);
             }
           } catch (tokErr) {
             console.warn('[Facebook API] Page token resolution notice:', tokErr);
@@ -1051,6 +1078,7 @@ function productImporterPlugin(): Plugin {
 
           let postId = '';
           let postUrl = '';
+          let lastErrorMsg = '';
 
           // 1. Try Photo posting if public imageUrl is available
           const isPublicImage = imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http') && !imageUrl.includes('localhost') && !imageUrl.includes('127.0.0.1');
@@ -1075,9 +1103,11 @@ function productImporterPlugin(): Plugin {
                 postUrl = `https://www.facebook.com/${postId}`;
               } else if (photoData.error) {
                 console.warn('[Facebook API] Photo post notice:', photoData.error.message);
+                lastErrorMsg = photoData.error.message;
               }
-            } catch (photoErr) {
+            } catch (photoErr: any) {
               console.warn('[Facebook API] Photo post failed, falling back to feed:', photoErr);
+              lastErrorMsg = photoErr?.message || '';
             }
           }
 
@@ -1102,10 +1132,16 @@ function productImporterPlugin(): Plugin {
               postId = feedData.id;
               postUrl = `https://www.facebook.com/${postId}`;
             } else if (feedData.error) {
-              res.statusCode = 400;
+              let errorMsg = feedData.error.message || lastErrorMsg || 'পোস্ট প্রকাশ করা যায়নি';
+              if (feedData.error.code === 200) {
+                errorMsg = `Facebook পারমিশন ত্রুটি (#200): পেজে পোস্ট করার জন্য Page Access Token এবং pages_manage_posts পারমিশন প্রয়োজন। (${feedData.error.message})`;
+              } else if (feedData.error.code === 190) {
+                errorMsg = 'Facebook Access Token মেয়াদোত্তীর্ণ বা অকার্যকর হয়ে গেছে। অনুগ্রহ করে সেটিংস থেকে টোকেন আপডেট করুন।';
+              }
+              res.statusCode = 200;
               res.end(JSON.stringify({
                 success: false,
-                error: `Facebook API: ${feedData.error.message || 'পোস্ট প্রকাশ করা যায়নি'}`,
+                error: errorMsg,
                 details: feedData.error,
               }));
               return;
@@ -1124,11 +1160,14 @@ function productImporterPlugin(): Plugin {
             return;
           }
 
-          res.statusCode = 500;
-          res.end(JSON.stringify({ success: false, error: 'ফেসবুকে পোস্ট সম্পন্ন করা যায়নি।' }));
+          res.statusCode = 200;
+          res.end(JSON.stringify({
+            success: false,
+            error: lastErrorMsg ? `ফেসবুকে পোস্ট ব্যর্থ হয়েছে: ${lastErrorMsg}` : 'ফেসবুকে পোস্ট সম্পন্ন করা যায়নি।',
+          }));
         } catch (err: unknown) {
           const error = err as { message?: string };
-          res.statusCode = 500;
+          res.statusCode = 200;
           res.end(JSON.stringify({ success: false, error: error.message || 'Facebook publish failed.' }));
         }
       });

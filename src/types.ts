@@ -100,6 +100,7 @@ export interface FacebookConfig {
   includeLink?: boolean;
   pageName?: string;
   pageLink?: string;
+  websiteUrl?: string;
   updatedAt?: string;
 }
 

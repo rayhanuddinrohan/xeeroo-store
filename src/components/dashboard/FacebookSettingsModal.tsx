@@ -70,7 +70,12 @@ export const FacebookSettingsModal: React.FC<FacebookSettingsModalProps> = ({
         });
         addToast(`Facebook Page "${res.name}" verified!`, 'success');
         if (res.name) {
-          setConfig(prev => ({ ...prev, pageName: res.name, pageLink: res.link }));
+          setConfig(prev => ({
+            ...prev,
+            pageName: res.name,
+            pageLink: res.link || prev.pageLink,
+            accessToken: res.resolvedToken || prev.accessToken,
+          }));
         }
       } else {
         setVerifyMessage({
@@ -231,6 +236,20 @@ export const FacebookSettingsModal: React.FC<FacebookSettingsModalProps> = ({
                 className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none text-blue-700 font-mono"
               />
             </div>
+          </div>
+
+          {/* Website URL */}
+          <div>
+            <label className="block text-xs font-bold text-gray-800 mb-1">
+              Store Website URL (for Facebook Post Orders)
+            </label>
+            <input
+              type="url"
+              value={config.websiteUrl || ''}
+              onChange={(e) => setConfig({ ...config, websiteUrl: e.target.value })}
+              placeholder="https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app"
+              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none font-mono text-gray-900"
+            />
           </div>
 
           {/* Verification feedback */}
