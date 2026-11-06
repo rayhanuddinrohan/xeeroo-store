@@ -513,10 +513,11 @@ export const ProductManagementTab: React.FC = () => {
         )}
       </div>
 
-      {/* Top Controls: Search, Filters, and Add Product */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex flex-1 items-center gap-2 max-w-md">
-          <div className="relative flex-1">
+      {/* Top Controls: Search, Filters, and Action Buttons (Responsive & Wrap Cleanly) */}
+      <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3">
+        {/* Search & Department Filters */}
+        <div className="flex flex-1 flex-wrap sm:flex-nowrap items-center gap-2 max-w-full xl:max-w-xl">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
             <input
               type="text"
@@ -530,7 +531,7 @@ export const ProductManagementTab: React.FC = () => {
           <select
             value={selectedCat}
             onChange={e => setSelectedCat(e.target.value)}
-            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none"
+            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none shrink-0"
           >
             <option value="all">All Departments</option>
             {categories.map(c => (
@@ -543,7 +544,7 @@ export const ProductManagementTab: React.FC = () => {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as any)}
-            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none"
+            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none shrink-0"
           >
             <option value="all">All States</option>
             <option value="published">Published</option>
@@ -551,56 +552,58 @@ export const ProductManagementTab: React.FC = () => {
           </select>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Action Buttons: Responsive Flex-Wrap, No Overflow */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
-            id="btn-fb-autopost"
-            onClick={() => setDashboardTab('facebook')}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
-            title="Facebook Page Auto-Post Settings & Live Preview"
+            id="btn-add-product"
+            onClick={handleOpenAddModal}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 active:scale-95"
+            title="Create and publish a new product"
           >
-            <Share2 className="w-3.5 h-3.5 text-sky-200" />
-            <span>Facebook Auto-Post</span>
-            {facebookConfig?.enabled && facebookConfig?.autoPostOnAdd && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" title="Auto-Post Enabled"></span>
-            )}
+            <Plus className="w-4 h-4" />
+            <span>+ New Product</span>
           </button>
 
           <button
             id="btn-sync-api-products"
             onClick={() => setIsSyncModalOpen(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 active:scale-95"
             title="Fetch and sync products automatically from BusinessKoro API into Firestore"
           >
             <RefreshCw className="w-3.5 h-3.5 text-white" />
-            <span>Sync/Import Products</span>
+            <span>Sync Import</span>
+          </button>
+
+          <button
+            id="btn-fb-autopost"
+            onClick={() => setDashboardTab('facebook')}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 active:scale-95"
+            title="Facebook Page Auto-Post Settings & Live Preview"
+          >
+            <Share2 className="w-3.5 h-3.5 text-blue-600" />
+            <span>Auto FB Post</span>
+            {facebookConfig?.enabled && facebookConfig?.autoPostOnAdd && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Auto-Post Enabled"></span>
+            )}
           </button>
 
           <button
             id="btn-import-api-products"
             onClick={() => setDashboardTab('importer')}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-slate-950 hover:bg-slate-800 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 border border-slate-800"
+            className="hidden sm:inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-cyan-300 rounded-lg transition-colors cursor-pointer shadow-xs shrink-0 border border-slate-700 active:scale-95"
             title="Import Products via External API & Web Scraper"
           >
-            <DownloadCloud className="w-4 h-4 text-cyan-400" />
-            <span>API & Web Importer</span>
+            <DownloadCloud className="w-3.5 h-3.5 text-cyan-400" />
+            <span>API Importer</span>
           </button>
 
           <button
             onClick={() => setDashboardTab('categories')}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer border border-gray-300 shadow-xs shrink-0"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors cursor-pointer border border-gray-200 shadow-xs shrink-0 active:scale-95"
             title="Create and manage product categories"
           >
             <Plus className="w-3.5 h-3.5 text-blue-600" />
             <span>Categories</span>
-          </button>
-
-          <button
-            id="btn-add-product"
-            onClick={handleOpenAddModal}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer shadow-xs shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Product</span>
           </button>
         </div>
       </div>
@@ -631,19 +634,33 @@ export const ProductManagementTab: React.FC = () => {
                 filteredProducts.map(product => {
                   const cat = categories.find(c => c.id === product.categoryId);
                   const isLow = product.stockQuantity <= 5;
+                  const thumbSrc =
+                    (Array.isArray(product.images) && product.images.length > 0 && product.images[0]) ||
+                    (product as any).imageUrl ||
+                    (product as any).image ||
+                    (typeof product.images === 'string' ? product.images : '') ||
+                    '';
 
                   return (
                     <tr key={product.id} className="hover:bg-gray-50/60 transition-colors">
                       {/* Product Column */}
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          {product.images && product.images[0] ? (
+                          {thumbSrc ? (
                             <img
-                              src={product.images[0]}
+                              src={thumbSrc}
                               alt={product.title}
                               className="w-10 h-10 rounded-lg object-cover bg-gray-100 border border-gray-200 shrink-0"
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                if (target.nextElementSibling) {
+                                  (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                                }
+                              }}
                             />
-                          ) : (
+                          ) : null}
+                          {(!thumbSrc || !product.images || product.images.length === 0) && !(product as any).imageUrl && !(product as any).image && (
                             <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
                               <Package className="w-5 h-5 text-gray-300" />
                             </div>

@@ -17,6 +17,8 @@ import { DatabaseManagementTab } from './DatabaseManagementTab';
 import { SchemaDocsModal } from './SchemaDocsModal';
 import { AccountSettingsTab } from './AccountSettingsTab';
 import { FacebookIntegrationTab } from './FacebookIntegrationTab';
+import { ProductFormModal } from './ProductFormModal';
+import { SyncProductsModal } from './SyncProductsModal';
 import { OrderHistory } from '../store/OrderHistory';
 import { BrandLogo } from '../common/BrandLogo';
 import { UserAvatar } from '../common/UserAvatar';
@@ -26,6 +28,7 @@ import {
   ShoppingBag,
   Users,
   FolderTree,
+  FolderPlus,
   FileCode,
   ArrowLeft,
   Shield,
@@ -40,6 +43,9 @@ import {
   Share2,
   Menu,
   X,
+  Plus,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 
 export const DashboardLayout: React.FC = () => {
@@ -75,6 +81,24 @@ export const DashboardLayout: React.FC = () => {
   }, [isCustomer, isModerator, dashboardTab, setDashboardTab]);
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+
+  const handleOpenNewProduct = () => {
+    setIsDrawerOpen(false);
+    setDashboardTab('products');
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenSyncImport = () => {
+    setIsDrawerOpen(false);
+    setIsSyncModalOpen(true);
+  };
+
+  const handleOpenAddCategory = () => {
+    setIsDrawerOpen(false);
+    setDashboardTab('categories');
+  };
 
   // Close drawer on Escape key press
   useEffect(() => {
@@ -394,16 +418,97 @@ export const DashboardLayout: React.FC = () => {
                 </nav>
               ) : (
                 /* Admin & Staff Navigation */
-                <nav className="space-y-1">
-                  {/* Staff Operations Group */}
-                  <div className="px-2 pb-1 flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 font-mono">
-                      Staff Operations
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">
-                      Active
-                    </span>
+                <nav className="space-y-3">
+                  {/* Consolidated Quick Administrative Actions */}
+                  <div className="p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-xl text-white space-y-2 shadow-xs border border-slate-700/60">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-300 font-mono flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3 text-amber-300 shrink-0" />
+                        <span>Quick Actions</span>
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-200 font-bold border border-indigo-400/30">
+                        Admin
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {/* + New Product Button */}
+                      <button
+                        type="button"
+                        id="drawer-action-btn-new-product"
+                        onClick={handleOpenNewProduct}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer text-left active:scale-95"
+                        title="Add a new product to catalog"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span className="truncate">+ New Product</span>
+                      </button>
+
+                      {/* + Categories Button */}
+                      <button
+                        type="button"
+                        id="drawer-action-btn-categories"
+                        onClick={handleOpenAddCategory}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-[11px] border border-slate-700 shadow-xs transition-all cursor-pointer text-left active:scale-95"
+                        title="Manage product departments & categories"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span className="truncate">+ Categories</span>
+                      </button>
+
+                      {/* Sync Import Button */}
+                      <button
+                        type="button"
+                        id="drawer-action-btn-sync"
+                        onClick={handleOpenSyncImport}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer text-left active:scale-95"
+                        title="Sync catalog with BusinessKoro API"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span className="truncate">Sync Import</span>
+                      </button>
+
+                      {/* Share Auto FB Post Button */}
+                      <button
+                        type="button"
+                        id="drawer-action-btn-fb"
+                        onClick={() => handleSelectTab('facebook')}
+                        className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold text-[11px] shadow-xs transition-all cursor-pointer text-left active:scale-95"
+                        title="Facebook Page Auto-Post Settings"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-white shrink-0" />
+                        <span className="truncate">Auto FB Post</span>
+                      </button>
+                    </div>
+
+                    {/* API Web Importer button full width */}
+                    <button
+                      type="button"
+                      id="drawer-action-btn-importer"
+                      onClick={() => handleSelectTab('importer')}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-cyan-300 font-bold text-[11px] border border-slate-700/80 transition-all cursor-pointer active:scale-95"
+                      title="Import Products via External API & Web Scraper"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <DownloadCloud className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span>API & Web Importer</span>
+                      </div>
+                      <span className="text-[9px] font-mono bg-cyan-950/80 text-cyan-400 px-1.5 py-0.2 rounded border border-cyan-800">
+                        External Scraper
+                      </span>
+                    </button>
                   </div>
+
+                  {/* Staff Operations Group */}
+                  <div className="space-y-1">
+                    <div className="px-2 pb-1 flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 font-mono">
+                        Staff Operations
+                      </span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold">
+                        Active
+                      </span>
+                    </div>
 
                   {/* Order Management */}
                   <button
@@ -499,6 +604,7 @@ export const DashboardLayout: React.FC = () => {
                       <span>Categories</span>
                     </div>
                   </button>
+                </div>
 
                   {/* ADMIN ONLY MANAGEMENT SECTION */}
                   {isAdmin ? (
@@ -701,6 +807,22 @@ export const DashboardLayout: React.FC = () => {
         {dashboardTab === 'my-orders' && <OrderHistory />}
         {dashboardTab === 'settings' && <AccountSettingsTab />}
       </main>
+
+      {/* Product Form Modal (triggered directly from drawer) */}
+      {isProductModalOpen && (
+        <ProductFormModal
+          isOpen={isProductModalOpen}
+          onClose={() => setIsProductModalOpen(false)}
+        />
+      )}
+
+      {/* Sync Products Modal (triggered directly from drawer) */}
+      {isSyncModalOpen && (
+        <SyncProductsModal
+          isOpen={isSyncModalOpen}
+          onClose={() => setIsSyncModalOpen(false)}
+        />
+      )}
     </div>
   );
 };

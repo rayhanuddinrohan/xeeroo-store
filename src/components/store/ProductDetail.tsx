@@ -1275,19 +1275,33 @@ My Delivery Address:`
                 >
                 <div>
                   <div className="aspect-4/3 overflow-hidden bg-gray-100 relative flex items-center justify-center">
-                    {typeof relProduct.priority === 'number' && relProduct.priority > 0 && (
-                      <span className="absolute top-2 left-2 z-10 px-1.5 py-0.5 rounded text-[9px] font-black bg-indigo-600 text-white shadow-xs">
-                        ⭐ Rank #{relProduct.priority}
-                      </span>
-                    )}
-                    {relProduct.images && relProduct.images[0] ? (
-                      <img
-                        src={relProduct.images[0]}
-                        alt={relProduct.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 p-2">
+                    {(() => {
+                      const relThumbnail =
+                        (Array.isArray(relProduct.images) && relProduct.images.length > 0 && relProduct.images[0]) ||
+                        (relProduct as any).imageUrl ||
+                        (relProduct as any).image ||
+                        (typeof relProduct.images === 'string' ? relProduct.images : '') ||
+                        '';
+
+                      return relThumbnail ? (
+                        <img
+                          src={relThumbnail}
+                          alt={relProduct.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = 'none';
+                            if (target.parentElement) {
+                              const fb = target.parentElement.querySelector('.fallback-rel');
+                              if (fb) (fb as HTMLElement).style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null;
+                    })()}
+
+                    {(!relProduct.images || relProduct.images.length === 0) && !(relProduct as any).imageUrl && !(relProduct as any).image && (
+                      <div className="fallback-rel w-full h-full flex flex-col items-center justify-center text-gray-400 p-2">
                         <Package className="w-8 h-8 text-gray-300 mb-1" />
                         <span className="text-[10px] font-medium text-gray-400">No Image</span>
                       </div>

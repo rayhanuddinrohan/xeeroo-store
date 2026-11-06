@@ -2193,8 +2193,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts(prev => {
       const updatedList = prev.map(p => {
         if (p.id === id) {
+          const safeImages = (Array.isArray(p.images) && p.images.length > 0)
+            ? p.images
+            : ((p as any).imageUrl ? [(p as any).imageUrl] : ((p as any).image ? [(p as any).image] : []));
           const updated: Product = {
             ...p,
+            images: safeImages.length > 0 ? safeImages : (p.images || []),
             priority: cleanPriority,
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser?.id || 'admin',

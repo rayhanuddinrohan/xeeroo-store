@@ -96,32 +96,43 @@ My Delivery Address:`
     >
       {/* Product Image & Badges */}
       <div className="relative aspect-4/3 w-full bg-gray-100 overflow-hidden flex items-center justify-center">
-        {product.images && product.images[0] ? (
-          <img
-            src={product.images[0]}
-            alt={product.title}
-            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-4">
+        {(() => {
+          const thumbnailSrc =
+            (Array.isArray(product.images) && product.images.length > 0 && product.images[0]) ||
+            (product as any).imageUrl ||
+            (product as any).image ||
+            (typeof product.images === 'string' ? product.images : '') ||
+            '';
+
+          return thumbnailSrc ? (
+            <img
+              src={thumbnailSrc}
+              alt={product.title}
+              className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.currentTarget;
+                target.style.display = 'none';
+                if (target.parentElement) {
+                  const fallbackDiv = target.parentElement.querySelector('.fallback-placeholder');
+                  if (fallbackDiv) (fallbackDiv as HTMLElement).style.display = 'flex';
+                }
+              }}
+            />
+          ) : null;
+        })()}
+
+        {/* Fallback placeholder when no thumbnail is available */}
+        {(!product.images || product.images.length === 0) && !(product as any).imageUrl && !(product as any).image && (
+          <div className="fallback-placeholder w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-400 p-4">
             <Package className="w-10 h-10 text-gray-300 mb-1" />
             <span className="text-[11px] font-medium text-gray-400">No Image</span>
           </div>
         )}
 
-        {/* Priority Rank Badge if ranked */}
-        {typeof product.priority === 'number' && product.priority > 0 && (
-          <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-600 text-white shadow-xs flex items-center gap-1 uppercase tracking-wide">
-              ⭐ Rank #{product.priority}
-            </span>
-          </div>
-        )}
-
         {/* Staff Draft Badge if unpublished */}
         {!product.isPublished && (
-          <div className={`absolute ${typeof product.priority === 'number' && product.priority > 0 ? 'top-8' : 'top-2.5'} left-2.5 z-10`}>
+          <div className="absolute top-2.5 left-2.5 z-10">
             <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold bg-amber-500 text-white shadow-xs uppercase tracking-wide">
               Draft (Staff View)
             </span>

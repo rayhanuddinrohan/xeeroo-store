@@ -442,7 +442,9 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       soldCount: Number(product.soldCount) || 0,
       sku: product.sku || '',
       categoryId: product.categoryId || '',
-      images: Array.isArray(product.images) ? product.images : [],
+      images: (Array.isArray(product.images) && product.images.length > 0)
+        ? product.images.filter(Boolean)
+        : ((product as any).imageUrl ? [(product as any).imageUrl] : ((product as any).image ? [(product as any).image] : [])),
       isPublished: Boolean(product.isPublished),
       createdAt: product.createdAt || new Date().toISOString(),
       updatedAt: product.updatedAt || new Date().toISOString(),

@@ -644,7 +644,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             2. Second row:
                - Full-width long search bar with real-time dropdown results
            ========================================================================= */}
-        <div className="md:hidden">
+        <div className={`md:hidden ${viewMode === 'dashboard' ? 'hidden' : ''}`}>
           {/* Top Bar Row - Stable Height, Never Collapses */}
           <div className="flex items-center justify-between h-14 px-3 gap-2 border-b border-gray-100 bg-white">
             {/* Top Left: 3-Line Hamburger Menu Button */}
