@@ -305,6 +305,12 @@ interface StoreContextType {
   canViewAnalytics: boolean;
   canUpdateOrderStatus: boolean;
 
+  // Unified Admin Drawer
+  isAdminDrawerOpen: boolean;
+  setIsAdminDrawerOpen: (open: boolean) => void;
+  openAdminDrawer: () => void;
+  closeAdminDrawer: () => void;
+
   // Feedback & Diagnostics
   toasts: NotificationToast[];
   addToast: (message: string, type?: 'success' | 'error' | 'warning' | 'info') => void;
@@ -386,6 +392,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Auth modal state
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'register' | 'forgot-password' | 'verify-otp' | 'admin-login'>('login');
+
+  // Unified Admin Drawer State
+  const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
+  const openAdminDrawer = () => setIsAdminDrawerOpen(true);
+  const closeAdminDrawer = () => setIsAdminDrawerOpen(false);
 
   // Checkout modal & page state
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -3212,6 +3223,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     facebookConfig,
     updateFacebookConfig,
     postProductToFacebook,
+
+    // Unified Admin Drawer
+    isAdminDrawerOpen,
+    setIsAdminDrawerOpen,
+    openAdminDrawer,
+    closeAdminDrawer,
 
     currentUser,
     users,

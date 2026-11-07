@@ -78,6 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     navigateToContact,
     navigateToOrders,
     navigateToDashboard,
+    openAdminDrawer,
   } = useStore();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -233,7 +234,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
         <div className="hidden md:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-4">
             {/* Logo & Brand - Strictly XEEROO only */}
-            <div className="flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
+              {/* Admin 3-line Hamburger Menu Toggle Icon (Directly on LEFT of Logo) */}
+              <button
+                id="navbar-admin-drawer-toggle"
+                type="button"
+                onClick={openAdminDrawer}
+                className="p-2 text-gray-700 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-all cursor-pointer active:scale-95 group flex items-center justify-center border border-gray-200/80 shadow-2xs shrink-0"
+                title="Open Admin Navigation & Actions Menu"
+                aria-label="Open Admin Menu"
+              >
+                <Menu className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform" />
+              </button>
               <a
                 id="nav-brand-logo"
                 href="/#/"
@@ -644,21 +656,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
             2. Second row:
                - Full-width long search bar with real-time dropdown results
            ========================================================================= */}
-        <div className={`md:hidden ${viewMode === 'dashboard' ? 'hidden' : ''}`}>
+        <div className="md:hidden">
           {/* Top Bar Row - Stable Height, Never Collapses */}
           <div className="flex items-center justify-between h-14 px-3 gap-2 border-b border-gray-100 bg-white">
-            {/* Top Left: 3-Line Hamburger Menu Button */}
+            {/* Top Left: Admin 3-Line Hamburger Menu Button (Directly on LEFT of Logo) */}
             <button
               type="button"
               id="mobile-drawer-btn"
-              onClick={() => setIsMobileDrawerOpen(true)}
+              onClick={openAdminDrawer}
               className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer shrink-0"
-              aria-label="Open Menu & Filters"
+              aria-label="Open Unified Admin Menu & Quick Actions"
+              title="Open Admin Menu"
             >
               <Menu className="w-6 h-6 text-gray-900" />
-              {hasActiveFilters && (
-                <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 ring-2 ring-white" />
-              )}
             </button>
 
             {/* Top Middle: Centered Logo and XEEROO */}

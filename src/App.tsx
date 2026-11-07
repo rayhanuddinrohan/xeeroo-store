@@ -16,6 +16,7 @@ import { CheckoutPage } from './components/store/CheckoutPage';
 import { OrderHistory } from './components/store/OrderHistory';
 import { DashboardLayout } from './components/dashboard/DashboardLayout';
 import { SchemaDocsModal } from './components/dashboard/SchemaDocsModal';
+import { UnifiedAdminDrawer } from './components/dashboard/UnifiedAdminDrawer';
 import { AuthModal } from './components/AuthModal';
 import { CustomerSettingsModal } from './components/CustomerSettingsModal';
 import { ContactModal } from './components/ContactModal';
@@ -117,6 +118,9 @@ const AppContent: React.FC = () => {
         onClose={() => setIsCartOpen(false)}
         onProceedToCheckout={handleProceedToCheckout}
       />
+
+      {/* Unified Slide-Over Admin Drawer & Action Center */}
+      <UnifiedAdminDrawer />
 
       {/* Interactive Checkout Modal */}
       <CheckoutModal
