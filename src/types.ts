@@ -46,6 +46,7 @@ export interface Category {
   slug: string;
   description?: string;
   itemCount?: number;
+  sortOrder?: number;
 }
 
 export interface ProductReview {

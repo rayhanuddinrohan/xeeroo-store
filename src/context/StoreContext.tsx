@@ -43,7 +43,9 @@ import {
   subscribeToFirestoreProducts,
   shuffleArray,
   sortProductsWithPriorityAndShuffle,
+  sortCategoriesByOrder,
   saveFirestoreCategory,
+  deleteFirestoreCategory,
   fetchFirestoreCategories,
   saveFirestoreOrder,
   fetchFirestoreOrders,
@@ -196,7 +198,7 @@ interface StoreContextType {
   navigateToCheckout: () => void;
   navigateToOrders: () => void;
   navigateToDashboard: (tab?: DashboardTab) => void;
-  navigateToStore: () => void;
+  navigateToStore: (categoryId?: string | React.MouseEvent) => void;
   navigateToSchemaDocs: () => void;
 
   // Search & Filtering
@@ -248,7 +250,9 @@ interface StoreContextType {
   clearAllNotifications: () => Promise<void>;
 
   // Categories (Admin)
-  addCategory: (name: string, description?: string) => boolean;
+  addCategory: (name: string, description?: string, sortOrder?: number) => boolean;
+  updateCategory: (id: string, updates: Partial<Category>) => boolean;
+  reorderCategories: (orderedIds: string[]) => boolean;
   deleteCategory: (id: string) => boolean;
 
   // Banners (Admin up to 10)
@@ -868,9 +872,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CATEGORIES);
-      return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
+      return saved ? sortCategoriesByOrder(JSON.parse(saved)) : sortCategoriesByOrder(INITIAL_CATEGORIES);
     } catch {
-      return INITIAL_CATEGORIES;
+      return sortCategoriesByOrder(INITIAL_CATEGORIES);
     }
   });
 
@@ -1031,11 +1035,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
 
-  const navigateToStore = () => {
+  const navigateToStore = (categoryIdOrEvent?: string | React.MouseEvent) => {
     setSelectedProductId(null);
     setViewMode('store');
     syncBrowserUrl('store');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const categoryId = typeof categoryIdOrEvent === 'string' ? categoryIdOrEvent : undefined;
+    if (categoryId) {
+      setSelectedCategory(categoryId);
+    } else if (!selectedCategory || selectedCategory === 'all') {
+      const topCatId = categories[0]?.id;
+      if (topCatId) {
+        setSelectedCategory(topCatId);
+      }
+    }
   };
 
   const navigateToSchemaDocs = () => {
@@ -1087,7 +1100,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // 8. Store filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    try {
+      const route = parseRouteFromLocation();
+      if (route.category) return route.category;
+      const savedCats = localStorage.getItem(STORAGE_KEY_CATEGORIES);
+      const parsedCats: Category[] = savedCats ? JSON.parse(savedCats) : INITIAL_CATEGORIES;
+      const sorted = sortCategoriesByOrder(parsedCats);
+      return sorted[0]?.id || 'cat-audio';
+    } catch {
+      return 'cat-audio';
+    }
+  });
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 150000]);
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'rating'>('featured');
   const [inStockOnly, setInStockOnly] = useState(false);
@@ -2521,23 +2545,83 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Category CRUD (Admin & Staff)
-  const addCategory = (name: string, description?: string): boolean => {
+  const addCategory = (name: string, description?: string, sortOrder?: number): boolean => {
     if (!canManageCategories) {
       addToast('Access Denied: Only Admin and Staff can add categories.', 'error');
       return false;
     }
 
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const cleanOrder = typeof sortOrder === 'number' && !isNaN(sortOrder) ? sortOrder : undefined;
     const newCategory: Category = {
       id: `cat-${slug}-${Date.now().toString(36)}`,
       name,
       slug,
       description,
+      sortOrder: cleanOrder,
     };
 
-    setCategories(prev => [...prev, newCategory]);
+    setCategories(prev => sortCategoriesByOrder([...prev, newCategory]));
     saveFirestoreCategory(newCategory);
-    addToast(`Category "${name}" saved to database`, 'success');
+    addToast(`Category "${name}" ${cleanOrder ? `(Rank #${cleanOrder}) ` : ''}saved to database`, 'success');
+    return true;
+  };
+
+  const updateCategory = (id: string, updates: Partial<Category>): boolean => {
+    if (!canManageCategories) {
+      addToast('Access Denied: Only Admin and Staff can update categories.', 'error');
+      return false;
+    }
+
+    let updatedCat: Category | null = null;
+    setCategories(prev => {
+      const next = prev.map(c => {
+        if (c.id === id) {
+          updatedCat = {
+            ...c,
+            ...updates,
+            sortOrder: updates.sortOrder !== undefined
+              ? (typeof updates.sortOrder === 'number' && !isNaN(updates.sortOrder) ? updates.sortOrder : undefined)
+              : c.sortOrder,
+          };
+          return updatedCat;
+        }
+        return c;
+      });
+      return sortCategoriesByOrder(next);
+    });
+
+    if (updatedCat) {
+      saveFirestoreCategory(updatedCat);
+      addToast(`Category updated successfully`, 'success');
+      return true;
+    }
+    return false;
+  };
+
+  const reorderCategories = (orderedIds: string[]): boolean => {
+    if (!canManageCategories) {
+      addToast('Access Denied: Only Admin and Staff can reorder categories.', 'error');
+      return false;
+    }
+
+    setCategories(prev => {
+      const map = new Map(prev.map(c => [c.id, c]));
+      const reordered: Category[] = [];
+      orderedIds.forEach((id, idx) => {
+        const item = map.get(id);
+        if (item) {
+          const updated = { ...item, sortOrder: idx + 1 };
+          reordered.push(updated);
+          saveFirestoreCategory(updated);
+          map.delete(id);
+        }
+      });
+      map.forEach(item => reordered.push(item));
+      return sortCategoriesByOrder(reordered);
+    });
+
+    addToast('Category order saved', 'success');
     return true;
   };
 
@@ -2554,6 +2638,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setCategories(prev => prev.filter(c => c.id !== id));
+    deleteFirestoreCategory(id);
     addToast('Category deleted', 'info');
     return true;
   };
@@ -3319,6 +3404,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearAllNotifications,
 
     addCategory,
+    updateCategory,
+    reorderCategories,
     deleteCategory,
 
     banners,

@@ -77,30 +77,35 @@ export const INITIAL_CATEGORIES: Category[] = [
     name: 'Audio & Acoustics',
     slug: 'audio-acoustics',
     description: 'High-fidelity headphones, studio monitors, and lossless wireless earbuds.',
+    sortOrder: 1,
   },
   {
     id: 'cat-wearables',
     name: 'Smart Wearables',
     slug: 'smart-wearables',
     description: 'Precision biometric smartwatches, health trackers, and smart glasses.',
+    sortOrder: 2,
   },
   {
     id: 'cat-computing',
     name: 'Pro Computing',
     slug: 'pro-computing',
     description: 'Ultra-thin displays, ergonomic mechanical decks, and creator gear.',
+    sortOrder: 3,
   },
   {
     id: 'cat-smarthome',
     name: 'Ambient Living',
     slug: 'ambient-living',
     description: 'Smart ambient lighting, wireless desktop chargers, and minimal tech.',
+    sortOrder: 4,
   },
   {
     id: 'cat-optics',
     name: 'Optics & Capture',
     slug: 'optics-capture',
     description: 'Compact cinema lenses, mirrorless cameras, and stabilization gimbals.',
+    sortOrder: 5,
   },
 ];
 

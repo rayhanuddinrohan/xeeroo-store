@@ -115,7 +115,7 @@ export const ProductListing: React.FC = () => {
     if (selectedCategory !== 'all') {
       const exists = categoriesWithStock.some(c => c.id === selectedCategory);
       if (!exists) {
-        setSelectedCategory('all');
+        setSelectedCategory(categoriesWithStock[0]?.id || 'all');
       }
     }
   }, [selectedCategory, categoriesWithStock, setSelectedCategory]);

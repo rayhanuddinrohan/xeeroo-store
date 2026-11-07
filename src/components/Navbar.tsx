@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     if (selectedCategory === catId) return;
     setSelectedCategory(catId);
     if (viewMode !== 'store') {
-      navigateToStore();
+      navigateToStore(catId);
     }
     // Smoothly ensure the selected pill is in view without jumping the page layout
     e.currentTarget.scrollIntoView({

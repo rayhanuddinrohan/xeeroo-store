@@ -32,7 +32,8 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "slug": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "sortOrder": { "type": "number", "description": "Optional category display order rank (1, 2, 3...) to control sequence in navigation and default homepage" }
       },
       "required": ["name"]
     },

@@ -202,7 +202,7 @@ export const DashboardLayout: React.FC = () => {
 
           <button
             type="button"
-            onClick={navigateToStore}
+            onClick={() => navigateToStore()}
             className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-gray-700 hover:text-gray-950 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer active:scale-95"
             title="Return to XEEROO Storefront"
           >

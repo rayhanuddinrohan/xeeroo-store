@@ -719,6 +719,15 @@ export const fetchRelatedCategoryProducts = async (
 // ==========================================
 // 4. Categories CRUD & Firestore Persistence
 // ==========================================
+export const sortCategoriesByOrder = (cats: Category[]): Category[] => {
+  return [...cats].sort((a, b) => {
+    const orderA = typeof a.sortOrder === 'number' && !isNaN(a.sortOrder) ? a.sortOrder : Infinity;
+    const orderB = typeof b.sortOrder === 'number' && !isNaN(b.sortOrder) ? b.sortOrder : Infinity;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.name.localeCompare(b.name);
+  });
+};
+
 export const saveFirestoreCategory = async (category: Category): Promise<boolean> => {
   try {
     const catRef = doc(db, 'categories', category.id);
@@ -727,10 +736,22 @@ export const saveFirestoreCategory = async (category: Category): Promise<boolean
       name: category.name,
       slug: category.slug,
       description: category.description || '',
+      sortOrder: typeof category.sortOrder === 'number' && !isNaN(category.sortOrder) ? category.sortOrder : null,
     }, { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore save category error:', err);
+    return false;
+  }
+};
+
+export const deleteFirestoreCategory = async (categoryId: string): Promise<boolean> => {
+  try {
+    const catRef = doc(db, 'categories', categoryId);
+    await deleteDoc(catRef);
+    return true;
+  } catch (err) {
+    console.warn('Firestore delete category error:', err);
     return false;
   }
 };
@@ -748,10 +769,11 @@ export const fetchFirestoreCategories = async (): Promise<Category[]> => {
           name: data.name,
           slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           description: data.description || '',
+          sortOrder: typeof data.sortOrder === 'number' && !isNaN(data.sortOrder) ? data.sortOrder : undefined,
         });
       }
     });
-    return list;
+    return sortCategoriesByOrder(list);
   } catch (err) {
     console.warn('Firestore fetch categories error:', err);
     return [];
