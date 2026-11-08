@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Product } from '../../types';
 import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
+import { calculateDiscount } from '../../utils/pricing';
 import {
   X,
   Save,
@@ -25,6 +26,7 @@ import {
   Link,
   Loader2,
   Clipboard,
+  Percent,
 } from 'lucide-react';
 
 interface ProductFormModalProps {
@@ -79,6 +81,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
+  // Dual Price Fields: Selling Price (MRP/Regular) & Current Price (Active/Discounted)
+  const [sellingPrice, setSellingPrice] = useState<number | ''>('');
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
   const [price, setPrice] = useState<number>(0);
   const [stockQuantity, setStockQuantity] = useState(10);
   const [sku, setSku] = useState('');
@@ -88,6 +93,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [brand, setBrand] = useState('');
   const [priority, setPriority] = useState<number | ''>('');
   const [featuresText, setFeaturesText] = useState('');
+
+  // Auto-calculated percentage discount based on formula: Math.round(((Selling - Current) / Selling) * 100)
+  const discountInfo = useMemo(() => {
+    return calculateDiscount(
+      typeof sellingPrice === 'number' ? sellingPrice : undefined,
+      typeof currentPrice === 'number' ? currentPrice : price
+    );
+  }, [sellingPrice, currentPrice, price]);
 
   // Primary Thumbnail Image URL
   const [thumbnailUrl, setThumbnailUrl] = useState('');
@@ -135,8 +148,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setTitle(p.title);
         setSlug(p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `prod-${Date.now()}`);
       }
-      if (p.description) setDescription(p.description);
-      if (p.price) setPrice(p.price);
+      if (p.price) {
+        setPrice(p.price);
+        setCurrentPrice(p.price);
+      }
+      if ((p as any).originalPrice || (p as any).sellingPrice) {
+        setSellingPrice(Number((p as any).originalPrice || (p as any).sellingPrice));
+      }
       if (p.brand) setBrand(p.brand);
       if (p.sku) setSku(p.sku);
       if (Array.isArray(p.images) && p.images.length > 0) {
@@ -174,14 +192,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   useEffect(() => {
+    const validCats = categories.filter(c => c.id !== 'all');
+    const defaultCatId = validCats[0]?.id || 'cat-audio';
+
     if (productToEdit) {
       setTitle(productToEdit.title);
       setSlug(productToEdit.slug);
       setDescription(productToEdit.description);
-      setPrice(productToEdit.price);
+
+      const regPrice = (productToEdit.sellingPrice !== undefined && productToEdit.sellingPrice !== null)
+        ? Number(productToEdit.sellingPrice)
+        : ((productToEdit.originalPrice !== undefined && productToEdit.originalPrice !== null) ? Number(productToEdit.originalPrice) : '');
+      const activePrice = (productToEdit.currentPrice !== undefined && productToEdit.currentPrice !== null)
+        ? Number(productToEdit.currentPrice)
+        : Number(productToEdit.price);
+
+      setSellingPrice(regPrice);
+      setCurrentPrice(activePrice);
+      setPrice(activePrice);
+
       setStockQuantity(productToEdit.stockQuantity);
       setSku(productToEdit.sku || '');
-      setCategoryId(productToEdit.categoryId);
+      setCategoryId(productToEdit.categoryId && productToEdit.categoryId !== 'all' ? productToEdit.categoryId : defaultCatId);
       setIsPublished(productToEdit.isPublished);
       setBrand(productToEdit.brand || '');
       setPriority(
@@ -195,15 +227,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setThumbnailUrl(productImgs[0] || '');
       setGalleryUrls(productImgs.slice(1));
     } else {
-      // Clean, empty default values for new product - no headphone prefill
+      // Clean, empty default values for new product
       setTitle('');
       setSlug('');
       setDescription('');
+      setSellingPrice('');
+      setCurrentPrice(0);
       setPrice(0);
       setStockQuantity(10);
       setPriority('');
       setSku(`PRD-${Math.floor(1000 + Math.random() * 9000)}`);
-      setCategoryId(categories[0]?.id || '');
+      setCategoryId(defaultCatId);
       setIsPublished(true);
       setBrand('');
       setFeaturesText('');
@@ -320,8 +354,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!title.trim() || price <= 0) {
-      addToast('Please provide a valid product title and price.', 'error');
+    const activeCurrentPrice = Number(currentPrice) > 0 ? Number(currentPrice) : Number(price);
+    const regSellingPrice = (sellingPrice !== '' && Number(sellingPrice) > 0) ? Number(sellingPrice) : undefined;
+
+    if (!title.trim() || activeCurrentPrice <= 0) {
+      addToast('Please provide a valid product title and active selling price.', 'error');
       return;
     }
 
@@ -350,15 +387,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         ? undefined
         : Math.floor(Number(priority));
 
+    const finalCategoryId = categoryId && categoryId !== 'all'
+      ? categoryId
+      : (categories.find(c => c.id !== 'all')?.id || 'cat-audio');
+
     if (productToEdit) {
       const ok = updateProduct(productToEdit.id, {
         title: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
         description: description.trim(),
-        price: Number(price),
+        price: activeCurrentPrice,
+        sellingPrice: regSellingPrice,
+        currentPrice: activeCurrentPrice,
+        originalPrice: regSellingPrice,
         stockQuantity: Number(stockQuantity),
         sku: finalSku,
-        categoryId,
+        categoryId: finalCategoryId,
         images: allImages,
         isPublished,
         brand: brand.trim(),
@@ -376,10 +420,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         title: title.trim(),
         slug: slug.trim() || `prod-${Date.now()}`,
         description: description.trim(),
-        price: Number(price),
+        price: activeCurrentPrice,
+        sellingPrice: regSellingPrice,
+        currentPrice: activeCurrentPrice,
+        originalPrice: regSellingPrice,
         stockQuantity: Number(stockQuantity),
         sku: finalSku,
-        categoryId,
+        categoryId: finalCategoryId,
         images: allImages,
         isPublished,
         brand: brand.trim(),
@@ -530,7 +577,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   onChange={e => setCategoryId(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
                 >
-                  {categories.map(c => (
+                  {categories.filter(c => c.id !== 'all').map(c => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
@@ -595,20 +642,104 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
             </div>
 
-            {/* Price */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Unit Price (৳ BDT) *
-              </label>
-              <input
-                type="number"
-                step="1"
-                min="0"
-                required
-                value={price}
-                onChange={e => setPrice(Number(e.target.value))}
-                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
-              />
+            {/* Dual Price Fields: Selling Price (Regular/MRP) & Current Price (Discounted) */}
+            <div className="sm:col-span-2 p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-3 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <span>Pricing & Auto-Calculated Percentage Discount</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold">
+                      Dual Price Fields
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Original Selling Price (MRP) + Active Current Price. Percentage discount auto-calculates.
+                  </p>
+                </div>
+                {discountInfo.hasDiscount && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-600 text-white text-xs font-black shadow-2xs">
+                    <Percent className="w-3.5 h-3.5" />
+                    <span>-{discountInfo.discountPercent}% OFF</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* 1. Selling Price / Regular Price (Original/MRP) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-700">
+                      Selling Price / Regular Price (MRP ৳)
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-mono">Original / MRP</span>
+                  </div>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="e.g. 1500 (Regular/Original MRP)"
+                    value={sellingPrice}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setSellingPrice(val === '' ? '' : Math.max(0, Number(val)));
+                    }}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-700 bg-white"
+                  />
+                  <span className="text-[10px] text-gray-400 mt-1 block">
+                    Displayed strikethrough on product cards & details page
+                  </span>
+                </div>
+
+                {/* 2. Current Price / Discounted Price (Active selling price) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-gray-900">
+                      Current Price / Discounted Price (৳) *
+                    </label>
+                    <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-1.5 py-0.5 rounded">
+                      Customer Pays
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    required
+                    placeholder="e.g. 1200 (Active price)"
+                    value={currentPrice}
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setCurrentPrice(val);
+                      setPrice(val);
+                    }}
+                    className="w-full px-3 py-2 text-xs border border-blue-500 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-black text-blue-900 bg-blue-50/20"
+                  />
+                  <span className="text-[10px] text-blue-600 mt-1 block font-medium">
+                    Active price used in cart, direct checkout, and invoicing
+                  </span>
+                </div>
+              </div>
+
+              {/* Dynamic Auto-Calculated Discount Breakdown Banner */}
+              {discountInfo.hasDiscount ? (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-900 animate-in fade-in">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-black text-[11px]">
+                      -{discountInfo.discountPercent}%
+                    </span>
+                    <span>
+                      Customer saves <strong>৳{discountInfo.savingsAmount}</strong> ({discountInfo.discountPercent}% off regular price)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+                    Formula: Math.round((({discountInfo.sellingPrice} - {discountInfo.currentPrice}) / {discountInfo.sellingPrice}) * 100) = {discountInfo.discountPercent}%
+                  </span>
+                </div>
+              ) : sellingPrice && currentPrice && Number(currentPrice) >= Number(sellingPrice) ? (
+                <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                  Note: Current Price is not less than Selling Price. No discount badge will be displayed to customers.
+                </div>
+              ) : null}
             </div>
 
             {/* Stock Quantity */}

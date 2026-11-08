@@ -165,24 +165,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
     });
   }, [products, searchQuery, isStaff]);
 
-  // Compute stock counts for mobile categories
+  const totalInStockCount = useMemo(() => {
+    return products.filter(p => (isStaff || p.isPublished) && p.stockQuantity > 0).length;
+  }, [products, isStaff]);
+
+  // Compute stock counts for mobile & desktop category navigation
   const categoriesWithStock = useMemo(() => {
     return categories
       .map(cat => {
-        const inStockCount = products.filter(
-          p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
-        ).length;
+        const inStockCount = cat.id === 'all'
+          ? totalInStockCount
+          : products.filter(
+              p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
+            ).length;
         return {
           ...cat,
           inStockCount,
         };
       })
       .filter(cat => cat.inStockCount > 0);
-  }, [categories, products, isStaff]);
-
-  const totalInStockCount = useMemo(() => {
-    return products.filter(p => (isStaff || p.isPublished) && p.stockQuantity > 0).length;
-  }, [products, isStaff]);
+  }, [categories, products, isStaff, totalInStockCount]);
 
   const hasActiveFilters =
     selectedCategory !== 'all' ||
@@ -815,50 +817,36 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 className="w-full flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 touch-pan-x scroll-smooth overscroll-x-contain"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                <button
-                  type="button"
-                  onClick={(e) => handleCategoryClick('all', e)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
-                    selectedCategory === 'all'
-                      ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                  }`}
-                >
-                  <span>All Products</span>
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      selectedCategory === 'all'
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {totalInStockCount}
-                  </span>
-                </button>
+                {categoriesWithStock.map(cat => {
+                  const isAll = cat.id === 'all';
+                  const isSelected = selectedCategory === cat.id;
 
-                {categoriesWithStock.map(cat => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={(e) => handleCategoryClick(cat.id, e)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
-                      selectedCategory === cat.id
-                        ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                    }`}
-                  >
-                    <span>{cat.name}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                        selectedCategory === cat.id
-                          ? 'bg-blue-700 text-white'
-                          : 'bg-gray-200 text-gray-600'
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={(e) => handleCategoryClick(cat.id, e)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
                       }`}
+                      title={isAll ? 'Show all products across all categories and departments' : `Filter by ${cat.name}`}
                     >
-                      {cat.inStockCount}
-                    </span>
-                  </button>
-                ))}
+                      {isAll && <Layers className="w-3.5 h-3.5" />}
+                      <span>{cat.name}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isSelected
+                            ? 'bg-blue-700 text-white'
+                            : 'bg-gray-200 text-gray-600'
+                        }`}
+                      >
+                        {cat.inStockCount}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1181,7 +1169,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                           : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100 font-medium'
                       }`}
                     >
-                      <span>All Products</span>
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-3.5 h-3.5" />
+                        <span>All Categories</span>
+                      </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                         selectedCategory === 'all' ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-700'
                       }`}>

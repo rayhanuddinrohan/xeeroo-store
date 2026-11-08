@@ -872,7 +872,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [categories, setCategories] = useState<Category[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_CATEGORIES);
-      return saved ? sortCategoriesByOrder(JSON.parse(saved)) : sortCategoriesByOrder(INITIAL_CATEGORIES);
+      if (saved) {
+        const parsed: Category[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          if (!parsed.some(c => c.id === 'all')) {
+            parsed.unshift({
+              id: 'all',
+              name: 'All Categories',
+              slug: 'all',
+              description: 'Complete store catalog featuring all product departments and collections.',
+              sortOrder: 1,
+            });
+          }
+          return sortCategoriesByOrder(parsed);
+        }
+      }
+      return sortCategoriesByOrder(INITIAL_CATEGORIES);
     } catch {
       return sortCategoriesByOrder(INITIAL_CATEGORIES);
     }
@@ -1043,11 +1058,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const categoryId = typeof categoryIdOrEvent === 'string' ? categoryIdOrEvent : undefined;
     if (categoryId) {
       setSelectedCategory(categoryId);
-    } else if (!selectedCategory || selectedCategory === 'all') {
-      const topCatId = categories[0]?.id;
-      if (topCatId) {
-        setSelectedCategory(topCatId);
-      }
+    } else if (!selectedCategory) {
+      const topCatId = categories[0]?.id || 'all';
+      setSelectedCategory(topCatId);
     }
   };
 
@@ -2628,6 +2641,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteCategory = (id: string): boolean => {
     if (!canManageCategories) {
       addToast('Access Denied: Only Admin and Staff can delete categories.', 'error');
+      return false;
+    }
+
+    if (id === 'all') {
+      addToast('Core System Department: "All Categories" cannot be deleted. You can reorder its priority sequence or edit its name.', 'warning');
       return false;
     }
 

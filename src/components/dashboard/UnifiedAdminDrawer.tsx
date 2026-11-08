@@ -32,6 +32,7 @@ import {
   Sparkles,
   ExternalLink,
   Crown,
+  ChevronDown,
 } from 'lucide-react';
 
 export const UnifiedAdminDrawer: React.FC = () => {
@@ -46,6 +47,8 @@ export const UnifiedAdminDrawer: React.FC = () => {
     products,
     banners,
     categories,
+    selectedCategory,
+    setSelectedCategory,
     navigateToStore,
     openLoginModal,
     switchUserRole,
@@ -54,6 +57,7 @@ export const UnifiedAdminDrawer: React.FC = () => {
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [isCategoryListExpanded, setIsCategoryListExpanded] = useState(true);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -105,6 +109,11 @@ export const UnifiedAdminDrawer: React.FC = () => {
   const isCustomer = currentUser?.role === 'customer';
   const isModerator = currentUser?.role === 'moderator';
   const isAdmin = currentUser?.role === 'admin';
+  const isStaff = isModerator || isAdmin;
+
+  const totalInStockCount = products.filter(
+    p => (isStaff || p.isPublished) && p.stockQuantity > 0
+  ).length;
 
   return (
     <>
@@ -348,29 +357,102 @@ export const UnifiedAdminDrawer: React.FC = () => {
                 </span>
               </button>
 
-              {/* Categories & Departments */}
-              <button
-                type="button"
-                id="drawer-tab-btn-categories"
-                onClick={() => handleSelectTab('categories')}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all cursor-pointer text-xs ${
-                  dashboardTab === 'categories'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-md shadow-blue-500/20'
-                    : 'text-gray-700 hover:bg-white/70 hover:text-gray-900'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <FolderTree className="w-4 h-4" />
-                  <span>Categories & Departments</span>
+              {/* Categories & Departments with All Categories and direct departmental filter shortcuts */}
+              <div className="rounded-xl border border-gray-200/60 bg-white/50 backdrop-blur-xs overflow-hidden">
+                <div className="flex items-center justify-between p-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCategoryListExpanded(prev => !prev)}
+                    className="flex-1 flex items-center gap-2 text-left cursor-pointer"
+                  >
+                    <FolderTree className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span className="text-xs font-bold text-gray-800">Category Departments</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isCategoryListExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Admin link to manage categories */}
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('categories')}
+                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200/60 transition-colors cursor-pointer"
+                    title="Manage & Reorder Categories in Admin"
+                  >
+                    Manage
+                  </button>
                 </div>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                    dashboardTab === 'categories' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {categories.length}
-                </span>
-              </button>
+
+                {/* Expanded Department List including "All Categories" */}
+                {isCategoryListExpanded && (
+                  <div className="px-2 pb-2 space-y-1 border-t border-gray-100/80 pt-1.5">
+                    {/* All Categories Option */}
+                    <button
+                      type="button"
+                      id="drawer-cat-btn-all"
+                      onClick={() => {
+                        setSelectedCategory('all');
+                        navigateToStore('all');
+                        closeAdminDrawer();
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                        selectedCategory === 'all'
+                          ? 'bg-blue-600 text-white font-bold shadow-xs'
+                          : 'text-gray-700 hover:bg-white/80 hover:text-gray-950 font-medium'
+                      }`}
+                      title="Show all products across all categories and departments"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Layers className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">All Categories</span>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                        selectedCategory === 'all' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {totalInStockCount}
+                      </span>
+                    </button>
+
+                    {/* Individual Categories in Exact Sort Order */}
+                    {categories.map((cat, index) => {
+                      const count = products.filter(
+                        p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
+                      ).length;
+                      const isSelected = selectedCategory === cat.id;
+
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          id={`drawer-cat-btn-${cat.id}`}
+                          onClick={() => {
+                            setSelectedCategory(cat.id);
+                            navigateToStore(cat.id);
+                            closeAdminDrawer();
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-blue-600 text-white font-bold shadow-xs'
+                              : 'text-gray-700 hover:bg-white/80 hover:text-gray-950 font-medium'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`text-[9px] font-mono px-1 py-0.2 rounded font-bold ${
+                              isSelected ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200/50'
+                            }`}>
+                              #{cat.sortOrder ?? index + 1}
+                            </span>
+                            <span className="truncate">{cat.name}</span>
+                          </div>
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono shrink-0 ${
+                            isSelected ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {/* Desktop Banners */}
               <button

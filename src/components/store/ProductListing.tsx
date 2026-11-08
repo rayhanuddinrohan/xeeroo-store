@@ -7,7 +7,7 @@ import React, { useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { ProductCard } from './ProductCard';
 import { formatBDT } from '../../utils/currency';
-import { SlidersHorizontal, ArrowUpDown, Filter, RotateCcw, AlertTriangle } from 'lucide-react';
+import { SlidersHorizontal, ArrowUpDown, Filter, RotateCcw, AlertTriangle, Layers } from 'lucide-react';
 
 export const ProductListing: React.FC = () => {
   const {
@@ -92,23 +92,26 @@ export const ProductListing: React.FC = () => {
   };
 
   // Only display categories in the category bar if they have products in stock
+  const totalInStockCount = useMemo(() => {
+    return products.filter(p => (isStaff || p.isPublished) && p.stockQuantity > 0).length;
+  }, [products, isStaff]);
+
+  // Only display categories in the category bar if they have products in stock
   const categoriesWithStock = useMemo(() => {
     return categories
       .map(cat => {
-        const inStockCount = products.filter(
-          p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
-        ).length;
+        const inStockCount = cat.id === 'all'
+          ? totalInStockCount
+          : products.filter(
+              p => p.categoryId === cat.id && (isStaff || p.isPublished) && p.stockQuantity > 0
+            ).length;
         return {
           ...cat,
           inStockCount,
         };
       })
       .filter(cat => cat.inStockCount > 0);
-  }, [categories, products, isStaff]);
-
-  const totalInStockCount = useMemo(() => {
-    return products.filter(p => (isStaff || p.isPublished) && p.stockQuantity > 0).length;
-  }, [products, isStaff]);
+  }, [categories, products, isStaff, totalInStockCount]);
 
   // If currently selected category has 0 in-stock products, automatically reset to 'all'
   useEffect(() => {
@@ -149,55 +152,39 @@ export const ProductListing: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Categories Tab Pill Strip - Horizontally scrollable with lively animation */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none py-1 touch-pan-x">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                handleSelectCategory('all');
-              }}
-              className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
-                selectedCategory === 'all'
-                  ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-              }`}
-            >
-              <span>All Products</span>
-              <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-colors ${
-                  selectedCategory === 'all'
-                    ? 'bg-blue-700 text-white'
-                    : 'bg-gray-200 text-gray-600'
-                }`}
-              >
-                {totalInStockCount}
-              </span>
-            </button>
-            {categoriesWithStock.map(cat => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSelectCategory(cat.id);
-                }}
-                className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
-                  selectedCategory === cat.id
-                    ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-                }`}
-              >
-                <span>{cat.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-colors ${
-                    selectedCategory === cat.id
-                      ? 'bg-blue-700 text-white'
-                      : 'bg-gray-200 text-gray-600'
+            {categoriesWithStock.map(cat => {
+              const isAll = cat.id === 'all';
+              const isSelected = selectedCategory === cat.id;
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleSelectCategory(cat.id);
+                  }}
+                  className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shrink-0 transition-colors duration-150 cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-500/30'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
                   }`}
+                  title={isAll ? 'Show all products across all categories and departments' : `Filter by ${cat.name}`}
                 >
-                  {cat.inStockCount}
-                </span>
-              </button>
-            ))}
+                  {isAll && <Layers className="w-3.5 h-3.5" />}
+                  <span>{cat.name}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono transition-colors ${
+                      isSelected
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {cat.inStockCount}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Sort & Quick In-Stock Toggle */}

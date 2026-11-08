@@ -225,7 +225,10 @@ export const CategoryManagementTab: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {categories.map((cat, index) => {
-                const count = products.filter(p => p.categoryId === cat.id).length;
+                const isCoreCategory = cat.id === 'all';
+                const count = isCoreCategory
+                  ? products.length
+                  : products.filter(p => p.categoryId === cat.id).length;
                 const isEditing = editingId === cat.id;
                 const isTopPriority = index === 0;
 
@@ -235,6 +238,8 @@ export const CategoryManagementTab: React.FC = () => {
                     className={`transition-colors ${
                       isTopPriority
                         ? 'bg-blue-50/30 hover:bg-blue-50/50'
+                        : isCoreCategory
+                        ? 'bg-indigo-50/20 hover:bg-indigo-50/40'
                         : 'hover:bg-gray-50/60'
                     }`}
                   >
@@ -284,6 +289,11 @@ export const CategoryManagementTab: React.FC = () => {
                       ) : (
                         <div className="flex items-center gap-2">
                           <span className="text-gray-900 font-bold">{cat.name}</span>
+                          {isCoreCategory && (
+                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Storewide Catalog
+                            </span>
+                          )}
                         </div>
                       )}
                     </td>
@@ -293,8 +303,14 @@ export const CategoryManagementTab: React.FC = () => {
 
                     {/* Products Assigned */}
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-gray-100 text-gray-800">
-                        {count} items
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold ${
+                          isCoreCategory
+                            ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {count} items {isCoreCategory ? '(All Store)' : ''}
                       </span>
                     </td>
 
@@ -373,15 +389,24 @@ export const CategoryManagementTab: React.FC = () => {
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
 
-                          {/* Delete button */}
-                          <button
-                            type="button"
-                            onClick={() => deleteCategory(cat.id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                            title="Delete category"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Delete button or Lock icon for Core Storewide category */}
+                          {isCoreCategory ? (
+                            <span
+                              className="p-1.5 rounded-lg text-gray-400 cursor-not-allowed"
+                              title="Core System Department - Protected from deletion"
+                            >
+                              <Lock className="w-3.5 h-3.5 text-gray-400" />
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => deleteCategory(cat.id)}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Delete category"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

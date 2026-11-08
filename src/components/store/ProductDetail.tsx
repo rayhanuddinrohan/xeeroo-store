@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
+import { calculateDiscount } from '../../utils/pricing';
 import { XEEROO_CONTACT } from '../../data/mockData';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { UserAvatar } from '../common/UserAvatar';
@@ -212,6 +213,14 @@ export const ProductDetail: React.FC = () => {
   const isOutOfStock = product.stockQuantity <= 0;
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+
+  // Auto-calculated discount percentage and total savings amount
+  const discount = useMemo(() => {
+    return calculateDiscount(
+      product.sellingPrice !== undefined && product.sellingPrice !== null ? product.sellingPrice : product.originalPrice,
+      product.price
+    );
+  }, [product.sellingPrice, product.originalPrice, product.price]);
 
   // Related products dynamically from the exact same category (excluding current product), with priority items first
   const relatedProducts = useMemo(() => {
@@ -457,25 +466,46 @@ My Delivery Address:`
                 </button>
               </div>
 
-              {/* Price & Stock status */}
-              <div className="flex items-baseline gap-4 mb-6 pb-6 border-b border-gray-100">
-                <span className="text-3xl font-extrabold text-gray-900 font-mono">
-                  {formatBDT(product.price)}
-                </span>
+              {/* Price & Stock status with Dual Pricing and Percentage Discount */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-gray-100">
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <span className="text-3xl sm:text-4xl font-extrabold text-gray-900 font-mono tracking-tight">
+                      {formatBDT(product.price)}
+                    </span>
+                    {discount.hasDiscount && (
+                      <>
+                        <span className="text-base sm:text-lg text-gray-400 line-through font-mono">
+                          {formatBDT(discount.sellingPrice)}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white shadow-2xs">
+                          -{discount.discountPercent}% OFF
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {discount.hasDiscount && (
+                    <p className="text-xs font-bold text-emerald-700 flex items-center gap-1.5">
+                      <span>🎉 Special Offer: You save</span>
+                      <span className="font-mono underline">{formatBDT(discount.savingsAmount)}</span>
+                      <span>({discount.discountPercent}% off regular price)</span>
+                    </p>
+                  )}
+                </div>
 
                 <div>
                   {isOutOfStock ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
                       <span className="w-2 h-2 rounded-full bg-gray-400"></span>
                       Currently Out of Stock (0 pcs)
                     </span>
                   ) : isLowStock ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
                       <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
                       Low Inventory: Only {product.stockQuantity} pcs remaining
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                       <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                       In Stock ({product.stockQuantity} pcs available)
                     </span>

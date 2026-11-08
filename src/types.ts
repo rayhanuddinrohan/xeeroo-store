@@ -111,7 +111,10 @@ export interface Product {
   name?: string;
   slug: string;
   description: string;
-  price: number;
+  price: number; // Current / active selling price
+  sellingPrice?: number; // Regular / Original MRP price before discount
+  currentPrice?: number; // Current / discounted price
+  originalPrice?: number; // Alias for sellingPrice/regularPrice
   priority?: number;
   suggestedPrice?: number;
   stockQuantity: number;

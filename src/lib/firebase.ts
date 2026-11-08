@@ -438,6 +438,15 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       slug: product.slug,
       description: product.description || '',
       price: Number(product.price),
+      sellingPrice: (product.sellingPrice !== undefined && product.sellingPrice !== null)
+        ? Number(product.sellingPrice)
+        : ((product.originalPrice !== undefined && product.originalPrice !== null) ? Number(product.originalPrice) : undefined),
+      currentPrice: (product.currentPrice !== undefined && product.currentPrice !== null)
+        ? Number(product.currentPrice)
+        : Number(product.price),
+      originalPrice: (product.sellingPrice !== undefined && product.sellingPrice !== null)
+        ? Number(product.sellingPrice)
+        : ((product.originalPrice !== undefined && product.originalPrice !== null) ? Number(product.originalPrice) : undefined),
       stockQuantity: Number(product.stockQuantity),
       soldCount: Number(product.soldCount) || 0,
       sku: product.sku || '',
@@ -546,13 +555,23 @@ export const subscribeToFirestoreProducts = (
             ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
             : 0;
 
+          const sellingPrice = (data.sellingPrice !== undefined && data.sellingPrice !== null)
+            ? Number(data.sellingPrice)
+            : ((data.originalPrice !== undefined && data.originalPrice !== null) ? Number(data.originalPrice) : undefined);
+          const currentPrice = (data.currentPrice !== undefined && data.currentPrice !== null)
+            ? Number(data.currentPrice)
+            : (Number(data.price) || 0);
+
           list.push({
             id: data.id || docSnap.id,
             title: prodTitle,
             name: String(data.name || prodTitle),
             slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
             description: data.description || '',
-            price: Number(data.price) || 0,
+            price: currentPrice,
+            sellingPrice,
+            currentPrice,
+            originalPrice: sellingPrice,
             stockQuantity: Number(data.stockQuantity) || 0,
             soldCount: Number(data.soldCount) || 0,
             sku: data.sku || '',
@@ -624,13 +643,23 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
           : 0;
 
+        const sellingPrice = (data.sellingPrice !== undefined && data.sellingPrice !== null)
+          ? Number(data.sellingPrice)
+          : ((data.originalPrice !== undefined && data.originalPrice !== null) ? Number(data.originalPrice) : undefined);
+        const currentPrice = (data.currentPrice !== undefined && data.currentPrice !== null)
+          ? Number(data.currentPrice)
+          : (Number(data.price) || 0);
+
         list.push({
           id: data.id || docSnap.id,
           title: prodTitle,
           name: String(data.name || prodTitle),
           slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           description: data.description || '',
-          price: Number(data.price) || 0,
+          price: currentPrice,
+          sellingPrice,
+          currentPrice,
+          originalPrice: sellingPrice,
           stockQuantity: Number(data.stockQuantity) || 0,
           soldCount: Number(data.soldCount) || 0,
           sku: data.sku || '',
@@ -686,13 +715,23 @@ export const fetchRelatedCategoryProducts = async (
           ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
           : 0;
 
+        const sellingPrice = (data.sellingPrice !== undefined && data.sellingPrice !== null)
+          ? Number(data.sellingPrice)
+          : ((data.originalPrice !== undefined && data.originalPrice !== null) ? Number(data.originalPrice) : undefined);
+        const currentPrice = (data.currentPrice !== undefined && data.currentPrice !== null)
+          ? Number(data.currentPrice)
+          : (Number(data.price) || 0);
+
         list.push({
           id: pid,
           title: String(data.title || data.name || 'Product'),
           name: String(data.name || data.title || 'Product'),
           slug: data.slug || String(data.title || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
           description: data.description || '',
-          price: Number(data.price) || 0,
+          price: currentPrice,
+          sellingPrice,
+          currentPrice,
+          originalPrice: sellingPrice,
           stockQuantity: Number(data.stockQuantity) || 0,
           soldCount: Number(data.soldCount) || 0,
           sku: data.sku || '',
@@ -773,6 +812,15 @@ export const fetchFirestoreCategories = async (): Promise<Category[]> => {
         });
       }
     });
+    if (list.length > 0 && !list.some(c => c.id === 'all')) {
+      list.push({
+        id: 'all',
+        name: 'All Categories',
+        slug: 'all',
+        description: 'Complete store catalog featuring all product departments and collections.',
+        sortOrder: 1,
+      });
+    }
     return sortCategoriesByOrder(list);
   } catch (err) {
     console.warn('Firestore fetch categories error:', err);
@@ -962,6 +1010,7 @@ export const syncAllDataToFirestore = async (
         name: cat.name,
         slug: cat.slug,
         description: cat.description || '',
+        sortOrder: typeof cat.sortOrder === 'number' && !isNaN(cat.sortOrder) ? cat.sortOrder : null,
       }, { merge: true });
     }
 
@@ -975,6 +1024,16 @@ export const syncAllDataToFirestore = async (
         slug: prod.slug,
         description: prod.description || '',
         price: Number(prod.price),
+        sellingPrice: (prod.sellingPrice !== undefined && prod.sellingPrice !== null)
+          ? Number(prod.sellingPrice)
+          : ((prod.originalPrice !== undefined && prod.originalPrice !== null) ? Number(prod.originalPrice) : undefined),
+        currentPrice: (prod.currentPrice !== undefined && prod.currentPrice !== null)
+          ? Number(prod.currentPrice)
+          : Number(prod.price),
+        originalPrice: (prod.sellingPrice !== undefined && prod.sellingPrice !== null)
+          ? Number(prod.sellingPrice)
+          : ((prod.originalPrice !== undefined && prod.originalPrice !== null) ? Number(prod.originalPrice) : undefined),
+        priority: (prod.priority !== undefined && prod.priority !== null && Number(prod.priority) > 0) ? Number(prod.priority) : null,
         stockQuantity: Number(prod.stockQuantity),
         sku: prod.sku || '',
         categoryId: prod.categoryId || '',

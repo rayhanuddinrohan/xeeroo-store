@@ -20,7 +20,9 @@
         "rating": { "type": "number" },
         "reviewsCount": { "type": "number" },
         "brand": { "type": "string" },
-        "priority": { "type": "number", "description": "Optional rank priority (1, 2, 3...) to pin product at top" }
+        "priority": { "type": "number", "description": "Optional rank priority (1, 2, 3...) to pin product at top" },
+        "sellingPrice": { "type": "number", "description": "Original/Regular MRP selling price before discount" },
+        "currentPrice": { "type": "number", "description": "Current active selling price after discount" }
       },
       "required": ["title", "price"]
     },

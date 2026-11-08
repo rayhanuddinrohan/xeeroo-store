@@ -533,7 +533,7 @@ export const ProductManagementTab: React.FC = () => {
             onChange={e => setSelectedCat(e.target.value)}
             className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none shrink-0"
           >
-            <option value="all">All Departments</option>
+            <option value="all">All Departments / All Categories</option>
             {categories.map(c => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -689,9 +689,21 @@ export const ProductManagementTab: React.FC = () => {
                         />
                       </td>
 
-                      {/* Price */}
-                      <td className="py-3 px-4 font-bold text-gray-900 font-mono">
-                        {formatBDT(product.price)}
+                      {/* Dual Price Column */}
+                      <td className="py-3 px-4 font-mono">
+                        <div className="font-bold text-gray-900">
+                          {formatBDT(product.price)}
+                        </div>
+                        {((product.sellingPrice && product.sellingPrice > product.price) || (product.originalPrice && product.originalPrice > product.price)) && (
+                          <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
+                            <span className="text-gray-400 line-through">
+                              {formatBDT(product.sellingPrice || product.originalPrice || 0)}
+                            </span>
+                            <span className="font-bold text-rose-600 bg-rose-50 px-1 rounded">
+                              -{Math.round((((product.sellingPrice || product.originalPrice || 0) - product.price) / (product.sellingPrice || product.originalPrice || 1)) * 100)}%
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Stock Level with inline quick adjustments */}

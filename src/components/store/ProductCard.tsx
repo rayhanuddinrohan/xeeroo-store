@@ -7,6 +7,7 @@ import React from 'react';
 import { Product } from '../../types';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
+import { calculateDiscount } from '../../utils/pricing';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, Package, Image as ImageIcon, Flame } from 'lucide-react';
 
@@ -30,6 +31,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const isOutOfStock = product.stockQuantity <= 0;
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
+
+  // Auto-calculated discount info
+  const discount = calculateDiscount(
+    product.sellingPrice !== undefined && product.sellingPrice !== null ? product.sellingPrice : product.originalPrice,
+    product.price
+  );
 
   const productIdentifier = product.slug || product.id;
   const productPath = `/#/product/${encodeURIComponent(productIdentifier)}`;
@@ -139,6 +146,15 @@ My Delivery Address:`
           </div>
         )}
 
+        {/* Dynamic Auto-Calculated Discount Percentage Badge */}
+        {discount.hasDiscount && (
+          <div className="absolute top-2.5 right-2.5 z-10">
+            <span className="px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-black bg-rose-600 text-white shadow-md uppercase tracking-tight">
+              -{discount.discountPercent}%
+            </span>
+          </div>
+        )}
+
         {/* Staff Quick Edit Overlay Button */}
         {isStaff && (
           <button
@@ -226,11 +242,18 @@ My Delivery Address:`
         </div>
 
         <div className="pt-2 sm:pt-3 border-t border-gray-100 flex items-center justify-between gap-1 sm:gap-2 mt-auto">
-          <div>
+          <div className="min-w-0">
             <span className="text-[10px] sm:text-xs text-gray-400 block font-medium">Price</span>
-            <span className="text-sm sm:text-lg font-bold text-gray-900 font-mono">
-              {formatBDT(product.price)}
-            </span>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-sm sm:text-base lg:text-lg font-black text-gray-900 font-mono">
+                {formatBDT(product.price)}
+              </span>
+              {discount.hasDiscount && (
+                <span className="text-[10px] sm:text-xs text-gray-400 line-through font-mono">
+                  {formatBDT(discount.sellingPrice)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1 sm:gap-1.5">
