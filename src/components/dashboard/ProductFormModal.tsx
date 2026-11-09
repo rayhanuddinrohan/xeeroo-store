@@ -27,6 +27,7 @@ import {
   Loader2,
   Clipboard,
   Percent,
+  Palette,
 } from 'lucide-react';
 
 interface ProductFormModalProps {
@@ -71,6 +72,22 @@ const TECH_IMAGE_PRESETS = [
   },
 ];
 
+const POPULAR_COLORS = [
+  { name: 'Black', hex: '#111827' },
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Space Gray', hex: '#4B5563' },
+  { name: 'Silver', hex: '#E5E7EB' },
+  { name: 'Red', hex: '#EF4444' },
+  { name: 'Navy Blue', hex: '#1E3A8A' },
+  { name: 'Blue', hex: '#3B82F6' },
+  { name: 'Green', hex: '#10B981' },
+  { name: 'Gold', hex: '#D97706' },
+  { name: 'Rose Gold', hex: '#FB7185' },
+  { name: 'Midnight', hex: '#0F172A' },
+];
+
+const POPULAR_SIZES = ['Free Size', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Standard', 'One Size'];
+
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   isOpen,
   onClose,
@@ -93,6 +110,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [brand, setBrand] = useState('');
   const [priority, setPriority] = useState<number | ''>('');
   const [featuresText, setFeaturesText] = useState('');
+
+  // Multi-Color State
+  const [colors, setColors] = useState<{ name: string; hex?: string }[]>([]);
+  const [newColorName, setNewColorName] = useState('');
+  const [newColorHex, setNewColorHex] = useState('#111827');
+
+  // Multi-Size State
+  const [sizes, setSizes] = useState<string[]>([]);
+  const [newSizeName, setNewSizeName] = useState('');
 
   // Auto-calculated percentage discount based on formula: Math.round(((Selling - Current) / Selling) * 100)
   const discountInfo = useMemo(() => {
@@ -226,6 +252,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const productImgs = productToEdit.images || [];
       setThumbnailUrl(productImgs[0] || '');
       setGalleryUrls(productImgs.slice(1));
+
+      // Parse colors
+      if (productToEdit.colors && Array.isArray(productToEdit.colors)) {
+        const parsedColors = productToEdit.colors.map(c =>
+          typeof c === 'string' ? { name: c, hex: '#111827' } : { name: c.name, hex: c.hex || '#111827' }
+        );
+        setColors(parsedColors);
+      } else {
+        setColors([]);
+      }
+
+      // Parse sizes
+      if (productToEdit.sizes && Array.isArray(productToEdit.sizes)) {
+        setSizes([...productToEdit.sizes]);
+      } else {
+        setSizes([]);
+      }
     } else {
       // Clean, empty default values for new product
       setTitle('');
@@ -243,6 +286,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setFeaturesText('');
       setThumbnailUrl('');
       setGalleryUrls([]);
+      setColors([]);
+      setSizes([]);
     }
     setNewGalleryInput('');
     setBulkUrlsInput('');
@@ -349,6 +394,61 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   };
 
+  // Color handlers
+  const handleAddColor = (name?: string, hex?: string) => {
+    const colorName = (name !== undefined ? name : newColorName).trim();
+    const colorHex = hex || newColorHex || '#111827';
+    if (!colorName) {
+      addToast('Please enter a color name', 'error');
+      return;
+    }
+    if (colors.some(c => c.name.toLowerCase() === colorName.toLowerCase())) {
+      addToast(`Color "${colorName}" is already added`, 'info');
+      return;
+    }
+    setColors(prev => [...prev, { name: colorName, hex: colorHex }]);
+    setNewColorName('');
+  };
+
+  const handleToggleColorPreset = (preset: { name: string; hex: string }) => {
+    if (colors.some(c => c.name.toLowerCase() === preset.name.toLowerCase())) {
+      setColors(prev => prev.filter(c => c.name.toLowerCase() !== preset.name.toLowerCase()));
+    } else {
+      setColors(prev => [...prev, preset]);
+    }
+  };
+
+  const handleRemoveColor = (index: number) => {
+    setColors(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Size handlers
+  const handleAddSize = (sizeVal?: string) => {
+    const sizeName = (sizeVal !== undefined ? sizeVal : newSizeName).trim();
+    if (!sizeName) {
+      addToast('Please enter a size (e.g. M, L, XL)', 'error');
+      return;
+    }
+    if (sizes.some(s => s.toLowerCase() === sizeName.toLowerCase())) {
+      addToast(`Size "${sizeName}" is already added`, 'info');
+      return;
+    }
+    setSizes(prev => [...prev, sizeName]);
+    setNewSizeName('');
+  };
+
+  const handleToggleSizePreset = (presetSize: string) => {
+    if (sizes.some(s => s.toLowerCase() === presetSize.toLowerCase())) {
+      setSizes(prev => prev.filter(s => s.toLowerCase() !== presetSize.toLowerCase()));
+    } else {
+      setSizes(prev => [...prev, presetSize]);
+    }
+  };
+
+  const handleRemoveSize = (index: number) => {
+    setSizes(prev => prev.filter((_, i) => i !== index));
+  };
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -404,6 +504,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         sku: finalSku,
         categoryId: finalCategoryId,
         images: allImages,
+        colors: colors.length > 0 ? colors : [],
+        sizes: sizes.length > 0 ? sizes : [],
         isPublished,
         brand: brand.trim(),
         features,
@@ -428,6 +530,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         sku: finalSku,
         categoryId: finalCategoryId,
         images: allImages,
+        colors: colors.length > 0 ? colors : [],
+        sizes: sizes.length > 0 ? sizes : [],
         isPublished,
         brand: brand.trim(),
         priority: priorityNum,
@@ -1108,6 +1212,250 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* ========================================================= */}
+          {/* PRODUCT VARIANTS: MULTI-COLOR & MULTI-SIZE OPTIONS */}
+          {/* ========================================================= */}
+          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+              <div className="flex items-center gap-2">
+                <Palette className="w-4 h-4 text-purple-600" />
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wide">
+                  Product Variants (Colors & Sizes)
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700">
+                  {colors.length} {colors.length === 1 ? 'Color' : 'Colors'} • {sizes.length} {sizes.length === 1 ? 'Size' : 'Sizes'}
+                </span>
+              </div>
+              <span className="text-[11px] text-gray-500">
+                1st color and size are auto-selected on product page
+              </span>
+            </div>
+
+            {/* Colors Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-800 flex items-center gap-2">
+                  <span>Color Options</span>
+                  {colors.length > 0 && (
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Default: {colors[0].name}
+                    </span>
+                  )}
+                </label>
+                <span className="text-[10px] text-gray-400">Click presets below or add custom</span>
+              </div>
+
+              {/* Popular Color Quick Presets */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] font-semibold text-gray-500 mr-1">Presets:</span>
+                {POPULAR_COLORS.map(preset => {
+                  const isSelected = colors.some(c => c.name.toLowerCase() === preset.name.toLowerCase());
+                  return (
+                    <button
+                      type="button"
+                      key={preset.name}
+                      onClick={() => handleToggleColorPreset(preset)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                        isSelected
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs ring-2 ring-purple-300'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span
+                        className="w-3 h-3 rounded-full border border-black/20 shrink-0"
+                        style={{ backgroundColor: preset.hex }}
+                      />
+                      <span>{preset.name}</span>
+                      {isSelected ? (
+                        <Check className="w-3 h-3 ml-0.5" />
+                      ) : (
+                        <Plus className="w-3 h-3 text-gray-400 ml-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Color Input */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="relative flex items-center">
+                    <input
+                      type="color"
+                      value={newColorHex}
+                      onChange={e => setNewColorHex(e.target.value)}
+                      className="w-9 h-9 p-0.5 rounded-lg border border-gray-300 cursor-pointer bg-white"
+                      title="Select Hex Color"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    value={newColorName}
+                    onChange={e => setNewColorName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddColor();
+                      }
+                    }}
+                    placeholder="Custom color name (e.g. Lavender, Rose Gold)"
+                    className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAddColor()}
+                  className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Color</span>
+                </button>
+              </div>
+
+              {/* Added Colors List */}
+              {colors.length > 0 && (
+                <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
+                  <div className="text-[11px] font-semibold text-gray-500">
+                    Configured Colors ({colors.length}):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {colors.map((c, index) => (
+                      <div
+                        key={`${c.name}-${index}`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-800"
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/20 shrink-0"
+                          style={{ backgroundColor: c.hex || '#111827' }}
+                        />
+                        <span>{c.name}</span>
+                        {index === 0 && (
+                          <span className="text-[9px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
+                            Default
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveColor(index)}
+                          className="text-gray-400 hover:text-red-500 transition-colors ml-1 cursor-pointer"
+                          title="Remove color"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <hr className="border-slate-200" />
+
+            {/* Sizes Section */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-gray-800 flex items-center gap-2">
+                  <span>Size Options</span>
+                  {sizes.length > 0 && (
+                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      Default: {sizes[0]}
+                    </span>
+                  )}
+                </label>
+                <span className="text-[10px] text-gray-400">Click presets below or add custom</span>
+              </div>
+
+              {/* Popular Size Quick Presets */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-[10px] font-semibold text-gray-500 mr-1">Presets:</span>
+                {POPULAR_SIZES.map(presetSize => {
+                  const isSelected = sizes.some(s => s.toLowerCase() === presetSize.toLowerCase());
+                  return (
+                    <button
+                      type="button"
+                      key={presetSize}
+                      onClick={() => handleToggleSizePreset(presetSize)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-300'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span>{presetSize}</span>
+                      {isSelected ? (
+                        <Check className="w-3 h-3 ml-0.5" />
+                      ) : (
+                        <Plus className="w-3 h-3 text-gray-400 ml-0.5" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Size Input */}
+              <div className="flex gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newSizeName}
+                  onChange={e => setNewSizeName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSize();
+                    }
+                  }}
+                  placeholder="Custom size (e.g. 42mm, 128GB, 40, XL, Free Size)"
+                  className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddSize()}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Size</span>
+                </button>
+              </div>
+
+              {/* Added Sizes List */}
+              {sizes.length > 0 && (
+                <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-2">
+                  <div className="text-[11px] font-semibold text-gray-500">
+                    Configured Sizes ({sizes.length}):
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {sizes.map((s, index) => (
+                      <div
+                        key={`${s}-${index}`}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-800"
+                      >
+                        <span>{s}</span>
+                        {index === 0 && (
+                          <span className="text-[9px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
+                            Default
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSize(index)}
+                          className="text-gray-400 hover:text-red-500 transition-colors ml-1 cursor-pointer"
+                          title="Remove size"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-purple-50/60 border border-purple-200 text-[11px] text-purple-900 flex items-center gap-2">
+              <span className="font-bold">✨ Storefront & Telegram Sync:</span>
+              <span>Customer selected color and size will be recorded in the order and sent via Telegram Bot notification.</span>
+            </div>
           </div>
 
           {/* Description & Features */}

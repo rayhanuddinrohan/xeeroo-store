@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   ShoppingBag,
   Star,
+  Check,
   CheckCircle,
   Truck,
   Shield,
@@ -72,6 +73,10 @@ export const ProductDetail: React.FC = () => {
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'specs' | 'reviews' | 'warranty'>('overview');
+
+  // Multi-Color & Multi-Size variant selection state
+  const [selectedColor, setSelectedColor] = useState<string>('');
+  const [selectedSize, setSelectedSize] = useState<string>('');
 
   // Interactive Product Review & Rating System State
   const [reviewRating, setReviewRating] = useState(5);
@@ -172,9 +177,26 @@ export const ProductDetail: React.FC = () => {
     }
   };
 
-  // Always scroll to top when opening or switching product detail
+  // Always scroll to top when opening or switching product detail, and auto-select default color and size
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    setSelectedQuantity(1);
+    setActiveImageIndex(0);
+
+    if (product) {
+      if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
+        const firstCol = product.colors[0];
+        setSelectedColor(typeof firstCol === 'string' ? firstCol : firstCol.name);
+      } else {
+        setSelectedColor('');
+      }
+
+      if (product.sizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+        setSelectedSize(product.sizes[0]);
+      } else {
+        setSelectedSize('');
+      }
+    }
   }, [product?.id]);
 
   if (!product) {
@@ -246,15 +268,31 @@ export const ProductDetail: React.FC = () => {
     });
   };
 
+  // Parsed color & size options
+  const productColors = useMemo(() => {
+    if (!product?.colors || !Array.isArray(product.colors)) return [];
+    return product.colors.map(c => {
+      if (typeof c === 'string') {
+        return { name: c, hex: '#111827' };
+      }
+      return { name: c.name, hex: c.hex || '#111827' };
+    });
+  }, [product?.colors]);
+
+  const productSizes = useMemo(() => {
+    if (!product?.sizes || !Array.isArray(product.sizes)) return [];
+    return product.sizes.filter(Boolean);
+  }, [product?.sizes]);
+
   const handleAddToCart = () => {
     if (!isOutOfStock) {
-      addToCart(product, selectedQuantity);
+      addToCart(product, selectedQuantity, selectedColor || undefined, selectedSize || undefined);
     }
   };
 
   const handleBuyNow = () => {
     if (!isOutOfStock) {
-      addToCart(product, selectedQuantity);
+      addToCart(product, selectedQuantity, selectedColor || undefined, selectedSize || undefined);
       openCheckoutModal();
     }
   };
@@ -277,10 +315,15 @@ export const ProductDetail: React.FC = () => {
       ? `${window.location.origin}${productPath}`
       : `https://xeeroo.com${productPath}`;
 
+  const variantMessageLines = [
+    selectedColor ? `🎨 Color: ${selectedColor}` : null,
+    selectedSize ? `📏 Size: ${selectedSize}` : null,
+  ].filter(Boolean).join('\n');
+
   const whatsappOrderUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
     `Hello! I would like to order this product:
 📦 Product: ${product.title}
-💰 Price: ${formatBDT(product.price * selectedQuantity)}
+${variantMessageLines ? `${variantMessageLines}\n` : ''}💰 Price: ${formatBDT(product.price * selectedQuantity)}
 🔢 Quantity: ${selectedQuantity}
 🔗 Link: ${productUrl}
 
@@ -531,6 +574,84 @@ My Delivery Address:`
               )}
             </div>
 
+            {/* Multi-Color & Multi-Size Options Selection */}
+            {(productColors.length > 0 || productSizes.length > 0) && (
+              <div className="mb-6 space-y-4 p-4 rounded-2xl bg-slate-50/90 border border-slate-200">
+                {/* Color Selection */}
+                {productColors.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gray-800">
+                        Color: <span className="text-purple-700 font-extrabold">{selectedColor || productColors[0].name}</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                        Auto-selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {productColors.map((c) => {
+                        const isChosen = (selectedColor || productColors[0].name).toLowerCase() === c.name.toLowerCase();
+                        return (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => setSelectedColor(c.name)}
+                            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              isChosen
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-sm ring-2 ring-purple-300 ring-offset-1 scale-[1.02]'
+                                : 'bg-white text-gray-800 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span
+                              className={`w-3.5 h-3.5 rounded-full border shrink-0 ${
+                                isChosen ? 'border-white/50 shadow-xs' : 'border-black/20'
+                              }`}
+                              style={{ backgroundColor: c.hex || '#111827' }}
+                            />
+                            <span>{c.name}</span>
+                            {isChosen && <Check className="w-3.5 h-3.5 ml-0.5" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Size Selection */}
+                {productSizes.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-gray-800">
+                        Size: <span className="text-blue-700 font-extrabold">{selectedSize || productSizes[0]}</span>
+                      </span>
+                      <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                        Auto-selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {productSizes.map((s) => {
+                        const isChosen = (selectedSize || productSizes[0]).toLowerCase() === s.toLowerCase();
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setSelectedSize(s)}
+                            className={`min-w-10 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                              isChosen
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm ring-2 ring-blue-300 ring-offset-1 scale-[1.02]'
+                                : 'bg-white text-gray-800 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span>{s}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Purchase & Quantity Actions (Online Order & WhatsApp) */}
             <div className="pt-6 border-t border-gray-100 space-y-3">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -598,7 +719,7 @@ My Delivery Address:`
                     target="_blank"
                     rel="noreferrer"
                     onClick={() => {
-                      addToCart(product, selectedQuantity);
+                      addToCart(product, selectedQuantity, selectedColor || undefined, selectedSize || undefined);
                     }}
                     className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs border border-[#25D366]/30 transition-all cursor-pointer"
                     title="Order via WhatsApp (also saves to your cart)"

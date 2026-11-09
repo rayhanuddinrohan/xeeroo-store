@@ -40,10 +40,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const cartItemsText = cart
-    .map(
-      (item, idx) =>
-        `${idx + 1}. ${item.product.title} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`
-    )
+    .map((item, idx) => {
+      const variantParts = [
+        item.selectedColor ? `Color: ${item.selectedColor}` : null,
+        item.selectedSize ? `Size: ${item.selectedSize}` : null,
+      ].filter(Boolean);
+      const variantSuffix = variantParts.length > 0 ? ` [${variantParts.join(' | ')}]` : '';
+      return `${idx + 1}. ${item.product.title}${variantSuffix} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`;
+    })
     .join('\n');
 
   const cartWhatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
@@ -110,13 +114,14 @@ My Delivery Address:`
                 </button>
               </div>
             ) : (
-              cart.map(({ product, quantity }) => {
+              cart.map(({ product, quantity, selectedColor, selectedSize }, idx) => {
                 const maxStock = product.stockQuantity;
                 const isMax = quantity >= maxStock;
+                const itemKey = `${product.id}-${selectedColor || 'none'}-${selectedSize || 'none'}-${idx}`;
 
                 return (
                   <div
-                    key={product.id}
+                    key={itemKey}
                     className="flex gap-3.5 p-3 rounded-xl border border-gray-100 bg-gray-50/50 hover:bg-gray-50 transition-colors"
                   >
                     {product.images && product.images[0] ? (
@@ -147,12 +152,31 @@ My Delivery Address:`
                           >
                             {product.title}
                           </h4>
-                          <span className="text-[11px] font-mono text-gray-400">
+
+                          {/* Selected Color & Size Badges */}
+                          {(selectedColor || selectedSize) && (
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                              {selectedColor && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded">
+                                  <span>Color:</span>
+                                  <span>{selectedColor}</span>
+                                </span>
+                              )}
+                              {selectedSize && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+                                  <span>Size:</span>
+                                  <span>{selectedSize}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          <span className="text-[11px] font-mono text-gray-400 block mt-0.5">
                             {formatBDT(product.price)} each
                           </span>
                         </div>
                         <button
-                          onClick={() => removeFromCart(product.id)}
+                          onClick={() => removeFromCart(product.id, selectedColor, selectedSize)}
                           className="text-gray-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
                           title="Remove item"
                         >
@@ -164,7 +188,7 @@ My Delivery Address:`
                         {/* Quantity Controls */}
                         <div className="flex items-center border border-gray-200 rounded-md bg-white">
                           <button
-                            onClick={() => updateCartQuantity(product.id, quantity - 1)}
+                            onClick={() => updateCartQuantity(product.id, quantity - 1, selectedColor, selectedSize)}
                             className="px-2 py-0.5 text-xs font-bold text-gray-600 hover:bg-gray-100 cursor-pointer"
                           >
                             -
@@ -173,7 +197,7 @@ My Delivery Address:`
                             {quantity}
                           </span>
                           <button
-                            onClick={() => updateCartQuantity(product.id, quantity + 1)}
+                            onClick={() => updateCartQuantity(product.id, quantity + 1, selectedColor, selectedSize)}
                             disabled={isMax}
                             className="px-2 py-0.5 text-xs font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-30 cursor-pointer"
                           >

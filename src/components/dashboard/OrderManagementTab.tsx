@@ -450,6 +450,20 @@ export const OrderManagementTab: React.FC = () => {
                                         <span className="font-semibold text-gray-800 block">
                                           {item.productTitle}
                                         </span>
+                                        {(item.selectedColor || item.selectedSize) && (
+                                          <div className="flex flex-wrap items-center gap-1.5 my-0.5">
+                                            {item.selectedColor && (
+                                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
+                                                Color: {item.selectedColor}
+                                              </span>
+                                            )}
+                                            {item.selectedSize && (
+                                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded">
+                                                Size: {item.selectedSize}
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
                                         <span className="text-[11px] text-gray-400 font-mono">
                                           Qty {item.quantity} × {formatBDT(item.unitPrice)}
                                         </span>

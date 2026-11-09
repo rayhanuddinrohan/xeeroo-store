@@ -124,10 +124,22 @@ export const formatOrderForTelegram = (order: Order, storeName: string = 'XEEROO
 
   const items = order.items || [];
   const itemsList = items
-    .map(
-      (item, idx) =>
-        `  ${idx + 1}. <b>${escapeHtml(item.productTitle)}</b>\n     ▫️ Qty: ${item.quantity} | Price: ${formatBDT(item.unitPrice)}`
-    )
+    .map((item, idx) => {
+      const variantParts: string[] = [];
+      if (item.selectedColor) {
+        variantParts.push(`Color: ${escapeHtml(item.selectedColor)}`);
+      }
+      if (item.selectedSize) {
+        variantParts.push(`Size: ${escapeHtml(item.selectedSize)}`);
+      }
+      const variantSuffix = variantParts.length > 0 ? ` | ${variantParts.join(' | ')}` : '';
+
+      return (
+        `  ${idx + 1}. <b>${escapeHtml(item.productTitle)}</b>${variantSuffix}\n` +
+        `     ▫️ Qty: ${item.quantity} | Price: ${formatBDT(item.unitPrice)}` +
+        (variantParts.length > 0 ? `\n     🎨 <b>Variant:</b> ${variantParts.join(' • ')}` : '')
+      );
+    })
     .join('\n');
 
   const paymentDesc =

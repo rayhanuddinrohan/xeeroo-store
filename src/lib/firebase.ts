@@ -464,6 +464,8 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       brand: product.brand || 'XEEROO',
       features: product.features || [],
     };
+    if (Array.isArray(product.colors)) cleanPayload.colors = product.colors;
+    if (Array.isArray(product.sizes)) cleanPayload.sizes = product.sizes;
     if (product.suggestedPrice !== undefined) cleanPayload.suggestedPrice = Number(product.suggestedPrice);
     if (product.inStock !== undefined) cleanPayload.inStock = Boolean(product.inStock);
     if (product.variants !== undefined) cleanPayload.variants = product.variants;
@@ -590,6 +592,8 @@ export const subscribeToFirestoreProducts = (
             suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
             inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
             variants: Array.isArray(data.variants) ? data.variants : undefined,
+            colors: Array.isArray(data.colors) ? data.colors : undefined,
+            sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
           });
         }
       });
@@ -678,6 +682,8 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
           inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
           variants: Array.isArray(data.variants) ? data.variants : undefined,
+          colors: Array.isArray(data.colors) ? data.colors : undefined,
+          sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
         });
       }
     });

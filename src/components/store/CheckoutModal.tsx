@@ -259,10 +259,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         modalAdvanceDiscount
       );
       const cartItemsText = cart
-        .map(
-          (item, idx) =>
-            `${idx + 1}. ${item.product.title} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`
-        )
+        .map((item, idx) => {
+          const variantParts = [
+            item.selectedColor ? `Color: ${item.selectedColor}` : null,
+            item.selectedSize ? `Size: ${item.selectedSize}` : null,
+          ].filter(Boolean);
+          const variantSuffix = variantParts.length > 0 ? ` [${variantParts.join(' | ')}]` : '';
+          return `${idx + 1}. ${item.product.title}${variantSuffix} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`;
+        })
         .join('\n');
 
       const gatewayName =
@@ -581,9 +585,9 @@ Please confirm and dispatch the order. Thank you!`;
                 </span>
               </div>
               <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                {cart.map(item => (
+                {cart.map((item, idx) => (
                   <div
-                    key={item.product.id}
+                    key={`${item.product.id}-${item.selectedColor || ''}-${item.selectedSize || ''}-${idx}`}
                     className="flex items-center justify-between gap-2 text-xs bg-white p-2 rounded-lg border border-gray-100"
                   >
                     {item.product.images && item.product.images[0] ? (
@@ -599,7 +603,21 @@ Please confirm and dispatch the order. Thank you!`;
                     )}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 truncate text-[11px]">{item.product.title}</p>
-                      <span className="text-[10px] text-gray-500">
+                      {(item.selectedColor || item.selectedSize) && (
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          {item.selectedColor && (
+                            <span className="text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1 py-0.2 rounded">
+                              Color: {item.selectedColor}
+                            </span>
+                          )}
+                          {item.selectedSize && (
+                            <span className="text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.2 rounded">
+                              Size: {item.selectedSize}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <span className="text-[10px] text-gray-500 block mt-0.5">
                         {formatBDT(item.product.price)} × {item.quantity}
                       </span>
                     </div>

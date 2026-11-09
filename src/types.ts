@@ -105,6 +105,11 @@ export interface FacebookConfig {
   updatedAt?: string;
 }
 
+export interface ProductColor {
+  name: string;
+  hex?: string;
+}
+
 export interface Product {
   id: string;
   title: string;
@@ -120,6 +125,8 @@ export interface Product {
   stockQuantity: number;
   inStock?: boolean;
   variants?: any[];
+  colors?: (string | ProductColor)[];
+  sizes?: string[];
   soldCount?: number;
   sku?: string;
   categoryId: string;
@@ -159,6 +166,8 @@ export interface OrderItem {
   productTitle: string;
   productImage: string;
   sku?: string;
+  selectedColor?: string;
+  selectedSize?: string;
 }
 
 export type PaymentMethod = 'advance' | 'cod' | 'bkash' | 'nagad' | 'rocket' | 'card' | 'paypal';
@@ -192,6 +201,8 @@ export interface Order {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selectedColor?: string;
+  selectedSize?: string;
 }
 
 export interface NotificationToast {

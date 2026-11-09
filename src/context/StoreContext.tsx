@@ -265,9 +265,9 @@ interface StoreContextType {
 
   // Cart & Checkout
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  updateCartQuantity: (productId: string, quantity: number) => void;
-  removeFromCart: (productId: string) => void;
+  addToCart: (product: Product, quantity?: number, selectedColor?: string, selectedSize?: string) => void;
+  updateCartQuantity: (productId: string, quantity: number, selectedColor?: string, selectedSize?: string) => void;
+  removeFromCart: (productId: string, selectedColor?: string, selectedSize?: string) => void;
   clearCart: () => void;
   cartTotalCount: number;
   cartSubtotal: number;
@@ -2656,37 +2656,81 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Cart operations
-  const addToCart = (product: Product, quantity: number = 1) => {
+  const addToCart = (
+    product: Product,
+    quantity: number = 1,
+    selectedColor?: string,
+    selectedSize?: string
+  ) => {
     if (product.stockQuantity <= 0) {
       addToast(`Sorry, "${product.title}" is currently out of stock.`, 'warning');
       return;
     }
 
+    // Determine default color and size if not explicitly provided
+    const chosenColor =
+      selectedColor ||
+      (product.colors && product.colors.length > 0
+        ? typeof product.colors[0] === 'string'
+          ? product.colors[0]
+          : (product.colors[0] as any)?.name
+        : undefined);
+
+    const chosenSize =
+      selectedSize ||
+      (product.sizes && product.sizes.length > 0 ? product.sizes[0] : undefined);
+
     setCart(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
+      const existingIndex = prev.findIndex(
+        item =>
+          item.product.id === product.id &&
+          (item.selectedColor || '') === (chosenColor || '') &&
+          (item.selectedSize || '') === (chosenSize || '')
+      );
+
+      if (existingIndex > -1) {
+        const existing = prev[existingIndex];
         const nextQty = existing.quantity + quantity;
         if (nextQty > product.stockQuantity) {
           addToast(`Maximum available stock reached (${product.stockQuantity} units)`, 'warning');
-          return prev.map(item =>
-            item.product.id === product.id ? { ...item, quantity: product.stockQuantity } : item
+          return prev.map((item, idx) =>
+            idx === existingIndex ? { ...item, quantity: product.stockQuantity } : item
           );
         }
         addToast(`Updated ${product.title} quantity to ${nextQty}`, 'success');
-        return prev.map(item =>
-          item.product.id === product.id ? { ...item, quantity: nextQty } : item
+        return prev.map((item, idx) =>
+          idx === existingIndex ? { ...item, quantity: nextQty } : item
         );
       } else {
         const initialQty = Math.min(quantity, product.stockQuantity);
-        addToast(`Added "${product.title}" to cart`, 'success');
-        return [...prev, { product, quantity: initialQty }];
+        const variantDesc = [chosenColor && `Color: ${chosenColor}`, chosenSize && `Size: ${chosenSize}`]
+          .filter(Boolean)
+          .join(', ');
+        addToast(
+          `Added "${product.title}"${variantDesc ? ` (${variantDesc})` : ''} to cart`,
+          'success'
+        );
+        return [
+          ...prev,
+          {
+            product,
+            quantity: initialQty,
+            selectedColor: chosenColor,
+            selectedSize: chosenSize,
+          },
+        ];
       }
     });
   };
 
-  const updateCartQuantity = (productId: string, quantity: number) => {
+  const updateCartQuantity = (
+    productId: string,
+    quantity: number,
+    selectedColor?: string,
+    selectedSize?: string
+  ) => {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, selectedColor, selectedSize);
       return;
     }
 
@@ -2695,14 +2739,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const safeQty = Math.min(quantity, product.stockQuantity);
     setCart(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, quantity: safeQty } : item
-      )
+      prev.map(item => {
+        const match =
+          item.product.id === productId &&
+          (selectedColor === undefined || (item.selectedColor || '') === selectedColor) &&
+          (selectedSize === undefined || (item.selectedSize || '') === selectedSize);
+        return match ? { ...item, quantity: safeQty } : item;
+      })
     );
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.product.id !== productId));
+  const removeFromCart = (
+    productId: string,
+    selectedColor?: string,
+    selectedSize?: string
+  ) => {
+    setCart(prev =>
+      prev.filter(item => {
+        const match =
+          item.product.id === productId &&
+          (selectedColor === undefined || (item.selectedColor || '') === selectedColor) &&
+          (selectedSize === undefined || (item.selectedSize || '') === selectedSize);
+        return !match;
+      })
+    );
     addToast('Item removed from cart', 'info');
   };
 
@@ -2832,17 +2892,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         productTitle: item.product.title,
         productImage: item.product.images[0] || '',
         sku: item.product.sku,
+        selectedColor: item.selectedColor,
+        selectedSize: item.selectedSize,
       })),
     };
 
     // Deduct stock locally and in Firestore database, and increment soldCount
     const updatedProductsList = products.map(p => {
-      const orderedItem = cart.find(ci => ci.product.id === p.id);
-      if (orderedItem) {
+      const orderedQty = cart
+        .filter(ci => ci.product.id === p.id)
+        .reduce((sum, ci) => sum + ci.quantity, 0);
+
+      if (orderedQty > 0) {
         const updatedProd = {
           ...p,
-          stockQuantity: Math.max(0, p.stockQuantity - orderedItem.quantity),
-          soldCount: (p.soldCount || 0) + orderedItem.quantity,
+          stockQuantity: Math.max(0, p.stockQuantity - orderedQty),
+          soldCount: (p.soldCount || 0) + orderedQty,
           updatedAt: new Date().toISOString(),
         };
         // Persist stock update in Firestore

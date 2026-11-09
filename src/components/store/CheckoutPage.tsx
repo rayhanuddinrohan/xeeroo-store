@@ -270,10 +270,14 @@ export const CheckoutPage: React.FC = () => {
     if (!validateForm()) return;
 
     const cartItemsText = cart
-      .map(
-        (item, idx) =>
-          `${idx + 1}. ${item.product.title} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`
-      )
+      .map((item, idx) => {
+        const variantParts = [
+          item.selectedColor ? `Color: ${item.selectedColor}` : null,
+          item.selectedSize ? `Size: ${item.selectedSize}` : null,
+        ].filter(Boolean);
+        const variantSuffix = variantParts.length > 0 ? ` [${variantParts.join(' | ')}]` : '';
+        return `${idx + 1}. ${item.product.title}${variantSuffix} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`;
+      })
       .join('\n');
 
     const gatewayName =
@@ -388,10 +392,16 @@ Please confirm and dispatch my order. Thank you!`;
             <div className="border-t border-slate-800 pt-3">
               <span className="text-xs text-slate-400 block mb-2 font-medium">Items Ordered:</span>
               <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                {orderSuccess.items.map(item => (
-                  <div key={item.id} className="flex items-center justify-between text-xs text-slate-300">
+                {orderSuccess.items.map((item, idx) => (
+                  <div key={item.id || idx} className="flex items-center justify-between text-xs text-slate-300">
                     <span className="truncate max-w-[70%]">
-                      • {item.productTitle} × {item.quantity}
+                      • {item.productTitle}
+                      {(item.selectedColor || item.selectedSize) && (
+                        <span className="text-slate-400 text-[10px] ml-1">
+                          ({[item.selectedColor && `Color: ${item.selectedColor}`, item.selectedSize && `Size: ${item.selectedSize}`].filter(Boolean).join(', ')})
+                        </span>
+                      )}
+                      {' '}× {item.quantity}
                     </span>
                     <span className="font-mono text-slate-400">
                       {formatBDT(item.unitPrice * item.quantity)}
@@ -1211,8 +1221,8 @@ Please confirm and dispatch my order. Thank you!`;
 
             {/* Cart Items List */}
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1 divide-y divide-gray-100">
-              {cart.map(item => (
-                <div key={item.product.id} className="pt-3 first:pt-0 flex items-center gap-3">
+              {cart.map((item, idx) => (
+                <div key={`${item.product.id}-${item.selectedColor || ''}-${item.selectedSize || ''}-${idx}`} className="pt-3 first:pt-0 flex items-center gap-3">
                   <img
                     src={item.product.images[0] || ''}
                     alt={item.product.title}
@@ -1232,7 +1242,21 @@ Please confirm and dispatch my order. Thank you!`;
                     >
                       {item.product.title}
                     </h4>
-                    <p className="text-[11px] text-gray-500">
+                    {(item.selectedColor || item.selectedSize) && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        {item.selectedColor && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded">
+                            Color: {item.selectedColor}
+                          </span>
+                        )}
+                        {item.selectedSize && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.2 rounded">
+                            Size: {item.selectedSize}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-gray-500 mt-0.5">
                       Qty: {item.quantity} × {formatBDT(item.product.price)}
                     </p>
                   </div>
