@@ -34,6 +34,7 @@ export const OrderManagementTab: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'guest' | 'registered'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   // Business Koro Forward Order States
@@ -212,11 +213,14 @@ export const OrderManagementTab: React.FC = () => {
     if (search.trim()) {
       const q = search.toLowerCase();
       const matchesId = o.id.toLowerCase().includes(q);
-      const matchesEmail = o.userEmail.toLowerCase().includes(q);
-      const matchesName = o.shippingAddress.fullName.toLowerCase().includes(q);
-      if (!matchesId && !matchesEmail && !matchesName) return false;
+      const matchesEmail = (o.userEmail || '').toLowerCase().includes(q);
+      const matchesName = (o.shippingAddress?.fullName || '').toLowerCase().includes(q);
+      const matchesPhone = (o.shippingAddress?.phone || '').includes(q);
+      if (!matchesId && !matchesEmail && !matchesName && !matchesPhone) return false;
     }
     if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+    if (customerTypeFilter === 'guest' && !(o.isGuest || o.userId === 'guest')) return false;
+    if (customerTypeFilter === 'registered' && (o.isGuest || o.userId === 'guest')) return false;
     return true;
   });
 
@@ -232,12 +236,12 @@ export const OrderManagementTab: React.FC = () => {
     <div className="space-y-4">
       {/* Top Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex flex-1 items-center gap-2 max-w-md">
-          <div className="relative flex-1">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-1">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search by order ID, customer name, or email..."
+              placeholder="Search by ID, name, phone, or email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
@@ -247,7 +251,7 @@ export const OrderManagementTab: React.FC = () => {
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
-            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none"
+            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer"
           >
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
@@ -255,6 +259,16 @@ export const OrderManagementTab: React.FC = () => {
             <option value="shipped">Shipped</option>
             <option value="delivered">Delivered</option>
             <option value="cancelled">Cancelled</option>
+          </select>
+
+          <select
+            value={customerTypeFilter}
+            onChange={e => setCustomerTypeFilter(e.target.value as any)}
+            className="text-xs bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none cursor-pointer"
+          >
+            <option value="all">All Customer Types</option>
+            <option value="guest">Guest Orders</option>
+            <option value="registered">Registered Members</option>
           </select>
         </div>
 
@@ -332,12 +346,34 @@ export const OrderManagementTab: React.FC = () => {
 
                         {/* Customer */}
                         <td className="py-3 px-4">
-                          <span className="font-semibold text-gray-900 block truncate max-w-xs">
-                            {order.shippingAddress.fullName}
-                          </span>
-                          <span className="text-[11px] text-gray-400 font-mono">
-                            {order.userEmail}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-gray-900 block truncate max-w-[180px]">
+                              {order.shippingAddress.fullName}
+                            </span>
+                            {order.isGuest || order.userId === 'guest' ? (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                Guest
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                                Member
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-mono mt-0.5">
+                            <span>{order.shippingAddress.phone}</span>
+                            {order.userEmail ? (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span className="truncate max-w-[120px] text-gray-400">{order.userEmail}</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <span className="text-gray-400 italic">No email</span>
+                              </>
+                            )}
+                          </div>
                         </td>
 
                         {/* Date */}
@@ -429,13 +465,27 @@ export const OrderManagementTab: React.FC = () => {
                               {/* Shipping & Payment details */}
                               <div className="bg-white p-3.5 rounded-lg border border-gray-200">
                                 <h5 className="font-bold text-gray-900 mb-2">Shipping & Payment Audit</h5>
-                                <p className="text-gray-600 leading-relaxed mb-2">
-                                  <strong>Deliver to:</strong> {order.shippingAddress.fullName}
-                                  <br />
-                                  {order.shippingAddress.street}, {order.shippingAddress.thana || order.shippingAddress.state}, {order.shippingAddress.district || order.shippingAddress.city}
-                                  <br />
-                                  Phone: {order.shippingAddress.phone}
-                                </p>
+                                  <div className="flex items-center gap-1.5 mb-1.5">
+                                    <span className="text-[10px] font-bold uppercase text-gray-500">Account Type:</span>
+                                    {order.isGuest || order.userId === 'guest' ? (
+                                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-100 text-blue-700">Guest Checkout (No registration required)</span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700">Registered Customer ({order.userId})</span>
+                                    )}
+                                  </div>
+                                  <p className="text-gray-600 leading-relaxed mb-2">
+                                    <strong>Deliver to:</strong> {order.shippingAddress.fullName}
+                                    <br />
+                                    {order.shippingAddress.street}, {order.shippingAddress.thana || order.shippingAddress.state}, {order.shippingAddress.district || order.shippingAddress.city}
+                                    <br />
+                                    Phone: <span className="font-mono text-gray-900 font-semibold">{order.shippingAddress.phone}</span>
+                                    {order.userEmail && (
+                                      <>
+                                        <br />
+                                        Email: <span className="font-mono text-gray-900">{order.userEmail}</span>
+                                      </>
+                                    )}
+                                  </p>
                                 <p className="text-gray-600">
                                   Payment Method:{' '}
                                   {order.paymentMethod === 'advance' ? (

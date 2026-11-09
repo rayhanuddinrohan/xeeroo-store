@@ -167,6 +167,7 @@ export interface Order {
   id: string;
   userId: string;
   userEmail: string;
+  isGuest?: boolean;
   status: OrderStatus;
   totalAmount: number;
   subtotalAmount?: number;

@@ -36,11 +36,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   } = useStore();
 
   const handleProceedClick = () => {
-    if (!currentUser) {
-      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
-      openLoginModal();
-      return;
-    }
     onProceedToCheckout();
   };
 

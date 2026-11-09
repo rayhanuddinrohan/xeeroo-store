@@ -65,11 +65,6 @@ const AppContent: React.FC = () => {
 
   const handleProceedToCheckout = () => {
     setIsCartOpen(false);
-    if (!currentUser) {
-      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
-      openLoginModal();
-      return;
-    }
     navigateToCheckout();
   };
 

@@ -837,9 +837,13 @@ export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
     await setDoc(orderRef, {
       id: order.id,
       userId: order.userId,
-      userEmail: order.userEmail,
+      userEmail: order.userEmail || '',
+      isGuest: Boolean(order.isGuest),
       status: order.status,
       totalAmount: order.totalAmount,
+      subtotalAmount: order.subtotalAmount ?? null,
+      deliveryCharge: order.deliveryCharge ?? null,
+      discountAmount: order.discountAmount ?? null,
       shippingAddress: order.shippingAddress,
       items: order.items,
       paymentMethod: order.paymentMethod,
@@ -861,13 +865,17 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
     const list: Order[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && data.userId && data.items) {
+      if (data && (data.userId || data.items)) {
         list.push({
           id: data.id || docSnap.id,
-          userId: data.userId,
+          userId: data.userId || 'guest',
           userEmail: data.userEmail || '',
+          isGuest: Boolean(data.isGuest || data.userId === 'guest'),
           status: data.status || 'pending',
           totalAmount: Number(data.totalAmount) || 0,
+          subtotalAmount: data.subtotalAmount !== undefined ? Number(data.subtotalAmount) : undefined,
+          deliveryCharge: data.deliveryCharge !== undefined ? Number(data.deliveryCharge) : undefined,
+          discountAmount: data.discountAmount !== undefined ? Number(data.discountAmount) : undefined,
           shippingAddress: data.shippingAddress || {
             fullName: 'Customer',
             street: '',
@@ -908,8 +916,12 @@ export const subscribeToFirestoreOrders = (
             id: data.id || docSnap.id,
             userId: data.userId || 'guest',
             userEmail: data.userEmail || '',
+            isGuest: Boolean(data.isGuest || data.userId === 'guest'),
             status: data.status || 'pending',
             totalAmount: Number(data.totalAmount) || 0,
+            subtotalAmount: data.subtotalAmount !== undefined ? Number(data.subtotalAmount) : undefined,
+            deliveryCharge: data.deliveryCharge !== undefined ? Number(data.deliveryCharge) : undefined,
+            discountAmount: data.discountAmount !== undefined ? Number(data.discountAmount) : undefined,
             shippingAddress: data.shippingAddress || {
               fullName: 'Customer',
               street: '',

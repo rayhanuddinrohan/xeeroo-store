@@ -61,11 +61,6 @@ My Delivery Address:`
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentUser) {
-      addToast('Please sign in or create an account to add items to your cart.', 'warning');
-      openLoginModal();
-      return;
-    }
     if (!isOutOfStock) {
       addToCart(product, 1);
     }
@@ -73,11 +68,6 @@ My Delivery Address:`
 
   const handleQuickBuy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentUser) {
-      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
-      openLoginModal();
-      return;
-    }
     if (!isOutOfStock) {
       addToCart(product, 1);
       openCheckoutModal();

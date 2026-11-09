@@ -405,12 +405,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Checkout modal & page state
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const openCheckoutModal = () => {
-    if (!currentUserId) {
-      addToast('Please sign in or create an account to proceed to checkout.', 'warning');
-      setAuthModalTab('login');
-      setIsAuthModalOpen(true);
-      return;
-    }
     setViewMode('checkout');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -2663,13 +2657,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart operations
   const addToCart = (product: Product, quantity: number = 1) => {
-    if (!currentUser) {
-      addToast('Please sign in or create an account to add items to your cart.', 'warning');
-      setAuthModalTab('login');
-      setIsAuthModalOpen(true);
-      return;
-    }
-
     if (product.stockQuantity <= 0) {
       addToast(`Sorry, "${product.title}" is currently out of stock.`, 'warning');
       return;
@@ -2773,52 +2760,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const nowIso = new Date().toISOString();
-    let orderCustomer = currentUser;
+    const isGuestOrder = !currentUser;
+    const cleanEmail = (optionalEmail || currentUser?.email || '').trim().toLowerCase();
+    const customerId = currentUser ? currentUser.id : 'guest';
+    const customerFullName = (shippingAddress.fullName || currentUser?.fullName || 'Guest Customer').trim();
 
-    // If customer is not currently logged in, seamlessly create or link customer account
-    if (!orderCustomer) {
-      const cleanPhone = (shippingAddress.phone || '').trim();
-      const phoneDigits = cleanPhone.replace(/[^0-9]/g, '');
-      const cleanName = (shippingAddress.fullName || '').trim() || 'Online Customer';
-      const cleanEmail = (optionalEmail || '').trim().toLowerCase();
-
-      // Look up existing customer by email or phone number
-      const existingUser = users.find(u => {
-        const emailMatch = cleanEmail && u.email.toLowerCase() === cleanEmail;
-        const phoneMatch = u.phone && phoneDigits.length >= 8 && u.phone.replace(/[^0-9]/g, '') === phoneDigits;
-        return emailMatch || phoneMatch;
-      });
-
-      if (existingUser) {
-        orderCustomer = existingUser;
-        setCurrentUserId(existingUser.id);
-        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, existingUser.id);
-      } else {
-        const newCustId = `usr-cust-${Date.now()}`;
-        const newCustEmail = cleanEmail || `${phoneDigits || Date.now()}@customer.xeeroo.com`;
-        const newCustomer: User = {
-          id: newCustId,
-          email: newCustEmail,
-          fullName: cleanName,
-          phone: cleanPhone,
-          role: 'customer',
-          approvalStatus: 'approved',
-          isVerified: true,
-          isBanned: false,
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-          createdAt: nowIso,
-          address: shippingAddress,
-        };
-
-        setUsers(prev => [...prev, newCustomer]);
-        await saveFirestoreCustomer(newCustomer);
-        setCurrentUserId(newCustomer.id);
-        localStorage.setItem(STORAGE_KEY_CURRENT_USER_ID, newCustomer.id);
-        orderCustomer = newCustomer;
-      }
-    }
-
-    if (orderCustomer.isBanned) {
+    if (currentUser?.isBanned) {
       addToast('Account suspended: Cannot place orders.', 'error');
       return null;
     }
@@ -2856,8 +2803,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const newOrder: Order = {
       id: orderId,
-      userId: orderCustomer.id,
-      userEmail: orderCustomer.email,
+      userId: customerId,
+      userEmail: cleanEmail,
+      isGuest: isGuestOrder,
       status: 'pending',
       totalAmount: orderTotalAmount,
       subtotalAmount: cartSubtotal,
@@ -2915,8 +2863,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     addNotification({
       targetRole: 'staff',
       type: 'order_placed',
-      title: 'New Customer Order Received',
-      message: `Order #${orderId} was placed by ${orderCustomer.fullName || orderCustomer.email} for ${formatBDT(orderTotalAmount)} (${cart.length} items).`,
+      title: isGuestOrder ? 'New Guest Order Received' : 'New Customer Order Received',
+      message: `Order #${orderId} was placed by ${customerFullName}${cleanEmail ? ` (${cleanEmail})` : ''} for ${formatBDT(orderTotalAmount)} (${cart.length} items).`,
       orderId,
     });
 
