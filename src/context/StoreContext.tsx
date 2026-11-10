@@ -93,6 +93,13 @@ import {
 } from '../utils/shipping';
 import { syncBusinessKoroProductsToFirestore } from '../services/productImportService';
 import { parseRouteFromLocation, syncBrowserUrl } from '../utils/router';
+import {
+  generateShortCode,
+  getProductShortCode,
+  getProductShortPath,
+  getProductShortUrl,
+  findProductByIdentifier,
+} from '../utils/productUrl';
 
 interface StoreContextType {
   // Telegram Bot Settings
@@ -898,6 +905,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : 0;
         return {
           ...p,
+          shortCode: p.shortCode || getProductShortCode(p),
           reviews: revs,
           reviewsCount,
           rating,
@@ -993,13 +1001,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const navigateToProduct = (productIdOrSlug: string) => {
     const clean = productIdOrSlug.trim();
-    const matched = products.find(p => p.id === clean || p.slug === clean);
-    const slugOrId = matched?.slug || clean;
-    setSelectedProductId(clean);
+    const matched = findProductByIdentifier(products, clean);
+    const shortCode = matched ? getProductShortCode(matched) : clean;
+    setSelectedProductId(matched ? matched.id : clean);
     setViewMode('product-detail');
     syncBrowserUrl('product-detail', {
-      productId: clean,
-      slug: slugOrId,
+      productId: matched ? matched.id : clean,
+      shortCode,
+      slug: shortCode,
       pageTitle: matched?.title,
     });
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -2169,6 +2178,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newProduct: Product = {
       ...productData,
       id: `prod-${Date.now()}`,
+      shortCode: productData.shortCode || generateShortCode(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser?.id || 'admin',
@@ -2206,6 +2216,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const updated = {
             ...p,
             ...updates,
+            shortCode: updates.shortCode || p.shortCode || generateShortCode(),
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser?.id || 'admin',
           };
@@ -2859,14 +2870,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const advanceDiscount = isAdvancePayment ? 50 : (customDiscount || 0);
     const orderTotalAmount = Math.max(0, cartSubtotal + orderDeliveryCharge - advanceDiscount);
 
-    const orderId = `ORD-${Date.now().toString().slice(-6)}`;
+    const orderId = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newOrder: Order = {
       id: orderId,
       userId: customerId,
       userEmail: cleanEmail,
       isGuest: isGuestOrder,
-      status: 'pending',
+      status: 'pending' as OrderStatus,
       totalAmount: orderTotalAmount,
       subtotalAmount: cartSubtotal,
       deliveryCharge: orderDeliveryCharge,
@@ -2918,7 +2929,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     setProducts(updatedProductsList);
-    setOrders(prev => [newOrder, ...prev]);
+    setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
     setCart([]);
 
     // Save order directly to Firestore database!

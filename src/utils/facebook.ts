@@ -5,6 +5,7 @@
 
 import { Product, FacebookConfig } from '../types';
 import { formatBDT } from './currency';
+import { getProductShortUrl } from './productUrl';
 
 export const FACEBOOK_CONFIG_STORAGE_KEY = 'xeeroo_facebook_config';
 
@@ -117,9 +118,7 @@ export const formatProductCaption = (
     baseDomain = baseDomain.replace('ais-dev-', 'ais-pre-');
   }
   baseDomain = baseDomain.replace(/\/+$/, '');
-
-  const productIdentifier = product.slug || product.id;
-  const productUrl = `${baseDomain}/#/product/${encodeURIComponent(productIdentifier)}`;
+  const productUrl = getProductShortUrl(product, baseDomain);
 
   const lines: string[] = [];
 
@@ -418,7 +417,7 @@ export const publishProductToFacebook = async (
       : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=85';
 
   const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
-  const productUrl = `${origin}/#/product/${product.slug || product.id}`;
+  const productUrl = getProductShortUrl(product, origin);
 
   // If image URL is relative, resolve to absolute URL
   if (primaryImage.startsWith('/')) {

@@ -115,6 +115,7 @@ export interface Product {
   title: string;
   name?: string;
   slug: string;
+  shortCode?: string; // Short, clean unique 8-char identifier for lightweight URLs (e.g. /p/k7x9m2p1)
   description: string;
   price: number; // Current / active selling price
   sellingPrice?: number; // Regular / Original MRP price before discount

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { Order, OrderStatus } from '../../types';
 import { formatBDT } from '../../utils/currency';
@@ -209,20 +209,72 @@ export const OrderManagementTab: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter(o => {
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchesId = o.id.toLowerCase().includes(q);
-      const matchesEmail = (o.userEmail || '').toLowerCase().includes(q);
-      const matchesName = (o.shippingAddress?.fullName || '').toLowerCase().includes(q);
-      const matchesPhone = (o.shippingAddress?.phone || '').includes(q);
-      if (!matchesId && !matchesEmail && !matchesName && !matchesPhone) return false;
-    }
-    if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-    if (customerTypeFilter === 'guest' && !(o.isGuest || o.userId === 'guest')) return false;
-    if (customerTypeFilter === 'registered' && (o.isGuest || o.userId === 'guest')) return false;
-    return true;
-  });
+  // Status counts for admin oversight
+  const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
+  const processingOrdersCount = orders.filter(o => o.status === 'processing').length;
+  const shippedOrdersCount = orders.filter(o => o.status === 'shipped').length;
+  const deliveredOrdersCount = orders.filter(o => o.status === 'delivered').length;
+  const cancelledOrdersCount = orders.filter(o => o.status === 'cancelled').length;
+
+  // Track customer order history (1st, 2nd, 3rd order detection) across phone, email, and userId
+  const customerOrderHistory = useMemo(() => {
+    const counts = new Map<string, number>();
+    const ordersByCustomer = new Map<string, Order[]>();
+
+    // Sort chronologically ascending to compute correct order sequence
+    const chronological = [...orders].sort(
+      (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+    );
+
+    chronological.forEach(o => {
+      const phone = (o.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
+      const email = (o.userEmail || '').trim().toLowerCase();
+      const uid = o.userId && o.userId !== 'guest' ? o.userId : null;
+      const key = phone || email || uid || o.id;
+
+      counts.set(key, (counts.get(key) || 0) + 1);
+      const list = ordersByCustomer.get(key) || [];
+      list.push(o);
+      ordersByCustomer.set(key, list);
+    });
+
+    return { counts, ordersByCustomer };
+  }, [orders]);
+
+  const getCustomerOrderInfo = (order: Order) => {
+    const phone = (order.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
+    const email = (order.userEmail || '').trim().toLowerCase();
+    const uid = order.userId && order.userId !== 'guest' ? order.userId : null;
+    const key = phone || email || uid || order.id;
+
+    const totalOrders = customerOrderHistory.counts.get(key) || 1;
+    const orderList = customerOrderHistory.ordersByCustomer.get(key) || [];
+    const orderIndex = orderList.findIndex(o => o.id === order.id) + 1;
+
+    return {
+      totalOrders,
+      orderIndex: orderIndex > 0 ? orderIndex : totalOrders,
+      isRepeatCustomer: totalOrders > 1,
+    };
+  };
+
+  // Strictly enforce that all matching orders are sorted chronologically (newest first)
+  const filteredOrders = [...orders]
+    .filter(o => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesId = o.id.toLowerCase().includes(q);
+        const matchesEmail = (o.userEmail || '').toLowerCase().includes(q);
+        const matchesName = (o.shippingAddress?.fullName || '').toLowerCase().includes(q);
+        const matchesPhone = (o.shippingAddress?.phone || '').includes(q);
+        if (!matchesId && !matchesEmail && !matchesName && !matchesPhone) return false;
+      }
+      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+      if (customerTypeFilter === 'guest' && !(o.isGuest || o.userId === 'guest')) return false;
+      if (customerTypeFilter === 'registered' && (o.isGuest || o.userId === 'guest')) return false;
+      return true;
+    })
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     if (!canUpdateOrderStatus) {
@@ -234,6 +286,132 @@ export const OrderManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* Quick Status Tabs Bar */}
+      <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-200">
+        <button
+          type="button"
+          onClick={() => setStatusFilter('pending')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'pending'
+              ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>Pending Orders</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'pending' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-900'
+            }`}
+          >
+            {pendingOrdersCount}
+          </span>
+          {pendingOrdersCount > 0 && statusFilter !== 'pending' && (
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('all')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'all'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>All Orders</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'all' ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-700'
+            }`}
+          >
+            {orders.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('processing')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'processing'
+              ? 'bg-sky-600 text-white shadow-md shadow-sky-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          <span>Processing</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'processing' ? 'bg-sky-700 text-white' : 'bg-sky-100 text-sky-800'
+            }`}
+          >
+            {processingOrdersCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('shipped')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'shipped'
+              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <Truck className="w-3.5 h-3.5" />
+          <span>Shipped</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'shipped' ? 'bg-indigo-700 text-white' : 'bg-indigo-100 text-indigo-800'
+            }`}
+          >
+            {shippedOrdersCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('delivered')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'delivered'
+              ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          <span>Delivered</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'delivered' ? 'bg-emerald-700 text-white' : 'bg-emerald-100 text-emerald-800'
+            }`}
+          >
+            {deliveredOrdersCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setStatusFilter('cancelled')}
+          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            statusFilter === 'cancelled'
+              ? 'bg-rose-600 text-white shadow-md shadow-rose-500/20'
+              : 'text-gray-700 hover:bg-white hover:text-gray-900'
+          }`}
+        >
+          <X className="w-3.5 h-3.5" />
+          <span>Cancelled</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+              statusFilter === 'cancelled' ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-800'
+            }`}
+          >
+            {cancelledOrdersCount}
+          </span>
+        </button>
+      </div>
+
       {/* Top Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="flex flex-1 flex-wrap items-center gap-2">
@@ -335,6 +513,7 @@ export const OrderManagementTab: React.FC = () => {
               ) : (
                 filteredOrders.map(order => {
                   const isExpanded = expandedOrderId === order.id;
+                  const custInfo = getCustomerOrderInfo(order);
 
                   return (
                     <React.Fragment key={order.id}>
@@ -357,6 +536,14 @@ export const OrderManagementTab: React.FC = () => {
                             ) : (
                               <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
                                 Member
+                              </span>
+                            )}
+                            {custInfo.isRepeatCustomer && (
+                              <span
+                                className="px-1.5 py-0.2 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-0.5"
+                                title={`Returning customer with ${custInfo.totalOrders} total orders! This order is #${custInfo.orderIndex}.`}
+                              >
+                                <span>Repeat (#{custInfo.orderIndex})</span>
                               </span>
                             )}
                           </div>

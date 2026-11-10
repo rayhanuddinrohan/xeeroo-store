@@ -8,6 +8,7 @@ import { useStore } from '../../context/StoreContext';
 import { Product } from '../../types';
 import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import { calculateDiscount } from '../../utils/pricing';
+import { generateShortCode, getProductShortUrl, getProductShortCode } from '../../utils/productUrl';
 import {
   X,
   Save,
@@ -97,6 +98,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const [title, setTitle] = useState('');
   const [slug, setSlug] = useState('');
+  const [shortCode, setShortCode] = useState('');
   const [description, setDescription] = useState('');
   // Dual Price Fields: Selling Price (MRP/Regular) & Current Price (Active/Discounted)
   const [sellingPrice, setSellingPrice] = useState<number | ''>('');
@@ -224,6 +226,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     if (productToEdit) {
       setTitle(productToEdit.title);
       setSlug(productToEdit.slug);
+      setShortCode(productToEdit.shortCode || getProductShortCode(productToEdit));
       setDescription(productToEdit.description);
 
       const regPrice = (productToEdit.sellingPrice !== undefined && productToEdit.sellingPrice !== null)
@@ -273,6 +276,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       // Clean, empty default values for new product
       setTitle('');
       setSlug('');
+      setShortCode(generateShortCode());
       setDescription('');
       setSellingPrice('');
       setCurrentPrice(0);
@@ -495,6 +499,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const ok = updateProduct(productToEdit.id, {
         title: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        shortCode: shortCode.trim().toLowerCase() || generateShortCode(),
         description: description.trim(),
         price: activeCurrentPrice,
         sellingPrice: regSellingPrice,
@@ -521,6 +526,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const ok = addProduct({
         title: title.trim(),
         slug: slug.trim() || `prod-${Date.now()}`,
+        shortCode: shortCode.trim().toLowerCase() || generateShortCode(),
         description: description.trim(),
         price: activeCurrentPrice,
         sellingPrice: regSellingPrice,
@@ -657,6 +663,36 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 onChange={e => setSlug(e.target.value)}
                 className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
+            </div>
+
+            {/* Short URL / Code */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Short Product URL & Code *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShortCode(generateShortCode())}
+                  className="text-[10px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+                >
+                  Regenerate Code
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-mono">/#/p/</span>
+                <input
+                  type="text"
+                  required
+                  value={shortCode}
+                  onChange={e => setShortCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
+                  placeholder="8-char code (e.g. k7x9m2p1)"
+                  className="flex-1 px-3 py-2 text-xs font-mono font-bold text-blue-800 bg-blue-50/50 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+              <p className="text-[10px] text-gray-500 mt-1 font-mono truncate">
+                Preview: {getProductShortUrl({ id: productToEdit?.id || 'new', shortCode: shortCode || 'k7x9m2p1' })}
+              </p>
             </div>
 
 

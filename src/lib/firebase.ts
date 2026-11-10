@@ -23,6 +23,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
+import { getProductShortCode } from "../utils/productUrl";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -436,6 +437,7 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       title: product.title || product.name || 'Product',
       name: product.name || product.title || 'Product',
       slug: product.slug,
+      shortCode: product.shortCode || getProductShortCode(product),
       description: product.description || '',
       price: Number(product.price),
       sellingPrice: (product.sellingPrice !== undefined && product.sellingPrice !== null)
@@ -569,6 +571,7 @@ export const subscribeToFirestoreProducts = (
             title: prodTitle,
             name: String(data.name || prodTitle),
             slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            shortCode: data.shortCode || getProductShortCode({ id: data.id || docSnap.id, slug: data.slug }),
             description: data.description || '',
             price: currentPrice,
             sellingPrice,
@@ -659,6 +662,7 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           title: prodTitle,
           name: String(data.name || prodTitle),
           slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          shortCode: data.shortCode || getProductShortCode({ id: data.id || docSnap.id, slug: data.slug }),
           description: data.description || '',
           price: currentPrice,
           sellingPrice,
@@ -845,7 +849,7 @@ export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
       userId: order.userId,
       userEmail: order.userEmail || '',
       isGuest: Boolean(order.isGuest),
-      status: order.status,
+      status: order.status || 'pending',
       totalAmount: order.totalAmount,
       subtotalAmount: order.subtotalAmount ?? null,
       deliveryCharge: order.deliveryCharge ?? null,
@@ -899,6 +903,8 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
         });
       }
     });
+    // Sort newest order first
+    list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     return list;
   } catch (err) {
     console.warn('Firestore fetch orders error:', err);

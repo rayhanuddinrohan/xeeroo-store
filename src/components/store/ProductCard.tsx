@@ -9,6 +9,7 @@ import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { calculateDiscount } from '../../utils/pricing';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
+import { getProductShortPath, getProductShortUrl, getProductShortCode } from '../../utils/productUrl';
 import { ShoppingBag, Star, Eye, AlertCircle, Edit, Check, Package, Image as ImageIcon, Flame } from 'lucide-react';
 
 interface ProductCardProps {
@@ -38,12 +39,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     product.price
   );
 
-  const productIdentifier = product.slug || product.id;
-  const productPath = `/#/product/${encodeURIComponent(productIdentifier)}`;
-  const productUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${productPath}`
-      : `https://xeeroo.com${productPath}`;
+  const productPath = getProductShortPath(product);
+  const productUrl = getProductShortUrl(product);
 
   const whatsappUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(
     `Hello! I would like to order this product:
@@ -56,7 +53,7 @@ My Delivery Address:`
 
   const handleCardClick = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
-    navigateToProduct(product.slug || product.id);
+    navigateToProduct(getProductShortCode(product));
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {

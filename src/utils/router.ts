@@ -39,8 +39,8 @@ export function parseRouteFromLocation(): ParsedRoute {
   const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const searchParams = new URLSearchParams(window.location.search);
 
-  // 1. Direct query param fallback (e.g. ?product=id or ?view=contact)
-  const queryProduct = searchParams.get('product');
+  // 1. Direct query param fallback (e.g. ?p=code or ?product=id or ?view=contact)
+  const queryProduct = searchParams.get('p') || searchParams.get('product');
   if (queryProduct) {
     return {
       viewMode: 'product-detail',
@@ -60,11 +60,17 @@ export function parseRouteFromLocation(): ParsedRoute {
     }
   }
 
-  // 2. Hash Routing (#/product/..., #/contact, #/orders, etc.)
+  // 2. Hash Routing (#/p/..., #/product/..., #/contact, #/orders, etc.)
   if (hash) {
-    // Handle both '#/product/xyz' and '#product=xyz'
-    if (hash.startsWith('#product=') || hash.startsWith('#/product=') || hash.startsWith('#/products=')) {
-      const raw = hash.replace(/^#\/?products?=/, '');
+    // Handle both '#p=xyz', '#/p=xyz', '#product=xyz', and '#/product=xyz'
+    if (
+      hash.startsWith('#p=') ||
+      hash.startsWith('#/p=') ||
+      hash.startsWith('#product=') ||
+      hash.startsWith('#/product=') ||
+      hash.startsWith('#/products=')
+    ) {
+      const raw = hash.replace(/^#\/?(products?|p)=/, '');
       const cleanId = decodeURIComponent(raw.split('&')[0] || '').trim();
       if (cleanId) {
         return { viewMode: 'product-detail', productId: cleanId, dashboardTab: null };
@@ -73,6 +79,16 @@ export function parseRouteFromLocation(): ParsedRoute {
 
     const cleanHash = cleanRouteSegment(hash.toLowerCase());
 
+    // Short product URL format: #/p/:shortCode
+    if (cleanHash.startsWith('p/')) {
+      const rawParam = cleanHash.replace(/^p\//, '');
+      const cleanShortCode = decodeURIComponent(rawParam.split('/')[0] || '').trim();
+      if (cleanShortCode) {
+        return { viewMode: 'product-detail', productId: cleanShortCode, dashboardTab: null };
+      }
+    }
+
+    // Standard product URL format: #/product/:idOrSlug
     if (cleanHash.startsWith('product/') || cleanHash.startsWith('products/')) {
       const rawParam = cleanHash.replace(/^products?\//, '');
       const cleanIdOrSlug = decodeURIComponent(rawParam.split('/')[0] || '').trim();
@@ -117,7 +133,19 @@ export function parseRouteFromLocation(): ParsedRoute {
     }
   }
 
-  // 3. Path Routing fallback (if URL was loaded via pathname like /product/:id)
+  // 3. Path Routing fallback (if URL was loaded via pathname like /p/:shortCode or /product/:id)
+  if (pathname.startsWith('/p/')) {
+    const rawParam = pathname.replace(/^\/p\//, '');
+    const cleanShortCode = decodeURIComponent(rawParam.split('/')[0] || '').trim();
+    if (cleanShortCode) {
+      return {
+        viewMode: 'product-detail',
+        productId: cleanShortCode,
+        dashboardTab: null,
+      };
+    }
+  }
+
   if (pathname.startsWith('/product/') || pathname.startsWith('/products/')) {
     const rawParam = pathname.replace(/^\/products?\//, '');
     const cleanIdOrSlug = decodeURIComponent(rawParam.split('/')[0] || '').trim();
@@ -205,13 +233,15 @@ export function buildUrlForRoute(
   options?: {
     productId?: string | null;
     slug?: string | null;
+    shortCode?: string | null;
     dashboardTab?: DashboardTab | null;
   }
 ): string {
   switch (viewMode) {
     case 'product-detail': {
-      const identifier = options?.slug || options?.productId;
-      return identifier ? `/#/product/${encodeURIComponent(identifier)}` : '/#/';
+      // Prioritize shortCode, then slug, then productId
+      const identifier = options?.shortCode || options?.slug || options?.productId;
+      return identifier ? `/#/p/${encodeURIComponent(identifier)}` : '/#/';
     }
     case 'contact':
       return '/#/contact';
@@ -241,6 +271,7 @@ export function syncBrowserUrl(
   options?: {
     productId?: string | null;
     slug?: string | null;
+    shortCode?: string | null;
     dashboardTab?: DashboardTab | null;
     pageTitle?: string;
     replace?: boolean;

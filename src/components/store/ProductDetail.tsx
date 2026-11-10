@@ -11,6 +11,7 @@ import { XEEROO_CONTACT } from '../../data/mockData';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { UserAvatar } from '../common/UserAvatar';
 import { ProductReview, Product } from '../../types';
+import { findProductByIdentifier, getProductShortPath, getProductShortUrl } from '../../utils/productUrl';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -64,9 +65,7 @@ export const ProductDetail: React.FC = () => {
     navigateToProduct,
   } = useStore();
 
-  const product = products.find(
-    p => p.id === selectedProductId || (p.slug && p.slug === selectedProductId)
-  ) || (products.length > 0 && !selectedProductId ? products[0] : undefined);
+  const product = findProductByIdentifier(products, selectedProductId) || (products.length > 0 && !selectedProductId ? products[0] : undefined);
   const category = categories.find(c => c.id === product?.categoryId);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -308,12 +307,8 @@ export const ProductDetail: React.FC = () => {
     (product.images && product.images[0]) ||
     '';
 
-  const productIdentifier = product.slug || product.id;
-  const productPath = `/#/product/${encodeURIComponent(productIdentifier)}`;
-  const productUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}${productPath}`
-      : `https://xeeroo.com${productPath}`;
+  const productPath = getProductShortPath(product);
+  const productUrl = getProductShortUrl(product);
 
   const variantMessageLines = [
     selectedColor ? `🎨 Color: ${selectedColor}` : null,

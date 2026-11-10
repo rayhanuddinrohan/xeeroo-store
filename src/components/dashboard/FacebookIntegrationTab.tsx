@@ -12,6 +12,7 @@ import {
   formatProductCaption,
   DEFAULT_FACEBOOK_CONFIG,
 } from '../../utils/facebook';
+import { getProductShortUrl } from '../../utils/productUrl';
 import {
   Share2,
   CheckCircle2,
@@ -617,6 +618,13 @@ export const FacebookIntegrationTab: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] bg-blue-50/80 border border-blue-200/60 rounded-lg px-2.5 py-1.5 font-mono text-blue-900">
+                <span className="text-gray-600 font-sans font-semibold text-[10px] uppercase tracking-wider">Product Short Link:</span>
+                <span className="font-bold truncate max-w-[220px] text-blue-700">
+                  {getProductShortUrl(sampleProduct, config.websiteUrl)}
+                </span>
               </div>
 
               <button
