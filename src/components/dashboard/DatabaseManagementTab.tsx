@@ -33,6 +33,8 @@ import {
   Terminal,
   Layers,
   ArrowRight,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 
 export const DatabaseManagementTab: React.FC = () => {
@@ -47,11 +49,13 @@ export const DatabaseManagementTab: React.FC = () => {
     pullCatalogFromDatabase,
     setDashboardTab,
     createAdminAccountInDatabase,
+    migrateProductsToAlphanumericIds,
     addToast,
   } = useStore();
 
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'assets' | 'customers' | 'products' | 'admin-setup' | 'mongodb' | 'sql'>('overview');
   const [isTesting, setIsTesting] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; latency?: number } | null>(null);
 
   // Admin Account Creation States
@@ -271,6 +275,32 @@ export const DatabaseManagementTab: React.FC = () => {
             >
               <Zap className={`w-3.5 h-3.5 text-amber-400 ${isTesting ? 'animate-spin' : ''}`} />
               <span>{isTesting ? 'Testing...' : 'Test Connection'}</span>
+            </button>
+
+            <button
+              onClick={async () => {
+                setIsMigrating(true);
+                try {
+                  await migrateProductsToAlphanumericIds();
+                } finally {
+                  setIsMigrating(false);
+                }
+              }}
+              disabled={isMigrating || dbStatus.isSyncing}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              title="Ensure all products in Firestore have 15-20 character alphanumeric IDs"
+            >
+              {isMigrating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                  <span>Migrating IDs...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Migrate 15-20 Char Product IDs</span>
+                </>
+              )}
             </button>
 
             <button

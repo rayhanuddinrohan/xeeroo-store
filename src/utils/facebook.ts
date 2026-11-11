@@ -96,7 +96,8 @@ export const saveStoredFacebookConfig = (config: FacebookConfig): void => {
 export const formatProductCaption = (
   product: Product,
   config: Partial<FacebookConfig> = {},
-  storeBaseUrl?: string
+  storeBaseUrl?: string,
+  explicitProductUrl?: string
 ): string => {
   const prefix = config.customPrefix || '🔥 NEW ARRIVAL AT XEEROO!';
   const hashtags = config.customHashtags || '#XEEROO #OnlineShopping #Bangladesh #Gadgets #Tech';
@@ -118,7 +119,7 @@ export const formatProductCaption = (
     baseDomain = baseDomain.replace('ais-dev-', 'ais-pre-');
   }
   baseDomain = baseDomain.replace(/\/+$/, '');
-  const productUrl = getProductShortUrl(product, baseDomain);
+  const productUrl = (explicitProductUrl || '').trim() || getProductShortUrl(product, baseDomain);
 
   const lines: string[] = [];
 
@@ -393,7 +394,8 @@ export const publishProductToFacebook = async (
   product: Product,
   config: FacebookConfig,
   storeBaseUrl?: string,
-  customCaption?: string
+  customCaption?: string,
+  explicitProductUrl?: string
 ): Promise<{
   success: boolean;
   postId?: string;
@@ -410,14 +412,13 @@ export const publishProductToFacebook = async (
     };
   }
 
-  const caption = customCaption || formatProductCaption(product, config, storeBaseUrl);
+  const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
+  const productUrl = (explicitProductUrl || '').trim() || getProductShortUrl(product, origin);
+  const caption = customCaption || formatProductCaption(product, config, storeBaseUrl, productUrl);
   let primaryImage =
     product.images && product.images.length > 0
       ? product.images[0]
       : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=85';
-
-  const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
-  const productUrl = getProductShortUrl(product, origin);
 
   // If image URL is relative, resolve to absolute URL
   if (primaryImage.startsWith('/')) {

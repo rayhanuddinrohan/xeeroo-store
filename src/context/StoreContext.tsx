@@ -67,6 +67,7 @@ import {
   saveFirestoreFacebookConfig,
   fetchFirestoreFacebookConfig,
   subscribeToFirestoreFacebookConfig,
+  migrateFirestoreProductsToAlphanumericIds,
   db,
 } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -94,7 +95,9 @@ import {
 import { syncBusinessKoroProductsToFirestore } from '../services/productImportService';
 import { parseRouteFromLocation, syncBrowserUrl } from '../utils/router';
 import {
+  generateAlphanumericId,
   generateShortCode,
+  isAlphanumericProductId,
   getProductShortCode,
   getProductShortPath,
   getProductShortUrl,
@@ -111,8 +114,10 @@ interface StoreContextType {
   updateFacebookConfig: (config: FacebookConfig) => Promise<boolean>;
   postProductToFacebook: (
     productOrId: string | Product,
-    customCaption?: string
+    customCaption?: string,
+    explicitProductUrl?: string
   ) => Promise<{ success: boolean; message: string; postUrl?: string; postId?: string }>;
+  migrateProductsToAlphanumericIds: () => Promise<{ success: boolean; message: string; totalChecked: number; migratedCount: number }>;
 
   // Current user & Auth state
   currentUser: User | null;
@@ -596,6 +601,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // If database has products, arrange priority 1, 2, 3... at top and shuffle unranked below
           if (dbProds.length > 0) {
             setProducts(sortProductsWithPriorityAndShuffle(dbProds));
+
+            // Retroactively assign 15-20 digit alphanumeric IDs to all previously uploaded products in Firestore
+            const needsMigration = dbProds.some(p => !isAlphanumericProductId(p.shortCode));
+            if (needsMigration) {
+              console.log('[Firestore] Running retroactive 15-20 digit alphanumeric ID migration...');
+              migrateFirestoreProductsToAlphanumericIds().then(res => {
+                if (res.migratedCount > 0) {
+                  console.log(`[Firestore] Successfully retroactively assigned alphanumeric IDs to ${res.migratedCount} products.`);
+                }
+              }).catch(err => {
+                console.warn('Background alphanumeric ID migration notice:', err);
+              });
+            }
           } else {
             // First time seeding: Upload initial products to Firestore so all browsers have them!
             console.log('Seeding initial catalog to Firestore for multi-browser sync...');
@@ -2988,7 +3006,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const postProductToFacebook = async (
     productOrId: string | Product,
-    customCaption?: string
+    customCaption?: string,
+    explicitProductUrl?: string
   ): Promise<{ success: boolean; message: string; postUrl?: string; postId?: string }> => {
     let targetProduct: Product | undefined;
     if (typeof productOrId === 'string') {
@@ -3018,7 +3037,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       addToast(`ফেসবুক পেজে "${targetProduct.title}" পোস্ট করা হচ্ছে...`, 'info');
       const storeOrigin = currentFb.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
-      const res = await publishProductToFacebook(targetProduct, currentFb, storeOrigin, customCaption);
+      const res = await publishProductToFacebook(targetProduct, currentFb, storeOrigin, customCaption, explicitProductUrl);
 
       if (res.success) {
         addToast(`✅ ফেসবুক পেজ "${currentFb.pageName || 'X E E R O O'}" এ পোস্ট সম্পন্ন হয়েছে!`, 'success');
@@ -3044,6 +3063,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const msg = error.message || 'ফেসবুক পোস্ট করার সময় অপ্রত্যাশিত ত্রুটি ঘটেছে।';
       addToast(msg, 'error');
       return { success: false, message: msg };
+    }
+  };
+
+  // Retroactively assign/generate 15 to 20-digit alphanumeric IDs for all products
+  const migrateProductsToAlphanumericIds = async (): Promise<{
+    success: boolean;
+    message: string;
+    totalChecked: number;
+    migratedCount: number;
+  }> => {
+    try {
+      addToast('Checking & migrating product URLs to 15-20 digit alphanumeric IDs...', 'info');
+      const res = await migrateFirestoreProductsToAlphanumericIds();
+      // Update local state with fresh products
+      const freshProducts = await fetchFirestoreProducts();
+      if (freshProducts.length > 0) {
+        setProducts(freshProducts);
+      }
+      addToast(`Alphanumeric ID migration complete! Checked ${res.totalChecked}, updated ${res.migratedCount} products.`, 'success');
+      return {
+        success: true,
+        message: `Successfully migrated ${res.migratedCount} products.`,
+        totalChecked: res.totalChecked,
+        migratedCount: res.migratedCount,
+      };
+    } catch (err: any) {
+      addToast(`Migration failed: ${err.message}`, 'error');
+      return {
+        success: false,
+        message: err.message || 'Migration failed',
+        totalChecked: 0,
+        migratedCount: 0,
+      };
     }
   };
 
@@ -3350,6 +3402,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     facebookConfig,
     updateFacebookConfig,
     postProductToFacebook,
+    migrateProductsToAlphanumericIds,
 
     // Unified Admin Drawer
     isAdminDrawerOpen,

@@ -33,6 +33,7 @@ import {
   Radio,
   Image as ImageIcon,
   Check,
+  Copy,
 } from 'lucide-react';
 
 export const FacebookIntegrationTab: React.FC = () => {
@@ -41,6 +42,7 @@ export const FacebookIntegrationTab: React.FC = () => {
     facebookConfig,
     updateFacebookConfig,
     postProductToFacebook,
+    migrateProductsToAlphanumericIds,
     addToast,
   } = useStore();
 
@@ -51,6 +53,7 @@ export const FacebookIntegrationTab: React.FC = () => {
 
   const [showToken, setShowToken] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isMigrating, setIsMigrating] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<{
     tested: boolean;
     success: boolean;
@@ -74,6 +77,7 @@ export const FacebookIntegrationTab: React.FC = () => {
   const [postingProductId, setPostingProductId] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [selectedPreviewProduct, setSelectedPreviewProduct] = useState<Product | null>(null);
+  const [productPostUrl, setProductPostUrl] = useState<string>('');
 
   useEffect(() => {
     if (facebookConfig) {
@@ -85,10 +89,32 @@ export const FacebookIntegrationTab: React.FC = () => {
   }, [facebookConfig]);
 
   useEffect(() => {
-    if (products.length > 0 && !selectedPreviewProduct) {
-      setSelectedPreviewProduct(products[0]);
+    if (products.length > 0) {
+      if (!selectedPreviewProduct) {
+        const first = products[0];
+        setSelectedPreviewProduct(first);
+        const url = getProductShortUrl(first, config.websiteUrl);
+        setProductPostUrl(url);
+      } else {
+        // Keep updated
+        const found = products.find(p => p.id === selectedPreviewProduct.id);
+        if (found) {
+          const url = getProductShortUrl(found, config.websiteUrl);
+          setProductPostUrl(url);
+        }
+      }
     }
-  }, [products, selectedPreviewProduct]);
+  }, [products, config.websiteUrl]);
+
+  // Realtime product selection handler
+  const handleSelectProduct = (productId: string) => {
+    const found = products.find(p => p.id === productId);
+    if (found) {
+      setSelectedPreviewProduct(found);
+      const shortUrl = getProductShortUrl(found, config.websiteUrl);
+      setProductPostUrl(shortUrl);
+    }
+  };
 
   // Handle Verify Page with Meta Graph API
   const handleVerify = async () => {
@@ -153,8 +179,8 @@ export const FacebookIntegrationTab: React.FC = () => {
 
   // Send a quick test post
   const handleSendTestPost = async () => {
-    const sampleProduct = selectedPreviewProduct || products[0];
-    if (!sampleProduct) {
+    const activeProduct = selectedPreviewProduct || products[0];
+    if (!activeProduct) {
       addToast('টেস্ট পোস্ট করার জন্য কোনো প্রোডাক্ট পাওয়া যায়নি।', 'warning');
       return;
     }
@@ -163,7 +189,8 @@ export const FacebookIntegrationTab: React.FC = () => {
     setTestPostResult(null);
 
     try {
-      const res = await postProductToFacebook(sampleProduct);
+      const activeUrl = productPostUrl.trim() || getProductShortUrl(activeProduct, config.websiteUrl);
+      const res = await postProductToFacebook(activeProduct, previewCaption, activeUrl);
       setTestPostResult(res);
     } finally {
       setIsTestingPost(false);
@@ -174,19 +201,21 @@ export const FacebookIntegrationTab: React.FC = () => {
   const handlePostSingleProduct = async (prod: Product) => {
     setPostingProductId(prod.id);
     try {
-      await postProductToFacebook(prod);
+      const pUrl = getProductShortUrl(prod, config.websiteUrl);
+      await postProductToFacebook(prod, undefined, pUrl);
     } finally {
       setPostingProductId(null);
     }
   };
 
-  // Preview caption calculation
-  const sampleProduct = selectedPreviewProduct || products[0] || {
+  // Fallback sample product if catalog is empty
+  const sampleFallbackProduct: Product = {
     id: 'sample',
     title: 'Minimalist Premium Watch',
     price: 3450,
     stockQuantity: 15,
     slug: 'minimalist-premium-watch',
+    shortCode: 'k7x9m2p1Q8zL4pW7rT',
     description: 'Ultra-thin aesthetic chronometer crafted with surgical-grade stainless steel and sapphire glass.',
     images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80'],
     brand: 'XEEROO Signature',
@@ -199,10 +228,14 @@ export const FacebookIntegrationTab: React.FC = () => {
     reviewsCount: 12,
   };
 
+  const activeProduct = selectedPreviewProduct || products[0] || sampleFallbackProduct;
+  const activeUrl = productPostUrl.trim() || getProductShortUrl(activeProduct, config.websiteUrl);
+
   const previewCaption = formatProductCaption(
-    sampleProduct,
+    activeProduct,
     config,
-    config.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com')
+    config.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com'),
+    activeUrl
   );
 
   return (
@@ -227,6 +260,32 @@ export const FacebookIntegrationTab: React.FC = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+            <button
+              onClick={async () => {
+                setIsMigrating(true);
+                try {
+                  await migrateProductsToAlphanumericIds();
+                } finally {
+                  setIsMigrating(false);
+                }
+              }}
+              disabled={isMigrating}
+              className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-900 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-sm"
+              title="Ensure all products in Firestore have 15-20 digit alphanumeric IDs"
+            >
+              {isMigrating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
+                  <span>Migrating IDs...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-900" />
+                  <span>Migrate 15-20 Char IDs</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={handleVerify}
               disabled={isVerifying}
@@ -462,6 +521,69 @@ export const FacebookIntegrationTab: React.FC = () => {
               </p>
             </div>
 
+            {/* Realtime Facebook Auto-Post Product Selector & Synced Short URL */}
+            <div className="p-4 bg-blue-50/80 border border-blue-200 rounded-2xl space-y-3 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse"></span>
+                  <label className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                    রিয়েলটাইম ফেসবুক পোস্ট প্রোডাক্ট ও শর্ট লিঙ্ক সিঙ্ক
+                  </label>
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-blue-200/80 text-blue-900 px-2 py-0.5 rounded-full">
+                  Realtime Synced
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-blue-900 mb-1">
+                  সিলেক্টেড প্রোডাক্ট (Select Product to Sync):
+                </label>
+                <select
+                  value={activeProduct.id}
+                  onChange={(e) => handleSelectProduct(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-gray-900 shadow-2xs"
+                >
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} ({formatBDT(p.price)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-blue-900">
+                    সিলেক্টেড প্রোডাক্টের আলফানিউমেরিক শর্ট URL (Attached to Graph API):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activeUrl) {
+                        navigator.clipboard.writeText(activeUrl);
+                        addToast('প্রোডাক্ট শর্ট URL ক্লিপবোর্ডে কপি হয়েছে!', 'success');
+                      }
+                    }}
+                    className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy URL</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={productPostUrl}
+                  onChange={(e) => setProductPostUrl(e.target.value)}
+                  placeholder="https://yourdomain.com/p/aB9xK1mQ8zL4pW7rT2v"
+                  className="w-full px-3 py-2 text-xs bg-white border border-blue-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-blue-900 shadow-2xs"
+                />
+                <p className="text-[10px] text-blue-800/80 mt-1">
+                  💡 প্রোডাক্ট সিলেক্ট করলে সাথে সাথে এর ইউনিক ১৫-২০ ক্যারেক্টারের আলফানিউমেরিক শর্ট URL এখানে আপডেট হবে এবং ফেসবুক গ্রাফ এপিআই পেলোড ও ক্যাপশনে রিয়েলটাইমে সিঙ্ক হবে।
+                </p>
+              </div>
+            </div>
+
             {/* Checkbox Options */}
             <div className="pt-2 border-t border-gray-100 space-y-3">
               <label className="flex items-center gap-3 cursor-pointer">
@@ -571,17 +693,17 @@ export const FacebookIntegrationTab: React.FC = () => {
               <div className="relative aspect-video rounded-xl overflow-hidden bg-gray-900 border border-gray-200 group">
                 <img
                   src={
-                    sampleProduct.images && sampleProduct.images.length > 0
-                      ? sampleProduct.images[0]
+                    activeProduct.images && activeProduct.images.length > 0
+                      ? activeProduct.images[0]
                       : 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80'
                   }
-                  alt={sampleProduct.title}
+                  alt={activeProduct.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute bottom-2 left-2 right-2 bg-slate-900/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-white flex items-center justify-between text-xs">
-                  <span className="font-bold truncate">{sampleProduct.title}</span>
+                  <span className="font-bold truncate">{activeProduct.title}</span>
                   <span className="font-mono font-bold text-amber-300 shrink-0 ml-2">
-                    {formatBDT(sampleProduct.price)}
+                    {formatBDT(activeProduct.price)}
                   </span>
                 </div>
               </div>
@@ -605,11 +727,8 @@ export const FacebookIntegrationTab: React.FC = () => {
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-gray-700">টেস্ট প্রোডাক্ট নির্বাচন করুন:</span>
                 <select
-                  value={sampleProduct.id}
-                  onChange={(e) => {
-                    const found = products.find(p => p.id === e.target.value);
-                    if (found) setSelectedPreviewProduct(found);
-                  }}
+                  value={activeProduct.id}
+                  onChange={(e) => handleSelectProduct(e.target.value)}
                   className="text-xs bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-gray-800 font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-[200px]"
                 >
                   {products.map(p => (
@@ -623,7 +742,7 @@ export const FacebookIntegrationTab: React.FC = () => {
               <div className="flex items-center justify-between text-[11px] bg-blue-50/80 border border-blue-200/60 rounded-lg px-2.5 py-1.5 font-mono text-blue-900">
                 <span className="text-gray-600 font-sans font-semibold text-[10px] uppercase tracking-wider">Product Short Link:</span>
                 <span className="font-bold truncate max-w-[220px] text-blue-700">
-                  {getProductShortUrl(sampleProduct, config.websiteUrl)}
+                  {activeUrl}
                 </span>
               </div>
 

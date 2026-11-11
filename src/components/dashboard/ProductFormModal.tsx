@@ -8,7 +8,7 @@ import { useStore } from '../../context/StoreContext';
 import { Product } from '../../types';
 import { scrapeProductFromAnyUrl } from '../../utils/productScraper';
 import { calculateDiscount } from '../../utils/pricing';
-import { generateShortCode, getProductShortUrl, getProductShortCode } from '../../utils/productUrl';
+import { generateShortCode, getProductShortUrl, getProductShortCode, generateAlphanumericId } from '../../utils/productUrl';
 import {
   X,
   Save,
@@ -276,7 +276,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       // Clean, empty default values for new product
       setTitle('');
       setSlug('');
-      setShortCode(generateShortCode());
+      setShortCode(generateAlphanumericId(18));
       setDescription('');
       setSellingPrice('');
       setCurrentPrice(0);
@@ -499,7 +499,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const ok = updateProduct(productToEdit.id, {
         title: title.trim(),
         slug: slug.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        shortCode: shortCode.trim().toLowerCase() || generateShortCode(),
+        shortCode: shortCode.trim() || generateAlphanumericId(18),
         description: description.trim(),
         price: activeCurrentPrice,
         sellingPrice: regSellingPrice,
@@ -526,7 +526,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const ok = addProduct({
         title: title.trim(),
         slug: slug.trim() || `prod-${Date.now()}`,
-        shortCode: shortCode.trim().toLowerCase() || generateShortCode(),
+        shortCode: shortCode.trim() || generateAlphanumericId(18),
         description: description.trim(),
         price: activeCurrentPrice,
         sellingPrice: regSellingPrice,
@@ -669,29 +669,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-semibold text-gray-700">
-                  Short Product URL & Code *
+                  Alphanumeric Product ID (Short URL) *
                 </label>
                 <button
                   type="button"
-                  onClick={() => setShortCode(generateShortCode())}
+                  onClick={() => setShortCode(generateAlphanumericId(18))}
                   className="text-[10px] text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
                 >
-                  Regenerate Code
+                  Regenerate 18-Char ID
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 font-mono">/#/p/</span>
+                <span className="text-xs text-gray-400 font-mono">/p/</span>
                 <input
                   type="text"
                   required
                   value={shortCode}
-                  onChange={e => setShortCode(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ''))}
-                  placeholder="8-char code (e.g. k7x9m2p1)"
+                  onChange={e => setShortCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20))}
+                  placeholder="15-20 char alphanumeric ID (e.g. aB9xK1mQ8zL4pW7rT2v)"
                   className="flex-1 px-3 py-2 text-xs font-mono font-bold text-blue-800 bg-blue-50/50 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
               <p className="text-[10px] text-gray-500 mt-1 font-mono truncate">
-                Preview: {getProductShortUrl({ id: productToEdit?.id || 'new', shortCode: shortCode || 'k7x9m2p1' })}
+                Preview: {getProductShortUrl({ id: productToEdit?.id || 'new', shortCode: shortCode || 'aB9xK1mQ8zL4pW7rT2v' })}
               </p>
             </div>
 

@@ -12,6 +12,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  updateDoc,
   deleteDoc,
   collection,
   getDocs,
@@ -23,7 +24,7 @@ import {
   limit,
 } from "firebase/firestore";
 import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
-import { getProductShortCode } from "../utils/productUrl";
+import { getProductShortCode, generateAlphanumericId, isAlphanumericProductId } from "../utils/productUrl";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
 // Web app's Firebase configuration loaded from provisioned firebase-applet-config.json
@@ -696,6 +697,58 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
   } catch (err) {
     console.warn('Firestore fetch products error:', err);
     return [];
+  }
+};
+
+/**
+ * Migration Utility:
+ * Retroactively assigns and persists a 15-20 digit random alphanumeric ID
+ * for all previously uploaded products in Firestore that are missing one.
+ */
+export const migrateFirestoreProductsToAlphanumericIds = async (): Promise<{
+  totalChecked: number;
+  migratedCount: number;
+}> => {
+  try {
+    const colRef = collection(db, 'products');
+    const snapshot = await getDocs(colRef);
+    let migratedCount = 0;
+    const batchUpdates: Promise<void>[] = [];
+
+    for (const docSnap of snapshot.docs) {
+      const data = docSnap.data();
+      const currentShortCode = typeof data.shortCode === 'string' ? data.shortCode.trim() : '';
+
+      if (!isAlphanumericProductId(currentShortCode)) {
+        const newAlphanumericId = generateAlphanumericId(18);
+        migratedCount++;
+        const docRef = doc(db, 'products', docSnap.id);
+        batchUpdates.push(
+          updateDoc(docRef, {
+            shortCode: newAlphanumericId,
+            updatedAt: new Date().toISOString(),
+          }).catch(err => {
+            console.warn(`Failed to update product ${docSnap.id} with alphanumeric ID:`, err);
+          })
+        );
+      }
+    }
+
+    if (batchUpdates.length > 0) {
+      await Promise.all(batchUpdates);
+      console.log(`[Firestore Migration] Successfully migrated ${migratedCount} products to 15-20 digit alphanumeric IDs.`);
+    }
+
+    return {
+      totalChecked: snapshot.docs.length,
+      migratedCount,
+    };
+  } catch (err) {
+    console.warn('[Firestore Migration Error]:', err);
+    return {
+      totalChecked: 0,
+      migratedCount: 0,
+    };
   }
 };
 

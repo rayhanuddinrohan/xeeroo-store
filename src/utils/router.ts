@@ -36,7 +36,8 @@ export function parseRouteFromLocation(): ParsedRoute {
   }
 
   const hash = window.location.hash || '';
-  const pathname = window.location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
+  const rawPath = window.location.pathname.replace(/\/+$/, '') || '/';
+  const pathname = rawPath.toLowerCase();
   const searchParams = new URLSearchParams(window.location.search);
 
   // 1. Direct query param fallback (e.g. ?p=code or ?product=id or ?view=contact)
@@ -77,11 +78,12 @@ export function parseRouteFromLocation(): ParsedRoute {
       }
     }
 
-    const cleanHash = cleanRouteSegment(hash.toLowerCase());
+    const rawCleanHash = cleanRouteSegment(hash);
+    const cleanHash = rawCleanHash.toLowerCase();
 
-    // Short product URL format: #/p/:shortCode
+    // Short product URL format: #/p/:alphanumericId or #p=:alphanumericId
     if (cleanHash.startsWith('p/')) {
-      const rawParam = cleanHash.replace(/^p\//, '');
+      const rawParam = rawCleanHash.replace(/^p\//i, '');
       const cleanShortCode = decodeURIComponent(rawParam.split('/')[0] || '').trim();
       if (cleanShortCode) {
         return { viewMode: 'product-detail', productId: cleanShortCode, dashboardTab: null };
@@ -133,9 +135,9 @@ export function parseRouteFromLocation(): ParsedRoute {
     }
   }
 
-  // 3. Path Routing fallback (if URL was loaded via pathname like /p/:shortCode or /product/:id)
+  // 3. Path Routing fallback (if URL was loaded via pathname like /p/:alphanumericId or /product/:id)
   if (pathname.startsWith('/p/')) {
-    const rawParam = pathname.replace(/^\/p\//, '');
+    const rawParam = rawPath.replace(/^\/p\//i, '');
     const cleanShortCode = decodeURIComponent(rawParam.split('/')[0] || '').trim();
     if (cleanShortCode) {
       return {
@@ -239,9 +241,9 @@ export function buildUrlForRoute(
 ): string {
   switch (viewMode) {
     case 'product-detail': {
-      // Prioritize shortCode, then slug, then productId
-      const identifier = options?.shortCode || options?.slug || options?.productId;
-      return identifier ? `/#/p/${encodeURIComponent(identifier)}` : '/#/';
+      // Prioritize 15-20 char alphanumeric shortCode or productId. Remove long title slugs completely from product routing!
+      const identifier = options?.shortCode || options?.productId;
+      return identifier ? `/p/${encodeURIComponent(identifier)}` : '/';
     }
     case 'contact':
       return '/#/contact';
