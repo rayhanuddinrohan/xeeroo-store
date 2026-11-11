@@ -25,17 +25,19 @@ import {
   Check,
   RotateCcw,
   Bot,
+  RefreshCw,
 } from 'lucide-react';
 import { TelegramSettingsModal } from './TelegramSettingsModal';
 import { getStoredTelegramConfig } from '../../utils/telegram';
 
 export const OrderManagementTab: React.FC = () => {
-  const { orders, updateOrderStatus, canUpdateOrderStatus, addToast } = useStore();
+  const { orders, updateOrderStatus, canUpdateOrderStatus, refreshOrdersFromFirestore, addToast } = useStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'guest' | 'registered'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Business Koro Forward Order States
   const [bkModalOrder, setBkModalOrder] = useState<Order | null>(null);
@@ -209,12 +211,19 @@ export const OrderManagementTab: React.FC = () => {
     }
   };
 
+  // Helper to accurately identify pending orders (case-insensitive, default fallback)
+  const isPendingStatus = (status?: string | null): boolean => {
+    if (!status) return true;
+    const s = String(status).toLowerCase().trim();
+    return s === 'pending';
+  };
+
   // Status counts for admin oversight
-  const pendingOrdersCount = orders.filter(o => o.status === 'pending').length;
-  const processingOrdersCount = orders.filter(o => o.status === 'processing').length;
-  const shippedOrdersCount = orders.filter(o => o.status === 'shipped').length;
-  const deliveredOrdersCount = orders.filter(o => o.status === 'delivered').length;
-  const cancelledOrdersCount = orders.filter(o => o.status === 'cancelled').length;
+  const pendingOrdersCount = orders.filter(o => isPendingStatus(o.status)).length;
+  const processingOrdersCount = orders.filter(o => (o.status || '').toLowerCase().trim() === 'processing').length;
+  const shippedOrdersCount = orders.filter(o => (o.status || '').toLowerCase().trim() === 'shipped').length;
+  const deliveredOrdersCount = orders.filter(o => (o.status || '').toLowerCase().trim() === 'delivered').length;
+  const cancelledOrdersCount = orders.filter(o => (o.status || '').toLowerCase().trim() === 'cancelled').length;
 
   // Track customer order history (1st, 2nd, 3rd order detection) across phone, email, and userId
   const customerOrderHistory = useMemo(() => {
@@ -258,7 +267,8 @@ export const OrderManagementTab: React.FC = () => {
     };
   };
 
-  // Strictly enforce that all matching orders are sorted chronologically (newest first)
+  // Strictly enforce that ALL matching orders (1st, 2nd, 3rd repeat, guest, or registered) are included
+  // and sorted chronologically (newest first) without filtering out unique users or repeat customers!
   const filteredOrders = [...orders]
     .filter(o => {
       if (search.trim()) {
@@ -269,12 +279,28 @@ export const OrderManagementTab: React.FC = () => {
         const matchesPhone = (o.shippingAddress?.phone || '').includes(q);
         if (!matchesId && !matchesEmail && !matchesName && !matchesPhone) return false;
       }
-      if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+      if (statusFilter === 'pending') {
+        if (!isPendingStatus(o.status)) return false;
+      } else if (statusFilter !== 'all') {
+        if ((o.status || '').toLowerCase().trim() !== statusFilter.toLowerCase().trim()) return false;
+      }
       if (customerTypeFilter === 'guest' && !(o.isGuest || o.userId === 'guest')) return false;
       if (customerTypeFilter === 'registered' && (o.isGuest || o.userId === 'guest')) return false;
       return true;
     })
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const refreshed = await refreshOrdersFromFirestore();
+      addToast(`Cloud Firestore orders refreshed (${refreshed.length} total)`, 'success');
+    } catch {
+      addToast('Could not refresh orders from database.', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     if (!canUpdateOrderStatus) {
@@ -473,6 +499,17 @@ export const OrderManagementTab: React.FC = () => {
 
           <button
             type="button"
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer transition-colors disabled:opacity-50"
+            title="Fetch all live orders from Cloud Firestore"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>{isRefreshing ? 'Syncing...' : 'Sync Live DB'}</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setIsCheckStatusModalOpen(true);
               setCheckedStatusResult(null);
@@ -581,16 +618,16 @@ export const OrderManagementTab: React.FC = () => {
                         <td className="py-3 px-4">
                           <select
                             id={`select-status-${order.id}`}
-                            value={order.status}
+                            value={(order.status || 'pending').toLowerCase()}
                             onChange={e => handleStatusChange(order.id, e.target.value as OrderStatus)}
                             className={`text-xs font-semibold px-2.5 py-1 rounded-md border focus:outline-none transition-colors cursor-pointer ${
-                              order.status === 'delivered'
+                              (order.status || 'pending').toLowerCase() === 'delivered'
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : order.status === 'shipped'
+                                : (order.status || 'pending').toLowerCase() === 'shipped'
                                 ? 'bg-blue-50 text-blue-800 border-blue-200'
-                                : order.status === 'processing'
+                                : (order.status || 'pending').toLowerCase() === 'processing'
                                 ? 'bg-purple-50 text-purple-800 border-purple-200'
-                                : order.status === 'cancelled'
+                                : (order.status || 'pending').toLowerCase() === 'cancelled'
                                 ? 'bg-rose-50 text-rose-800 border-rose-200'
                                 : 'bg-amber-50 text-amber-800 border-amber-200'
                             }`}

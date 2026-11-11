@@ -55,7 +55,7 @@
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },
-      "required": ["id", "totalAmount", "userId", "userEmail"]
+      "required": ["id", "totalAmount", "status"]
     },
     "User": {
       "title": "User",

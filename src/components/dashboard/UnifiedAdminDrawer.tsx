@@ -323,13 +323,23 @@ export const UnifiedAdminDrawer: React.FC = () => {
                   <ShoppingBag className="w-4 h-4" />
                   <span>Orders & Fulfillments</span>
                 </div>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                    dashboardTab === 'orders' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {orders.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {orders.some(o => (o.status || 'pending').toLowerCase().trim() === 'pending') && (
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500 text-white"
+                      title="Pending Orders Awaiting Fulfillment"
+                    >
+                      {orders.filter(o => (o.status || 'pending').toLowerCase().trim() === 'pending').length} pending
+                    </span>
+                  )}
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                      dashboardTab === 'orders' ? 'bg-blue-700 text-white' : 'bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    {orders.length}
+                  </span>
+                </div>
               </button>
 
               {/* Product Catalog */}

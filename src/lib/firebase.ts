@@ -23,7 +23,7 @@ import {
   where,
   limit,
 } from "firebase/firestore";
-import { Product, User, Category, Order, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
+import { Product, User, Category, Order, OrderStatus, BannerSlide, AppNotification, UserRole, TelegramConfig, FacebookConfig } from "../types";
 import { getProductShortCode, generateAlphanumericId, isAlphanumericProductId } from "../utils/productUrl";
 import firebaseAppletConfig from "../../firebase-applet-config.json";
 
@@ -897,22 +897,25 @@ export const fetchFirestoreCategories = async (): Promise<Category[]> => {
 export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
   try {
     const orderRef = doc(db, 'orders', order.id);
+    // Explicitly guarantee uniform 'pending' status in payload regardless of user role (Admin, Guest, Logged-in, Returning)
+    const normalizedStatus: OrderStatus = (order.status || 'pending').toLowerCase().trim() as OrderStatus;
+
     await setDoc(orderRef, {
       id: order.id,
-      userId: order.userId,
-      userEmail: order.userEmail || '',
-      isGuest: Boolean(order.isGuest),
-      status: order.status || 'pending',
-      totalAmount: order.totalAmount,
-      subtotalAmount: order.subtotalAmount ?? null,
-      deliveryCharge: order.deliveryCharge ?? null,
-      discountAmount: order.discountAmount ?? null,
+      userId: order.userId || 'guest',
+      userEmail: (order.userEmail || '').trim().toLowerCase(),
+      isGuest: Boolean(order.isGuest || order.userId === 'guest'),
+      status: normalizedStatus || 'pending',
+      totalAmount: Number(order.totalAmount) || 0,
+      subtotalAmount: order.subtotalAmount !== undefined ? Number(order.subtotalAmount) : null,
+      deliveryCharge: order.deliveryCharge !== undefined ? Number(order.deliveryCharge) : null,
+      discountAmount: order.discountAmount !== undefined ? Number(order.discountAmount) : null,
       shippingAddress: order.shippingAddress,
-      items: order.items,
-      paymentMethod: order.paymentMethod,
+      items: Array.isArray(order.items) ? order.items : [],
+      paymentMethod: order.paymentMethod || 'cod',
       ...(order.paymentDetails ? { paymentDetails: order.paymentDetails } : {}),
-      createdAt: order.createdAt,
-      updatedAt: order.updatedAt,
+      createdAt: order.createdAt || new Date().toISOString(),
+      updatedAt: order.updatedAt || new Date().toISOString(),
     }, { merge: true });
     return true;
   } catch (err) {
@@ -928,13 +931,19 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
     const list: Order[] = [];
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && (data.userId || data.items)) {
+      if (data && (data.id || docSnap.id)) {
+        const rawStatus = (data.status || 'pending').toLowerCase().trim();
+        const validStatuses: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+        const normalizedStatus: OrderStatus = validStatuses.includes(rawStatus as OrderStatus)
+          ? (rawStatus as OrderStatus)
+          : 'pending';
+
         list.push({
           id: data.id || docSnap.id,
           userId: data.userId || 'guest',
-          userEmail: data.userEmail || '',
+          userEmail: (data.userEmail || '').trim().toLowerCase(),
           isGuest: Boolean(data.isGuest || data.userId === 'guest'),
-          status: data.status || 'pending',
+          status: normalizedStatus,
           totalAmount: Number(data.totalAmount) || 0,
           subtotalAmount: data.subtotalAmount !== undefined ? Number(data.subtotalAmount) : undefined,
           deliveryCharge: data.deliveryCharge !== undefined ? Number(data.deliveryCharge) : undefined,
@@ -948,7 +957,7 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
             country: 'Bangladesh',
             phone: '',
           },
-          items: data.items || [],
+          items: Array.isArray(data.items) ? data.items : [],
           paymentMethod: data.paymentMethod || 'cod',
           paymentDetails: data.paymentDetails || undefined,
           createdAt: data.createdAt || new Date().toISOString(),
@@ -965,6 +974,16 @@ export const fetchFirestoreOrders = async (): Promise<Order[]> => {
   }
 };
 
+export const fetchFirestorePendingOrders = async (): Promise<Order[]> => {
+  try {
+    const all = await fetchFirestoreOrders();
+    return all.filter(o => (o.status || 'pending').toLowerCase().trim() === 'pending');
+  } catch (err) {
+    console.warn('Firestore fetch pending orders error:', err);
+    return [];
+  }
+};
+
 export const subscribeToFirestoreOrders = (
   onOrdersUpdate: (orders: Order[]) => void,
   onError?: (err: Error) => void
@@ -977,12 +996,18 @@ export const subscribeToFirestoreOrders = (
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         if (data && (data.id || docSnap.id)) {
+          const rawStatus = (data.status || 'pending').toLowerCase().trim();
+          const validStatuses: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+          const normalizedStatus: OrderStatus = validStatuses.includes(rawStatus as OrderStatus)
+            ? (rawStatus as OrderStatus)
+            : 'pending';
+
           list.push({
             id: data.id || docSnap.id,
             userId: data.userId || 'guest',
-            userEmail: data.userEmail || '',
+            userEmail: (data.userEmail || '').trim().toLowerCase(),
             isGuest: Boolean(data.isGuest || data.userId === 'guest'),
-            status: data.status || 'pending',
+            status: normalizedStatus,
             totalAmount: Number(data.totalAmount) || 0,
             subtotalAmount: data.subtotalAmount !== undefined ? Number(data.subtotalAmount) : undefined,
             deliveryCharge: data.deliveryCharge !== undefined ? Number(data.deliveryCharge) : undefined,

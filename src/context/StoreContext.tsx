@@ -309,6 +309,7 @@ interface StoreContextType {
     customDiscount?: number
   ) => Promise<Order | null>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<boolean>;
+  refreshOrdersFromFirestore: () => Promise<Order[]>;
   userOrders: Order[];
 
   // RBAC Permission Helpers
@@ -3194,6 +3195,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
+  const refreshOrdersFromFirestore = async (): Promise<Order[]> => {
+    try {
+      const liveOrders = await fetchFirestoreOrders();
+      if (liveOrders.length > 0) {
+        setOrders(liveOrders);
+        localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(liveOrders));
+      }
+      return liveOrders;
+    } catch (err) {
+      console.warn('Error refreshing orders from Firestore:', err);
+      return orders;
+    }
+  };
+
   // Notification helper methods (Real-time Firestore)
   const addNotification = async (
     data: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'> & { id?: string; createdAt?: string; isRead?: boolean }
@@ -3528,6 +3543,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     orders,
     createOrder,
     updateOrderStatus,
+    refreshOrdersFromFirestore,
     userOrders,
 
     canAccessDashboard,
