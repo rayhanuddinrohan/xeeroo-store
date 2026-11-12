@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { FacebookConfig } from '../../types';
 import { verifyFacebookPage, DEFAULT_FACEBOOK_CONFIG } from '../../utils/facebook';
+import { resolveCanonicalStoreDomain } from '../../utils/productUrl';
 import {
   X,
   Share2,
@@ -90,7 +91,10 @@ export const FacebookSettingsModal: React.FC<FacebookSettingsModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    await updateFacebookConfig(config);
+    const cleanedWebsiteUrl = config.websiteUrl?.trim()
+      ? resolveCanonicalStoreDomain(config.websiteUrl)
+      : DEFAULT_FACEBOOK_CONFIG.websiteUrl;
+    await updateFacebookConfig({ ...config, websiteUrl: cleanedWebsiteUrl });
     addToast(
       config.enabled && config.autoPostOnAdd
         ? 'Facebook Auto-Post active! New products will publish to your page automatically.'

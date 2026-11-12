@@ -110,6 +110,19 @@ export function isAlphanumericProductId(val?: string | null): boolean {
 export function resolveCanonicalStoreDomain(explicitUrl?: string): string {
   let domain = (explicitUrl || '').trim();
 
+  if (domain) {
+    try {
+      const withProto = /^https?:\/\//i.test(domain) ? domain : `https://${domain}`;
+      const parsed = new URL(withProto);
+      domain = `${parsed.protocol}//${parsed.host}`;
+    } catch {
+      domain = domain
+        .split('#')[0]
+        .split('?')[0]
+        .replace(/\/(p|product|products)\/.*$/i, '');
+    }
+  }
+
   if (!domain || domain.includes('localhost') || domain.includes('127.0.0.1')) {
     if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
       domain = window.location.origin;

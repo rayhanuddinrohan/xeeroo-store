@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { FacebookConfig, Product } from '../../types';
 import { formatBDT } from '../../utils/currency';
@@ -12,7 +12,7 @@ import {
   formatProductCaption,
   DEFAULT_FACEBOOK_CONFIG,
 } from '../../utils/facebook';
-import { getProductShortUrl } from '../../utils/productUrl';
+import { getProductShortUrl, resolveCanonicalStoreDomain } from '../../utils/productUrl';
 import {
   Share2,
   CheckCircle2,
@@ -76,44 +76,26 @@ export const FacebookIntegrationTab: React.FC = () => {
 
   const [postingProductId, setPostingProductId] = useState<string | null>(null);
   const [showGuide, setShowGuide] = useState(false);
-  const [selectedPreviewProduct, setSelectedPreviewProduct] = useState<Product | null>(null);
-  const [productPostUrl, setProductPostUrl] = useState<string>('');
+  const [selectedProductId, setSelectedProductId] = useState<string>('');
+  const [manualUrlOverride, setManualUrlOverride] = useState<string | null>(null);
 
   useEffect(() => {
     if (facebookConfig) {
+      const normalizedWebsiteUrl = facebookConfig.websiteUrl
+        ? resolveCanonicalStoreDomain(facebookConfig.websiteUrl)
+        : DEFAULT_FACEBOOK_CONFIG.websiteUrl;
       setConfig({
         ...DEFAULT_FACEBOOK_CONFIG,
         ...facebookConfig,
+        websiteUrl: normalizedWebsiteUrl,
       });
     }
   }, [facebookConfig]);
 
-  useEffect(() => {
-    if (products.length > 0) {
-      if (!selectedPreviewProduct) {
-        const first = products[0];
-        setSelectedPreviewProduct(first);
-        const url = getProductShortUrl(first, config.websiteUrl);
-        setProductPostUrl(url);
-      } else {
-        // Keep updated
-        const found = products.find(p => p.id === selectedPreviewProduct.id);
-        if (found) {
-          const url = getProductShortUrl(found, config.websiteUrl);
-          setProductPostUrl(url);
-        }
-      }
-    }
-  }, [products, config.websiteUrl]);
-
-  // Realtime product selection handler
+  // Realtime product selection handler - immediately syncs activeProduct, short URL, and live caption
   const handleSelectProduct = (productId: string) => {
-    const found = products.find(p => p.id === productId);
-    if (found) {
-      setSelectedPreviewProduct(found);
-      const shortUrl = getProductShortUrl(found, config.websiteUrl);
-      setProductPostUrl(shortUrl);
-    }
+    setSelectedProductId(productId);
+    setManualUrlOverride(null);
   };
 
   // Handle Verify Page with Meta Graph API
@@ -169,18 +151,73 @@ export const FacebookIntegrationTab: React.FC = () => {
   // Handle Save Configuration
   const handleSaveConfig = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    const cleanedWebsiteUrl = config.websiteUrl?.trim()
+      ? resolveCanonicalStoreDomain(config.websiteUrl)
+      : DEFAULT_FACEBOOK_CONFIG.websiteUrl;
     const updated = {
       ...config,
+      websiteUrl: cleanedWebsiteUrl,
       updatedAt: new Date().toISOString(),
     };
+    setConfig(updated);
     await updateFacebookConfig(updated);
     addToast('Facebook Auto-Post সেটিংস ক্লাউড ডাটাবেজে সংরক্ষিত হয়েছে!', 'success');
   };
 
+  // Fallback sample product if catalog is empty
+  const sampleFallbackProduct: Product = useMemo(
+    () => ({
+      id: 'sample',
+      title: 'Minimalist Premium Watch',
+      price: 3450,
+      stockQuantity: 15,
+      slug: 'minimalist-premium-watch',
+      shortCode: 'k7x9m2p1Q8zL4pW7rT',
+      description: 'Ultra-thin aesthetic chronometer crafted with surgical-grade stainless steel and sapphire glass.',
+      images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80'],
+      brand: 'XEEROO Signature',
+      features: ['Water Resistant 50M', 'Sapphire Glass', 'Genuine Leather Strap'],
+      categoryId: 'cat-watches',
+      isPublished: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      rating: 5,
+      reviewsCount: 12,
+    }),
+    []
+  );
+
+  const activeProduct = useMemo(() => {
+    if (products.length === 0) return sampleFallbackProduct;
+    if (selectedProductId) {
+      const matched = products.find(p => p.id === selectedProductId);
+      if (matched) return matched;
+    }
+    return products[0];
+  }, [products, selectedProductId, sampleFallbackProduct]);
+
+  const canonicalProductUrl = useMemo(
+    () => getProductShortUrl(activeProduct, config.websiteUrl),
+    [activeProduct, config.websiteUrl]
+  );
+
+  const activeUrl =
+    (manualUrlOverride !== null ? manualUrlOverride : canonicalProductUrl).trim() || canonicalProductUrl;
+
+  const previewCaption = useMemo(
+    () =>
+      formatProductCaption(
+        activeProduct,
+        config,
+        resolveCanonicalStoreDomain(config.websiteUrl),
+        activeUrl
+      ),
+    [activeProduct, config, activeUrl]
+  );
+
   // Send a quick test post
   const handleSendTestPost = async () => {
-    const activeProduct = selectedPreviewProduct || products[0];
-    if (!activeProduct) {
+    if (products.length === 0) {
       addToast('টেস্ট পোস্ট করার জন্য কোনো প্রোডাক্ট পাওয়া যায়নি।', 'warning');
       return;
     }
@@ -189,7 +226,6 @@ export const FacebookIntegrationTab: React.FC = () => {
     setTestPostResult(null);
 
     try {
-      const activeUrl = productPostUrl.trim() || getProductShortUrl(activeProduct, config.websiteUrl);
       const res = await postProductToFacebook(activeProduct, previewCaption, activeUrl);
       setTestPostResult(res);
     } finally {
@@ -207,36 +243,6 @@ export const FacebookIntegrationTab: React.FC = () => {
       setPostingProductId(null);
     }
   };
-
-  // Fallback sample product if catalog is empty
-  const sampleFallbackProduct: Product = {
-    id: 'sample',
-    title: 'Minimalist Premium Watch',
-    price: 3450,
-    stockQuantity: 15,
-    slug: 'minimalist-premium-watch',
-    shortCode: 'k7x9m2p1Q8zL4pW7rT',
-    description: 'Ultra-thin aesthetic chronometer crafted with surgical-grade stainless steel and sapphire glass.',
-    images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=800&q=80'],
-    brand: 'XEEROO Signature',
-    features: ['Water Resistant 50M', 'Sapphire Glass', 'Genuine Leather Strap'],
-    categoryId: 'cat-watches',
-    isPublished: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    rating: 5,
-    reviewsCount: 12,
-  };
-
-  const activeProduct = selectedPreviewProduct || products[0] || sampleFallbackProduct;
-  const activeUrl = productPostUrl.trim() || getProductShortUrl(activeProduct, config.websiteUrl);
-
-  const previewCaption = formatProductCaption(
-    activeProduct,
-    config,
-    config.websiteUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com'),
-    activeUrl
-  );
 
   return (
     <div className="space-y-6">
@@ -573,8 +579,8 @@ export const FacebookIntegrationTab: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  value={productPostUrl}
-                  onChange={(e) => setProductPostUrl(e.target.value)}
+                  value={activeUrl}
+                  onChange={(e) => setManualUrlOverride(e.target.value)}
                   placeholder="https://yourdomain.com/#/p/aB9xK1mQ8zL4pW7rT2v"
                   className="w-full px-3 py-2 text-xs bg-white border border-blue-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-blue-900 shadow-2xs"
                 />

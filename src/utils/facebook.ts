@@ -5,7 +5,7 @@
 
 import { Product, FacebookConfig } from '../types';
 import { formatBDT } from './currency';
-import { getProductShortUrl } from './productUrl';
+import { getProductShortUrl, resolveCanonicalStoreDomain } from './productUrl';
 
 export const FACEBOOK_CONFIG_STORAGE_KEY = 'xeeroo_facebook_config';
 
@@ -104,21 +104,8 @@ export const formatProductCaption = (
   const includePrice = config.includePrice ?? true;
   const includeLink = config.includeLink ?? true;
 
-  // Resolve canonical, publicly accessible store base URL
-  let baseDomain = (config.websiteUrl || storeBaseUrl || '').trim();
-  if (!baseDomain || baseDomain.includes('localhost') || baseDomain.includes('127.0.0.1')) {
-    if (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('localhost')) {
-      baseDomain = window.location.origin;
-    } else {
-      baseDomain = 'https://ais-pre-jaojjujai65chcukwocmss-455970953521.asia-southeast1.run.app';
-    }
-  }
-
-  // If in development preview, convert to public shared preview so external customers can access it
-  if (baseDomain.includes('ais-dev-')) {
-    baseDomain = baseDomain.replace('ais-dev-', 'ais-pre-');
-  }
-  baseDomain = baseDomain.replace(/\/+$/, '');
+  // Resolve canonical, publicly accessible store base URL (origin only)
+  const baseDomain = resolveCanonicalStoreDomain(config.websiteUrl || storeBaseUrl);
   const productUrl = (explicitProductUrl || '').trim() || getProductShortUrl(product, baseDomain);
 
   const lines: string[] = [];
@@ -412,9 +399,9 @@ export const publishProductToFacebook = async (
     };
   }
 
-  const origin = storeBaseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://xeeroo.com');
+  const origin = resolveCanonicalStoreDomain(config.websiteUrl || storeBaseUrl);
   const productUrl = (explicitProductUrl || '').trim() || getProductShortUrl(product, origin);
-  const caption = customCaption || formatProductCaption(product, config, storeBaseUrl, productUrl);
+  const caption = customCaption || formatProductCaption(product, config, origin, productUrl);
   let primaryImage =
     product.images && product.images.length > 0
       ? product.images[0]
