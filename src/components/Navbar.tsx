@@ -243,8 +243,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 type="button"
                 onClick={openAdminDrawer}
                 className="p-2 text-gray-700 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-all cursor-pointer active:scale-95 group flex items-center justify-center border border-gray-200/80 shadow-2xs shrink-0"
-                title="Open Admin Navigation & Actions Menu"
-                aria-label="Open Admin Menu"
+                title={
+                  currentUser?.role === 'admin' || currentUser?.role === 'moderator'
+                    ? 'Open Admin Navigation & Actions Menu'
+                    : 'Open Store Navigation Menu'
+                }
+                aria-label={
+                  currentUser?.role === 'admin' || currentUser?.role === 'moderator'
+                    ? 'Open Admin Menu'
+                    : 'Open Navigation Menu'
+                }
               >
                 <Menu className="w-5 h-5 text-gray-800 group-hover:scale-110 transition-transform" />
               </button>
@@ -667,8 +675,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
               id="mobile-drawer-btn"
               onClick={openAdminDrawer}
               className="relative p-2 text-gray-800 hover:text-gray-950 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer shrink-0"
-              aria-label="Open Unified Admin Menu & Quick Actions"
-              title="Open Admin Menu"
+              aria-label={
+                currentUser?.role === 'admin' || currentUser?.role === 'moderator'
+                  ? 'Open Unified Admin Menu & Quick Actions'
+                  : 'Open Store Navigation Menu'
+              }
+              title={
+                currentUser?.role === 'admin' || currentUser?.role === 'moderator'
+                  ? 'Open Admin Menu'
+                  : 'Open Menu'
+              }
             >
               <Menu className="w-6 h-6 text-gray-900" />
             </button>
