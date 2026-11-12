@@ -680,7 +680,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 font-mono">/p/</span>
+                <span className="text-xs text-gray-400 font-mono">/#/p/</span>
                 <input
                   type="text"
                   required

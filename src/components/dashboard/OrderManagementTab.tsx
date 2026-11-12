@@ -34,7 +34,7 @@ export const OrderManagementTab: React.FC = () => {
   const { orders, updateOrderStatus, canUpdateOrderStatus, refreshOrdersFromFirestore, addToast } = useStore();
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('pending');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'guest' | 'registered'>('all');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -312,6 +312,15 @@ export const OrderManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Manual Fulfillment Flow:</strong> Every new order (Customer, Guest, Repeat, Moderator, or Admin) enters <strong>Pending Orders</strong> first until staff manually updates the status.
+          </span>
+        </div>
+      </div>
+
       {/* Quick Status Tabs Bar */}
       <div className="flex flex-wrap items-center gap-2 p-2 bg-gray-50 rounded-2xl border border-gray-200">
         <button

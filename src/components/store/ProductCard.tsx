@@ -167,8 +167,7 @@ My Delivery Address:`
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedProductId(product.id);
-                  setViewMode('product-detail');
+                  navigateToProduct(getProductShortCode(product));
                 }}
                 className="flex items-center gap-1 text-amber-500 cursor-pointer hover:opacity-80 transition-opacity"
                 title="View customer reviews"
@@ -181,8 +180,7 @@ My Delivery Address:`
               <span
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedProductId(product.id);
-                  setViewMode('product-detail');
+                  navigateToProduct(getProductShortCode(product));
                 }}
                 className="text-[10px] sm:text-[11px] text-gray-400 italic cursor-pointer hover:text-blue-600 transition-colors"
                 title="Rate this product"

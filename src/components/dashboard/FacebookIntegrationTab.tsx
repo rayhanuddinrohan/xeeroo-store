@@ -575,7 +575,7 @@ export const FacebookIntegrationTab: React.FC = () => {
                   type="text"
                   value={productPostUrl}
                   onChange={(e) => setProductPostUrl(e.target.value)}
-                  placeholder="https://yourdomain.com/p/aB9xK1mQ8zL4pW7rT2v"
+                  placeholder="https://yourdomain.com/#/p/aB9xK1mQ8zL4pW7rT2v"
                   className="w-full px-3 py-2 text-xs bg-white border border-blue-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-blue-900 shadow-2xs"
                 />
                 <p className="text-[10px] text-blue-800/80 mt-1">

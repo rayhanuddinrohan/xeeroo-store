@@ -68,6 +68,7 @@ import {
   fetchFirestoreFacebookConfig,
   subscribeToFirestoreFacebookConfig,
   migrateFirestoreProductsToAlphanumericIds,
+  fetchFirestoreProductByIdentifier,
   db,
 } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -227,6 +228,7 @@ interface StoreContextType {
 
   // Products
   products: Product[];
+  isProductsLoading: boolean;
   categories: Category[];
   addProduct: (product: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>) => boolean;
   updateProduct: (id: string, updates: Partial<Product>) => boolean;
@@ -437,6 +439,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     otp: string;
   } | null>(null);
 
+  // Product catalog loading state (prevents premature Product Not Found on page refresh)
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+
   // Cloud Database state (Firestore)
   const [dbStatus, setDbStatus] = useState<{
     isConnected: boolean;
@@ -528,8 +533,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return Array.from(map.values());
         });
       }
-      if (dbOrders.length > 0) {
-        setOrders(dbOrders);
+      if (dbOrders.length > 0 || pendingLocalOrdersRef.current.size > 0) {
+        const dbIds = new Set(dbOrders.map(o => o.id));
+        const unsyncedLocal: Order[] = [];
+        pendingLocalOrdersRef.current.forEach((order, id) => {
+          if (dbIds.has(id)) {
+            pendingLocalOrdersRef.current.delete(id);
+          } else {
+            unsyncedLocal.push(order);
+          }
+        });
+        const merged = [...unsyncedLocal, ...dbOrders].sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        setOrders(merged);
       }
 
       setDbStatus(prev => ({
@@ -557,9 +574,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Store-wide Facebook Page Auto-Post configuration (Synchronized with Firestore)
   const [facebookConfig, setFacebookConfig] = useState<FacebookConfig>(() => getStoredFacebookConfig());
 
-  // Refs to track order statuses, seen notifications, and current user for real-time customer alerts
+  // Refs to track order statuses, seen notifications, pending local orders, and current user
   const ordersStatusRef = useRef<Map<string, OrderStatus>>(new Map());
   const seenNotifsRef = useRef<Set<string>>(new Set());
+  const pendingLocalOrdersRef = useRef<Map<string, Order>>(new Map());
   const currentUserRef = useRef<User | null>(null);
 
   useEffect(() => {
@@ -632,9 +650,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               return Array.from(map.values());
             });
           }
-          if (dbOrders.length > 0) {
-            setOrders(dbOrders);
-            dbOrders.forEach(o => ordersStatusRef.current.set(o.id, o.status));
+          if (dbOrders.length > 0 || pendingLocalOrdersRef.current.size > 0) {
+            const dbIds = new Set(dbOrders.map(o => o.id));
+            const unsyncedLocal: Order[] = [];
+            pendingLocalOrdersRef.current.forEach((order, id) => {
+              if (dbIds.has(id)) {
+                pendingLocalOrdersRef.current.delete(id);
+              } else {
+                unsyncedLocal.push(order);
+              }
+            });
+            const mergedInitialOrders = [...unsyncedLocal, ...dbOrders].sort(
+              (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+            );
+            setOrders(mergedInitialOrders);
+            mergedInitialOrders.forEach(o => ordersStatusRef.current.set(o.id, o.status));
           }
           if (dbTelegram && isMounted) {
             setTelegramConfig(dbTelegram);
@@ -669,8 +699,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Attach real-time Firestore listener for orders
           unsubscribeOrders = subscribeToFirestoreOrders((liveOrders) => {
             if (!isMounted) return;
+            const liveIds = new Set(liveOrders.map(o => o.id));
+            const unsyncedLocal: Order[] = [];
+            pendingLocalOrdersRef.current.forEach((localOrder, id) => {
+              if (liveIds.has(id)) {
+                pendingLocalOrdersRef.current.delete(id);
+              } else {
+                unsyncedLocal.push(localOrder);
+              }
+            });
+            const mergedLiveOrders = [...unsyncedLocal, ...liveOrders].sort(
+              (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+            );
+
             const isInitial = ordersStatusRef.current.size === 0;
-            liveOrders.forEach(o => {
+            mergedLiveOrders.forEach(o => {
               const prevStatus = ordersStatusRef.current.get(o.id);
               if (!isInitial && prevStatus && prevStatus !== o.status) {
                 // Order status changed in Firestore!
@@ -694,11 +737,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               ordersStatusRef.current.set(o.id, o.status);
             });
 
-            setOrders(liveOrders);
+            setOrders(mergedLiveOrders);
             setDbStatus(prev => ({
               ...prev,
               isConnected: true,
-              orderCount: liveOrders.length,
+              orderCount: mergedLiveOrders.length,
               lastSyncedAt: new Date().toLocaleTimeString(),
             }));
           });
@@ -843,6 +886,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch (err: any) {
         console.warn('Database initialization notice:', err);
+      } finally {
+        if (isMounted) {
+          setIsProductsLoading(false);
+        }
       }
     };
 
@@ -924,7 +971,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : 0;
         return {
           ...p,
-          shortCode: p.shortCode || getProductShortCode(p),
+          shortCode: p.shortCode && isAlphanumericProductId(p.shortCode) ? p.shortCode.trim() : getProductShortCode(p),
           reviews: revs,
           reviewsCount,
           rating,
@@ -1019,7 +1066,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const navigateToProduct = (productIdOrSlug: string) => {
-    const clean = productIdOrSlug.trim();
+    const clean = (productIdOrSlug || '').trim();
     const matched = findProductByIdentifier(products, clean);
     const shortCode = matched ? getProductShortCode(matched) : clean;
     setSelectedProductId(matched ? matched.id : clean);
@@ -1121,12 +1168,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Sync browser URL whenever viewMode, selectedProductId, or dashboardTab changes
   useEffect(() => {
     const matched = selectedProductId
-      ? products.find(p => p.id === selectedProductId || p.slug === selectedProductId)
+      ? findProductByIdentifier(products, selectedProductId)
       : null;
+    const shortCode = matched ? getProductShortCode(matched) : selectedProductId;
 
     syncBrowserUrl(viewMode, {
-      productId: selectedProductId,
-      slug: matched?.slug || selectedProductId,
+      productId: matched?.id || selectedProductId,
+      shortCode,
+      slug: shortCode,
       dashboardTab: viewMode === 'dashboard' ? dashboardTab : null,
       pageTitle: matched?.title,
       replace: true,
@@ -2197,7 +2246,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newProduct: Product = {
       ...productData,
       id: `prod-${Date.now()}`,
-      shortCode: productData.shortCode || generateShortCode(),
+      shortCode: isAlphanumericProductId(productData.shortCode) ? productData.shortCode!.trim() : generateShortCode(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       updatedBy: currentUser?.id || 'admin',
@@ -2235,7 +2284,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const updated = {
             ...p,
             ...updates,
-            shortCode: updates.shortCode || p.shortCode || generateShortCode(),
+            shortCode: updates.shortCode && isAlphanumericProductId(updates.shortCode)
+              ? updates.shortCode.trim()
+              : p.shortCode && isAlphanumericProductId(p.shortCode)
+              ? p.shortCode.trim()
+              : generateShortCode(),
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser?.id || 'admin',
           };
@@ -2891,6 +2944,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const orderId = `ORD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const sanitizedPaymentDetails = paymentDetails
+      ? {
+          ...(paymentDetails.gateway ? { gateway: paymentDetails.gateway } : {}),
+          ...(paymentDetails.senderNumber ? { senderNumber: paymentDetails.senderNumber } : {}),
+          ...(paymentDetails.bkashNumber ? { bkashNumber: paymentDetails.bkashNumber } : {}),
+          ...(paymentDetails.nagadNumber ? { nagadNumber: paymentDetails.nagadNumber } : {}),
+          ...(paymentDetails.rocketNumber ? { rocketNumber: paymentDetails.rocketNumber } : {}),
+          ...(paymentDetails.trxId ? { trxId: paymentDetails.trxId } : {}),
+          advanceDiscount,
+        }
+      : undefined;
+
     const newOrder: Order = {
       id: orderId,
       userId: customerId,
@@ -2903,14 +2968,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       discountAmount: advanceDiscount,
       shippingAddress,
       paymentMethod,
-      ...(paymentDetails
-        ? {
-            paymentDetails: {
-              ...paymentDetails,
-              advanceDiscount,
-            },
-          }
-        : {}),
+      ...(sanitizedPaymentDetails ? { paymentDetails: sanitizedPaymentDetails } : {}),
       createdAt: nowIso,
       updatedAt: nowIso,
       items: cart.map(item => ({
@@ -2921,9 +2979,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unitPrice: item.product.price,
         productTitle: item.product.title,
         productImage: item.product.images[0] || '',
-        sku: item.product.sku,
-        selectedColor: item.selectedColor,
-        selectedSize: item.selectedSize,
+        ...(item.product.sku ? { sku: item.product.sku } : {}),
+        ...(item.selectedColor ? { selectedColor: item.selectedColor } : {}),
+        ...(item.selectedSize ? { selectedSize: item.selectedSize } : {}),
       })),
     };
 
@@ -2947,12 +3005,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return p;
     });
 
+    // Track locally until Firestore snapshot echoes it back so pending orders are never dropped
+    pendingLocalOrdersRef.current.set(newOrder.id, newOrder);
+    ordersStatusRef.current.set(newOrder.id, newOrder.status);
+
     setProducts(updatedProductsList);
     setOrders(prev => [newOrder, ...prev.filter(o => o.id !== newOrder.id)]);
     setCart([]);
 
     // Save order directly to Firestore database!
-    await saveFirestoreOrder(newOrder);
+    const savedToDb = await saveFirestoreOrder(newOrder);
+    if (!savedToDb) {
+      console.warn(`Order #${orderId} kept in local pending queue after Firestore write issue.`);
+    }
 
     // Notify Admin/Staff in real-time (Strictly targeted to staff, not customer account)
     addNotification({
@@ -3492,6 +3557,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setInStockOnly,
 
     products,
+    isProductsLoading,
     categories,
     addProduct,
     updateProduct,

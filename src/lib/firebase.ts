@@ -45,6 +45,27 @@ export const db = getFirestore(app, firebaseAppletConfig.firestoreDatabaseId);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+/**
+ * Recursively removes keys with `undefined` values from objects and arrays
+ * because Cloud Firestore throws `Unsupported field value: undefined` on setDoc/batch.set.
+ */
+export function removeUndefinedValues<T>(value: T): T {
+  if (value === undefined) return value;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => removeUndefinedValues(item)) as unknown as T;
+  }
+  const result: Record<string, any> = {};
+  for (const [key, val] of Object.entries(value as Record<string, any>)) {
+    if (val !== undefined) {
+      result[key] = removeUndefinedValues(val);
+    }
+  }
+  return result as T;
+}
+
 // ==========================================
 // 1. Connection Ping & Health Check
 // ==========================================
@@ -433,12 +454,16 @@ export const fetchFirestoreUserByIdentifier = async (identifier: string): Promis
 export const saveFirestoreProduct = async (product: Product): Promise<boolean> => {
   try {
     const prodRef = doc(db, 'products', product.id);
+    const resolvedShortCode = isAlphanumericProductId(product.shortCode)
+      ? product.shortCode!.trim()
+      : getProductShortCode(product);
+
     const cleanPayload: Record<string, any> = {
       id: product.id,
       title: product.title || product.name || 'Product',
       name: product.name || product.title || 'Product',
       slug: product.slug,
-      shortCode: product.shortCode || getProductShortCode(product),
+      shortCode: resolvedShortCode,
       description: product.description || '',
       price: Number(product.price),
       sellingPrice: (product.sellingPrice !== undefined && product.sellingPrice !== null)
@@ -472,13 +497,16 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
     if (product.suggestedPrice !== undefined) cleanPayload.suggestedPrice = Number(product.suggestedPrice);
     if (product.inStock !== undefined) cleanPayload.inStock = Boolean(product.inStock);
     if (product.variants !== undefined) cleanPayload.variants = product.variants;
+    if (product.facebookPostId) cleanPayload.facebookPostId = product.facebookPostId;
+    if (product.facebookPostUrl) cleanPayload.facebookPostUrl = product.facebookPostUrl;
+    if (product.facebookPostedAt) cleanPayload.facebookPostedAt = product.facebookPostedAt;
     if (product.priority !== undefined && product.priority !== null && Number(product.priority) > 0) {
       cleanPayload.priority = Number(product.priority);
     } else {
       cleanPayload.priority = null;
     }
 
-    await setDoc(prodRef, cleanPayload, { merge: true });
+    await setDoc(prodRef, removeUndefinedValues(cleanPayload), { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore save product error:', err);
@@ -567,12 +595,18 @@ export const subscribeToFirestoreProducts = (
             ? Number(data.currentPrice)
             : (Number(data.price) || 0);
 
+          const resolvedId = data.id || docSnap.id;
+          const resolvedSlug = data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const resolvedShortCode = isAlphanumericProductId(data.shortCode)
+            ? String(data.shortCode).trim()
+            : getProductShortCode({ id: resolvedId, slug: resolvedSlug });
+
           list.push({
-            id: data.id || docSnap.id,
+            id: resolvedId,
             title: prodTitle,
             name: String(data.name || prodTitle),
-            slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-            shortCode: data.shortCode || getProductShortCode({ id: data.id || docSnap.id, slug: data.slug }),
+            slug: resolvedSlug,
+            shortCode: resolvedShortCode,
             description: data.description || '',
             price: currentPrice,
             sellingPrice,
@@ -598,6 +632,9 @@ export const subscribeToFirestoreProducts = (
             variants: Array.isArray(data.variants) ? data.variants : undefined,
             colors: Array.isArray(data.colors) ? data.colors : undefined,
             sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+            facebookPostId: data.facebookPostId || undefined,
+            facebookPostUrl: data.facebookPostUrl || undefined,
+            facebookPostedAt: data.facebookPostedAt || undefined,
           });
         }
       });
@@ -658,12 +695,18 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           ? Number(data.currentPrice)
           : (Number(data.price) || 0);
 
+        const resolvedId = data.id || docSnap.id;
+        const resolvedSlug = data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const resolvedShortCode = isAlphanumericProductId(data.shortCode)
+          ? String(data.shortCode).trim()
+          : getProductShortCode({ id: resolvedId, slug: resolvedSlug });
+
         list.push({
-          id: data.id || docSnap.id,
+          id: resolvedId,
           title: prodTitle,
           name: String(data.name || prodTitle),
-          slug: data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          shortCode: data.shortCode || getProductShortCode({ id: data.id || docSnap.id, slug: data.slug }),
+          slug: resolvedSlug,
+          shortCode: resolvedShortCode,
           description: data.description || '',
           price: currentPrice,
           sellingPrice,
@@ -689,6 +732,9 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           variants: Array.isArray(data.variants) ? data.variants : undefined,
           colors: Array.isArray(data.colors) ? data.colors : undefined,
           sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+          facebookPostId: data.facebookPostId || undefined,
+          facebookPostUrl: data.facebookPostUrl || undefined,
+          facebookPostedAt: data.facebookPostedAt || undefined,
         });
       }
     });
@@ -697,6 +743,100 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
   } catch (err) {
     console.warn('Firestore fetch products error:', err);
     return [];
+  }
+};
+
+/**
+ * Direct on-demand product lookup by shortCode, id, or slug in Firestore.
+ * Ensures direct links or browser refreshes on a product details page still load
+ * cleanly even before the full catalog stream settles.
+ */
+export const fetchFirestoreProductByIdentifier = async (identifier: string): Promise<Product | null> => {
+  const clean = (identifier || '').trim();
+  if (!clean) return null;
+
+  const mapDocToProduct = (docId: string, data: Record<string, any>): Product => {
+    const prodTitle = String(data.title || data.name || 'Product');
+    const reviewsList = Array.isArray(data.reviews) ? data.reviews : [];
+    const calculatedRating = reviewsList.length > 0
+      ? Number((reviewsList.reduce((acc: number, r: any) => acc + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1))
+      : 0;
+    const sellingPrice = (data.sellingPrice !== undefined && data.sellingPrice !== null)
+      ? Number(data.sellingPrice)
+      : ((data.originalPrice !== undefined && data.originalPrice !== null) ? Number(data.originalPrice) : undefined);
+    const currentPrice = (data.currentPrice !== undefined && data.currentPrice !== null)
+      ? Number(data.currentPrice)
+      : (Number(data.price) || 0);
+    const resolvedId = data.id || docId;
+    const resolvedSlug = data.slug || prodTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    const resolvedShortCode = isAlphanumericProductId(data.shortCode)
+      ? String(data.shortCode).trim()
+      : getProductShortCode({ id: resolvedId, slug: resolvedSlug });
+
+    return {
+      id: resolvedId,
+      title: prodTitle,
+      name: String(data.name || prodTitle),
+      slug: resolvedSlug,
+      shortCode: resolvedShortCode,
+      description: data.description || '',
+      price: currentPrice,
+      sellingPrice,
+      currentPrice,
+      originalPrice: sellingPrice,
+      stockQuantity: Number(data.stockQuantity) || 0,
+      soldCount: Number(data.soldCount) || 0,
+      sku: data.sku || '',
+      categoryId: data.categoryId || 'cat-audio',
+      images: Array.isArray(data.images) ? data.images : [],
+      isPublished: data.isPublished !== false,
+      createdAt: data.createdAt || new Date().toISOString(),
+      updatedAt: data.updatedAt || new Date().toISOString(),
+      updatedBy: data.updatedBy || 'admin',
+      rating: calculatedRating,
+      reviewsCount: reviewsList.length || Number(data.reviewsCount) || 0,
+      reviews: reviewsList,
+      brand: data.brand || 'XEEROO',
+      features: Array.isArray(data.features) ? data.features : [],
+      priority: (data.priority !== undefined && data.priority !== null && Number(data.priority) > 0) ? Number(data.priority) : undefined,
+      suggestedPrice: data.suggestedPrice !== undefined ? Number(data.suggestedPrice) : undefined,
+      inStock: data.inStock !== undefined ? Boolean(data.inStock) : undefined,
+      variants: Array.isArray(data.variants) ? data.variants : undefined,
+      colors: Array.isArray(data.colors) ? data.colors : undefined,
+      sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+    };
+  };
+
+  try {
+    // 1. Direct document ID lookup
+    const directSnap = await getDoc(doc(db, 'products', clean));
+    if (directSnap.exists()) {
+      const data = directSnap.data();
+      if (data && (data.title || data.name)) {
+        return mapDocToProduct(directSnap.id, data);
+      }
+    }
+
+    // 2. Query by shortCode
+    const qShort = query(collection(db, 'products'), where('shortCode', '==', clean), limit(1));
+    const snapShort = await getDocs(qShort);
+    if (!snapShort.empty) {
+      const d = snapShort.docs[0];
+      return mapDocToProduct(d.id, d.data());
+    }
+
+    // 3. Query by slug
+    const qSlug = query(collection(db, 'products'), where('slug', '==', clean), limit(1));
+    const snapSlug = await getDocs(qSlug);
+    if (!snapSlug.empty) {
+      const d = snapSlug.docs[0];
+      return mapDocToProduct(d.id, d.data());
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('fetchFirestoreProductByIdentifier error:', err);
+    return null;
   }
 };
 
@@ -785,11 +925,17 @@ export const fetchRelatedCategoryProducts = async (
           ? Number(data.currentPrice)
           : (Number(data.price) || 0);
 
+        const resolvedSlug = data.slug || String(data.title || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const resolvedShortCode = isAlphanumericProductId(data.shortCode)
+          ? String(data.shortCode).trim()
+          : getProductShortCode({ id: pid, slug: resolvedSlug });
+
         list.push({
           id: pid,
           title: String(data.title || data.name || 'Product'),
           name: String(data.name || data.title || 'Product'),
-          slug: data.slug || String(data.title || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          slug: resolvedSlug,
+          shortCode: resolvedShortCode,
           description: data.description || '',
           price: currentPrice,
           sellingPrice,
@@ -897,15 +1043,17 @@ export const fetchFirestoreCategories = async (): Promise<Category[]> => {
 export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
   try {
     const orderRef = doc(db, 'orders', order.id);
-    // Explicitly guarantee uniform 'pending' status in payload regardless of user role (Admin, Guest, Logged-in, Returning)
-    const normalizedStatus: OrderStatus = (order.status || 'pending').toLowerCase().trim() as OrderStatus;
+    // Explicitly guarantee uniform 'pending' status when missing or unrecognized regardless of user role
+    const validStatuses: OrderStatus[] = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    const rawStatus = (order.status || 'pending').toLowerCase().trim() as OrderStatus;
+    const normalizedStatus: OrderStatus = validStatuses.includes(rawStatus) ? rawStatus : 'pending';
 
-    await setDoc(orderRef, {
+    const cleanOrderPayload = removeUndefinedValues({
       id: order.id,
       userId: order.userId || 'guest',
       userEmail: (order.userEmail || '').trim().toLowerCase(),
       isGuest: Boolean(order.isGuest || order.userId === 'guest'),
-      status: normalizedStatus || 'pending',
+      status: normalizedStatus,
       totalAmount: Number(order.totalAmount) || 0,
       subtotalAmount: order.subtotalAmount !== undefined ? Number(order.subtotalAmount) : null,
       deliveryCharge: order.deliveryCharge !== undefined ? Number(order.deliveryCharge) : null,
@@ -916,7 +1064,9 @@ export const saveFirestoreOrder = async (order: Order): Promise<boolean> => {
       ...(order.paymentDetails ? { paymentDetails: order.paymentDetails } : {}),
       createdAt: order.createdAt || new Date().toISOString(),
       updatedAt: order.updatedAt || new Date().toISOString(),
-    }, { merge: true });
+    });
+
+    await setDoc(orderRef, cleanOrderPayload, { merge: true });
     return true;
   } catch (err) {
     console.warn('Firestore save order error:', err);
@@ -1120,10 +1270,15 @@ export const syncAllDataToFirestore = async (
     onProgress?.(`Syncing ${products.length} products to 'products' collection...`);
     for (const prod of products) {
       const ref = doc(db, 'products', prod.id);
-      batch.set(ref, {
+      const prodShortCode = isAlphanumericProductId(prod.shortCode)
+        ? prod.shortCode!.trim()
+        : getProductShortCode(prod);
+
+      batch.set(ref, removeUndefinedValues({
         id: prod.id,
         title: prod.title,
         slug: prod.slug,
+        shortCode: prodShortCode,
         description: prod.description || '',
         price: Number(prod.price),
         sellingPrice: (prod.sellingPrice !== undefined && prod.sellingPrice !== null)
@@ -1144,18 +1299,20 @@ export const syncAllDataToFirestore = async (
         createdAt: prod.createdAt || new Date().toISOString(),
         updatedAt: prod.updatedAt || new Date().toISOString(),
         updatedBy: prod.updatedBy || 'admin',
-        rating: prod.rating || 5.0,
+        rating: prod.rating || 0,
         reviewsCount: prod.reviewsCount || 0,
         brand: prod.brand || 'XEEROO',
         features: prod.features || [],
-      }, { merge: true });
+        ...(Array.isArray(prod.colors) ? { colors: prod.colors } : {}),
+        ...(Array.isArray(prod.sizes) ? { sizes: prod.sizes } : {}),
+      }), { merge: true });
     }
 
     // 3. Sync Users & Customers
     onProgress?.(`Syncing ${users.length} users and customer accounts to 'users' and 'customers' collections...`);
     for (const u of users) {
       const refUsers = doc(db, 'users', u.id);
-      const userPayload = {
+      const userPayload = removeUndefinedValues({
         id: u.id,
         email: u.email,
         fullName: u.fullName,
@@ -1175,7 +1332,7 @@ export const syncAllDataToFirestore = async (
           country: 'Bangladesh',
           phone: u.phone || '',
         },
-      };
+      });
       batch.set(refUsers, userPayload, { merge: true });
 
       if (u.role === 'customer') {
@@ -1188,18 +1345,23 @@ export const syncAllDataToFirestore = async (
     onProgress?.(`Syncing ${orders.length} orders to 'orders' collection...`);
     for (const ord of orders) {
       const ref = doc(db, 'orders', ord.id);
-      batch.set(ref, {
+      batch.set(ref, removeUndefinedValues({
         id: ord.id,
-        userId: ord.userId,
-        userEmail: ord.userEmail,
-        status: ord.status,
-        totalAmount: ord.totalAmount,
+        userId: ord.userId || 'guest',
+        userEmail: (ord.userEmail || '').trim().toLowerCase(),
+        isGuest: Boolean(ord.isGuest || ord.userId === 'guest'),
+        status: ord.status || 'pending',
+        totalAmount: Number(ord.totalAmount) || 0,
+        subtotalAmount: ord.subtotalAmount !== undefined ? Number(ord.subtotalAmount) : null,
+        deliveryCharge: ord.deliveryCharge !== undefined ? Number(ord.deliveryCharge) : null,
+        discountAmount: ord.discountAmount !== undefined ? Number(ord.discountAmount) : null,
         shippingAddress: ord.shippingAddress,
-        items: ord.items,
-        paymentMethod: ord.paymentMethod,
+        items: Array.isArray(ord.items) ? ord.items : [],
+        paymentMethod: ord.paymentMethod || 'cod',
+        ...(ord.paymentDetails ? { paymentDetails: ord.paymentDetails } : {}),
         createdAt: ord.createdAt,
         updatedAt: ord.updatedAt,
-      }, { merge: true });
+      }), { merge: true });
     }
 
     // Commit batch

@@ -11,7 +11,8 @@ import { XEEROO_CONTACT } from '../../data/mockData';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { UserAvatar } from '../common/UserAvatar';
 import { ProductReview, Product } from '../../types';
-import { findProductByIdentifier, getProductShortPath, getProductShortUrl } from '../../utils/productUrl';
+import { findProductByIdentifier, getProductShortPath, getProductShortUrl, getProductShortCode } from '../../utils/productUrl';
+import { fetchFirestoreProductByIdentifier } from '../../lib/firebase';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -47,6 +48,7 @@ import {
 export const ProductDetail: React.FC = () => {
   const {
     products,
+    isProductsLoading,
     selectedProductId,
     setSelectedProductId,
     setViewMode,
@@ -65,8 +67,94 @@ export const ProductDetail: React.FC = () => {
     navigateToProduct,
   } = useStore();
 
-  const product = findProductByIdentifier(products, selectedProductId) || (products.length > 0 && !selectedProductId ? products[0] : undefined);
+  const [remoteProduct, setRemoteProduct] = useState<Product | null>(null);
+  const [isRemoteFetching, setIsRemoteFetching] = useState<boolean>(false);
+
+  const storeMatchedProduct = useMemo(
+    () => findProductByIdentifier(products, selectedProductId),
+    [products, selectedProductId]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedProductId || storeMatchedProduct) {
+      setIsRemoteFetching(false);
+      return;
+    }
+
+    setIsRemoteFetching(true);
+    fetchFirestoreProductByIdentifier(selectedProductId)
+      .then(found => {
+        if (!cancelled) {
+          setRemoteProduct(found);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRemoteProduct(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsRemoteFetching(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProductId, storeMatchedProduct]);
+
+  const product =
+    storeMatchedProduct ||
+    (remoteProduct && (!selectedProductId || findProductByIdentifier([remoteProduct], selectedProductId))
+      ? remoteProduct
+      : undefined) ||
+    (products.length > 0 && !selectedProductId ? products[0] : undefined);
   const category = categories.find(c => c.id === product?.categoryId);
+
+  // Auto-calculated discount percentage and total savings amount
+  const discount = useMemo(() => {
+    if (!product) {
+      return calculateDiscount(0, 0);
+    }
+    return calculateDiscount(
+      product.sellingPrice !== undefined && product.sellingPrice !== null ? product.sellingPrice : product.originalPrice,
+      product.price
+    );
+  }, [product?.sellingPrice, product?.originalPrice, product?.price]);
+
+  // Related products dynamically from the exact same category (excluding current product), with priority items first
+  const relatedProducts = useMemo(() => {
+    if (!product) return [];
+    return products
+      .filter(p => p.categoryId === product.categoryId && p.id !== product.id && p.isPublished)
+      .sort((a, b) => {
+        const aPriority = typeof a.priority === 'number' && a.priority > 0 ? a.priority : null;
+        const bPriority = typeof b.priority === 'number' && b.priority > 0 ? b.priority : null;
+        if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
+        if (aPriority !== null) return -1;
+        if (bPriority !== null) return 1;
+        return 0;
+      })
+      .slice(0, 4);
+  }, [products, product?.categoryId, product?.id]);
+
+  // Parsed color & size options
+  const productColors = useMemo(() => {
+    if (!product?.colors || !Array.isArray(product.colors)) return [];
+    return product.colors.map(c => {
+      if (typeof c === 'string') {
+        return { name: c, hex: '#111827' };
+      }
+      return { name: c.name, hex: c.hex || '#111827' };
+    });
+  }, [product?.colors]);
+
+  const productSizes = useMemo(() => {
+    if (!product?.sizes || !Array.isArray(product.sizes)) return [];
+    return product.sizes.filter(Boolean);
+  }, [product?.sizes]);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
@@ -199,7 +287,7 @@ export const ProductDetail: React.FC = () => {
   }, [product?.id]);
 
   if (!product) {
-    if (products.length === 0) {
+    if (isProductsLoading || isRemoteFetching || products.length === 0) {
       return (
         <div className="text-center py-24 bg-white rounded-2xl border border-gray-200 p-8 shadow-xs max-w-lg mx-auto my-12 space-y-4">
           <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -235,29 +323,6 @@ export const ProductDetail: React.FC = () => {
   const isLowStock = product.stockQuantity > 0 && product.stockQuantity <= 5;
   const isStaff = currentUser?.role === 'moderator' || currentUser?.role === 'admin';
 
-  // Auto-calculated discount percentage and total savings amount
-  const discount = useMemo(() => {
-    return calculateDiscount(
-      product.sellingPrice !== undefined && product.sellingPrice !== null ? product.sellingPrice : product.originalPrice,
-      product.price
-    );
-  }, [product.sellingPrice, product.originalPrice, product.price]);
-
-  // Related products dynamically from the exact same category (excluding current product), with priority items first
-  const relatedProducts = useMemo(() => {
-    return products
-      .filter(p => p.categoryId === product.categoryId && p.id !== product.id && p.isPublished)
-      .sort((a, b) => {
-        const aPriority = typeof a.priority === 'number' && a.priority > 0 ? a.priority : null;
-        const bPriority = typeof b.priority === 'number' && b.priority > 0 ? b.priority : null;
-        if (aPriority !== null && bPriority !== null) return aPriority - bPriority;
-        if (aPriority !== null) return -1;
-        if (bPriority !== null) return 1;
-        return 0;
-      })
-      .slice(0, 4);
-  }, [products, product.categoryId, product.id]);
-
   const handleQuantityChange = (delta: number) => {
     setSelectedQuantity(prev => {
       const next = prev + delta;
@@ -266,22 +331,6 @@ export const ProductDetail: React.FC = () => {
       return next;
     });
   };
-
-  // Parsed color & size options
-  const productColors = useMemo(() => {
-    if (!product?.colors || !Array.isArray(product.colors)) return [];
-    return product.colors.map(c => {
-      if (typeof c === 'string') {
-        return { name: c, hex: '#111827' };
-      }
-      return { name: c.name, hex: c.hex || '#111827' };
-    });
-  }, [product?.colors]);
-
-  const productSizes = useMemo(() => {
-    if (!product?.sizes || !Array.isArray(product.sizes)) return [];
-    return product.sizes.filter(Boolean);
-  }, [product?.sizes]);
 
   const handleAddToCart = () => {
     if (!isOutOfStock) {
@@ -1402,7 +1451,7 @@ My Delivery Address:`
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             {relatedProducts.map(relProduct => {
-              const relIdentifier = relProduct.slug || relProduct.id;
+              const relIdentifier = getProductShortCode(relProduct);
               return (
                 <div
                   key={relProduct.id}

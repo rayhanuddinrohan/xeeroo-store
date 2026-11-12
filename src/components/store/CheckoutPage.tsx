@@ -239,9 +239,9 @@ export const CheckoutPage: React.FC = () => {
           ? {
               gateway: advanceGateway,
               senderNumber: senderNumber.trim(),
-              bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
-              nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
-              rocketNumber: advanceGateway === 'rocket' ? senderNumber.trim() : undefined,
+              ...(advanceGateway === 'bkash' ? { bkashNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'nagad' ? { nagadNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'rocket' ? { rocketNumber: senderNumber.trim() } : {}),
               trxId: trxId.trim().toUpperCase(),
               advanceDiscount: 50,
             }
@@ -266,8 +266,13 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handleOrderViaWhatsApp = () => {
-    if (!validateForm()) return;
+  const handleOrderViaWhatsApp = async () => {
+    if (!validateForm() || isPlacingOrder) return;
+
+    if (cart.length === 0) {
+      addToast('Your cart is empty.', 'warning');
+      return;
+    }
 
     const cartItemsText = cart
       .map((item, idx) => {
@@ -283,14 +288,23 @@ export const CheckoutPage: React.FC = () => {
     const gatewayName =
       advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket';
 
-    const paymentLabel =
-      paymentMethod === 'advance'
-        ? `Full Advance Payment (${gatewayName}) [৳50 Discount Applied! Sender: ${senderNumber || 'N/A'}, TrxID: ${trxId || 'N/A'}]`
-        : 'Cash on Delivery (COD)';
+    const hasAdvanceCredentials =
+      paymentMethod === 'advance' &&
+      Boolean(currentUser) &&
+      Boolean(senderNumber.trim()) &&
+      Boolean(trxId.trim());
+
+    const effectivePaymentMethod = hasAdvanceCredentials ? 'advance' : 'cod';
+    const effectiveDiscount = hasAdvanceCredentials ? 50 : 0;
+    const effectivePayableTotal = Math.max(0, regularTotal - effectiveDiscount);
+
+    const paymentLabel = hasAdvanceCredentials
+      ? `Full Advance Payment (${gatewayName}) [৳50 Discount Applied! Sender: ${senderNumber.trim()}, TrxID: ${trxId.trim().toUpperCase()}]`
+      : 'Cash on Delivery (COD)';
 
     const discountLine =
-      advanceDiscount > 0
-        ? `Advance Payment Discount: -${formatBDT(advanceDiscount)} (Instant ৳50 Discount)\n`
+      effectiveDiscount > 0
+        ? `Advance Payment Discount: -${formatBDT(effectiveDiscount)} (Instant ৳50 Discount)\n`
         : '';
 
     const orderMsg = `Hello XEEROO! I would like to place an order:
@@ -300,7 +314,7 @@ ${cartItemsText}
 
 Subtotal: ${formatBDT(cartSubtotal)}
 Delivery Charge: ${formatBDT(deliveryCharge)} (${shippingInfo.label})
-${discountLine}Total Payable: ${formatBDT(payableTotal)}
+${discountLine}Total Payable: ${formatBDT(effectivePayableTotal)}
 
 💳 Payment Method: ${paymentLabel}
 
@@ -315,8 +329,51 @@ Country: Bangladesh
 
 Please confirm and dispatch my order. Thank you!`;
 
-    const waUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(orderMsg)}`;
-    window.open(waUrl, '_blank');
+    setIsPlacingOrder(true);
+    try {
+      const shippingAddress: ShippingAddress = {
+        fullName: fullName.trim(),
+        street: street.trim(),
+        city: selectedDistrict,
+        state: selectedThana,
+        district: selectedDistrict,
+        thana: selectedThana,
+        country: 'Bangladesh',
+        phone: phone.trim(),
+      };
+
+      const paymentDetails = hasAdvanceCredentials
+        ? {
+            gateway: advanceGateway,
+            senderNumber: senderNumber.trim(),
+            ...(advanceGateway === 'bkash' ? { bkashNumber: senderNumber.trim() } : {}),
+            ...(advanceGateway === 'nagad' ? { nagadNumber: senderNumber.trim() } : {}),
+            ...(advanceGateway === 'rocket' ? { rocketNumber: senderNumber.trim() } : {}),
+            trxId: trxId.trim().toUpperCase(),
+            advanceDiscount: 50,
+          }
+        : undefined;
+
+      const order = await createOrder(
+        shippingAddress,
+        effectivePaymentMethod,
+        email.trim() || undefined,
+        paymentDetails,
+        effectiveDiscount
+      );
+
+      const waUrl = `https://wa.me/8801570243005?text=${encodeURIComponent(orderMsg)}`;
+      window.open(waUrl, '_blank');
+
+      if (order) {
+        setOrderSuccess(order);
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
+    } catch (err: any) {
+      addToast(err?.message || 'Failed to record WhatsApp order. Please try again.', 'error');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   // SUCCESS RECEIPT VIEW
@@ -942,7 +999,8 @@ Please confirm and dispatch my order. Thank you!`;
                   <button
                     type="button"
                     onClick={handleOrderViaWhatsApp}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30 flex items-center justify-center gap-2"
+                    disabled={isPlacingOrder}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Send className="w-4 h-4" />
                     <span>Order via WhatsApp Desk ({formatBDT(payableTotal)})</span>
@@ -1199,7 +1257,8 @@ Please confirm and dispatch my order. Thank you!`;
                 <button
                   type="button"
                   onClick={handleOrderViaWhatsApp}
-                  className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30 flex items-center justify-center gap-2"
+                  disabled={isPlacingOrder}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   <Send className="w-4 h-4" />
                   <span>Send Order Details via WhatsApp</span>

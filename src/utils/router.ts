@@ -241,9 +241,10 @@ export function buildUrlForRoute(
 ): string {
   switch (viewMode) {
     case 'product-detail': {
-      // Prioritize 15-20 char alphanumeric shortCode or productId. Remove long title slugs completely from product routing!
+      // Prioritize 15-20 char alphanumeric shortCode or productId with safe Hash Routing (/#/p/...)
+      // Prevents 404 "Not Found" when users refresh the product details page.
       const identifier = options?.shortCode || options?.productId;
-      return identifier ? `/p/${encodeURIComponent(identifier)}` : '/';
+      return identifier ? `/#/p/${encodeURIComponent(identifier)}` : '/#/';
     }
     case 'contact':
       return '/#/contact';
@@ -282,13 +283,12 @@ export function syncBrowserUrl(
   if (typeof window === 'undefined') return;
 
   const targetUrl = buildUrlForRoute(viewMode, options);
+  const expectedHash = targetUrl.startsWith('/#') ? targetUrl.slice(1) : '';
+  const needsUpdate =
+    window.location.pathname !== '/' ||
+    (expectedHash ? window.location.hash !== expectedHash : window.location.hash !== '');
 
-  // Normalize path: If current pathname is not '/' (e.g. user refreshed on /product/123),
-  // replace with root path and the hash so future refreshes always hit '/'
-  const currentFull = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const targetFull = `${window.location.pathname === '/' ? '' : '/'}${targetUrl.replace(/^\/+/, '')}`;
-
-  if (currentFull !== targetFull && (window.location.hash !== targetUrl.replace(/^\//, ''))) {
+  if (needsUpdate) {
     if (options?.replace || window.location.pathname !== '/') {
       window.history.replaceState({ viewMode, ...options }, '', targetUrl);
     } else {

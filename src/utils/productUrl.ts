@@ -12,6 +12,52 @@ import { Product } from '../types';
 const ALPHANUMERIC_CHARSET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 /**
+ * Deterministically derives a valid 15 to 20-digit alphanumeric ID from any seed string (e.g. product.id).
+ * Ensures that even if a product document doesn't have a stored shortCode yet, its generated ID
+ * remains 100% consistent across renders, refreshes, and browsers instead of changing randomly.
+ */
+export function deriveDeterministicAlphanumericId(seed: string, length: number = 18): string {
+  const targetLen = Math.max(15, Math.min(20, Math.floor(length)));
+  const charsetLen = ALPHANUMERIC_CHARSET.length;
+  const cleanSeed = (seed || 'xeeroo-default-product').trim();
+
+  // Dual 32-bit hashes for strong distribution across the 18 characters
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  for (let i = 0; i < cleanSeed.length; i++) {
+    const ch = cleanSeed.charCodeAt(i);
+    h1 ^= ch;
+    h1 = Math.imul(h1, 0x01000193);
+    h2 = Math.imul(h2 ^ (ch + i), 0x85ebca6b);
+  }
+
+  const chars: string[] = [];
+  let state = (h1 ^ h2) >>> 0;
+  for (let i = 0; i < targetLen; i++) {
+    state = (Math.imul(state ^ (i + 1), 1664525) + 1013904223) >>> 0;
+    const mixed = (state ^ ((h1 >>> (i % 16)) + Math.imul(i + 7, 2654435761))) >>> 0;
+    chars.push(ALPHANUMERIC_CHARSET[mixed % charsetLen]);
+  }
+
+  // Guarantee at least one digit, one uppercase letter, and one lowercase letter deterministically
+  let result = chars.join('');
+  if (!/[0-9]/.test(result)) {
+    chars[targetLen - 3] = '0123456789'[(state >>> 2) % 10];
+    result = chars.join('');
+  }
+  if (!/[A-Z]/.test(result)) {
+    chars[targetLen - 2] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[(state >>> 5) % 26];
+    result = chars.join('');
+  }
+  if (!/[a-z]/.test(result)) {
+    chars[targetLen - 1] = 'abcdefghijklmnopqrstuvwxyz'[(state >>> 8) % 26];
+    result = chars.join('');
+  }
+
+  return result;
+}
+
+/**
  * Generates a random 15 to 20-digit alphanumeric string (mix of uppercase, lowercase letters, and numbers)
  * Example: 'aB9xK1mQ8zL4pW7rT2v'
  */
@@ -81,12 +127,13 @@ export function resolveCanonicalStoreDomain(explicitUrl?: string): string {
 }
 
 /**
- * Gets or guarantees an active 15-20 digit alphanumeric ID for a product.
+ * Gets or guarantees a stable 15-20 digit alphanumeric ID for a product.
  * If product already has a valid 15-20 digit alphanumeric ID, preserves it.
- * Otherwise, generates a new 15-20 digit alphanumeric ID.
+ * Otherwise, derives a deterministic 18-digit alphanumeric ID from product.id / slug
+ * so the product URL never changes unexpectedly across renders or refreshes.
  */
 export function getProductShortCode(product: Partial<Product> | null | undefined): string {
-  if (!product) return generateAlphanumericId(18);
+  if (!product) return deriveDeterministicAlphanumericId('xeeroo-product', 18);
 
   const existing = (product.shortCode || (product as any).alphanumericId || '').trim();
   if (existing && isAlphanumericProductId(existing)) {
@@ -98,21 +145,22 @@ export function getProductShortCode(product: Partial<Product> | null | undefined
     return product.id.trim();
   }
 
-  return generateAlphanumericId(18);
+  const seed = product.id || product.slug || product.title || 'xeeroo-product';
+  return deriveDeterministicAlphanumericId(seed, 18);
 }
 
 /**
- * Returns the short relative route path for a product (e.g., '/p/aB9xK1mQ8zL4pW7rT2v')
- * Long title slugs are completely omitted from product routing.
+ * Returns the short hash route path for a product (e.g., '/#/p/aB9xK1mQ8zL4pW7rT2')
+ * Hash routing guarantees F5 browser refreshes never hit a 404 on static/Cloud Run hosting.
  */
 export function getProductShortPath(product: { id: string; shortCode?: string; slug?: string }): string {
   const code = getProductShortCode(product);
-  return `/p/${encodeURIComponent(code)}`;
+  return `/#/p/${encodeURIComponent(code)}`;
 }
 
 /**
  * Returns the complete, canonical short URL for a product
- * (e.g., 'https://yourdomain.com/p/aB9xK1mQ8zL4pW7rT2v')
+ * (e.g., 'https://yourdomain.com/#/p/aB9xK1mQ8zL4pW7rT2')
  */
 export function getProductShortUrl(
   product: { id: string; shortCode?: string; slug?: string },
@@ -120,30 +168,43 @@ export function getProductShortUrl(
 ): string {
   const baseDomain = resolveCanonicalStoreDomain(customDomain);
   const code = getProductShortCode(product);
-  return `${baseDomain}/p/${encodeURIComponent(code)}`;
+  return `${baseDomain}/#/p/${encodeURIComponent(code)}`;
 }
 
 /**
- * Matches a product from an array by its unique 15-20 alphanumeric ID, id, or legacy slug
+ * Matches a product from an array by its unique 15-20 alphanumeric ID, derived shortCode, id, or legacy slug
  */
 export function findProductByIdentifier(
   products: Product[],
   identifier: string | null | undefined
 ): Product | undefined {
   if (!identifier) return undefined;
-  const raw = decodeURIComponent(identifier).trim();
+  let decoded = identifier;
+  try {
+    decoded = decodeURIComponent(identifier);
+  } catch {
+    decoded = identifier;
+  }
+  const raw = decoded.trim();
   if (!raw) return undefined;
   const cleanLower = raw.toLowerCase();
 
-  return products.find(p => {
-    // 1. Direct match on alphanumeric shortCode (exact case first, then case-insensitive)
-    if (p.shortCode && (p.shortCode === raw || p.shortCode.toLowerCase() === cleanLower)) return true;
-    // 2. Direct match on product.id
-    if (p.id && (p.id === raw || p.id.toLowerCase() === cleanLower)) return true;
-    // 3. Fallback match for legacy slug (to avoid breaking old bookmarks)
-    if (p.slug && p.slug.toLowerCase() === cleanLower) return true;
-    // 4. Fallback match for stripped prefix (prod-xyz)
-    if (p.id && p.id.replace(/^prod[-_]/i, '').toLowerCase() === cleanLower) return true;
-    return false;
-  });
+  return (
+    // Pass 1: Exact case match on stored shortCode or product.id
+    products.find(
+      p =>
+        (p.shortCode && p.shortCode.trim() === raw) ||
+        (p.id && p.id.trim() === raw)
+    ) ||
+    // Pass 2: Computed shortCode or case-insensitive / legacy slug / stripped prefix match
+    products.find(p => {
+      const computedCode = getProductShortCode(p);
+      if (computedCode === raw || computedCode.toLowerCase() === cleanLower) return true;
+      if (p.shortCode && p.shortCode.toLowerCase() === cleanLower) return true;
+      if (p.id && p.id.toLowerCase() === cleanLower) return true;
+      if (p.slug && p.slug.toLowerCase() === cleanLower) return true;
+      if (p.id && p.id.replace(/^prod[-_]/i, '').toLowerCase() === cleanLower) return true;
+      return false;
+    })
+  );
 }

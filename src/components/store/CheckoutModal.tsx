@@ -206,9 +206,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           ? {
               gateway: advanceGateway,
               senderNumber: senderNumber.trim(),
-              bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
-              nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
-              rocketNumber: advanceGateway === 'rocket' ? senderNumber.trim() : undefined,
+              ...(advanceGateway === 'bkash' ? { bkashNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'nagad' ? { nagadNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'rocket' ? { rocketNumber: senderNumber.trim() } : {}),
               trxId: trxId.trim().toUpperCase(),
               advanceDiscount: 50,
             }
@@ -238,14 +238,25 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
     setIsPlacingOrder(true);
     try {
+      const cartItemsText = cart
+        .map((item, idx) => {
+          const variantParts = [
+            item.selectedColor ? `Color: ${item.selectedColor}` : null,
+            item.selectedSize ? `Size: ${item.selectedSize}` : null,
+          ].filter(Boolean);
+          const variantSuffix = variantParts.length > 0 ? ` [${variantParts.join(' | ')}]` : '';
+          return `${idx + 1}. ${item.product.title}${variantSuffix} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`;
+        })
+        .join('\n');
+
       const paymentDetails =
         paymentMethod === 'advance'
           ? {
               gateway: advanceGateway,
               senderNumber: senderNumber.trim(),
-              bkashNumber: advanceGateway === 'bkash' ? senderNumber.trim() : undefined,
-              nagadNumber: advanceGateway === 'nagad' ? senderNumber.trim() : undefined,
-              rocketNumber: advanceGateway === 'rocket' ? senderNumber.trim() : undefined,
+              ...(advanceGateway === 'bkash' ? { bkashNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'nagad' ? { nagadNumber: senderNumber.trim() } : {}),
+              ...(advanceGateway === 'rocket' ? { rocketNumber: senderNumber.trim() } : {}),
               trxId: trxId.trim().toUpperCase(),
               advanceDiscount: 50,
             }
@@ -258,16 +269,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         paymentDetails,
         modalAdvanceDiscount
       );
-      const cartItemsText = cart
-        .map((item, idx) => {
-          const variantParts = [
-            item.selectedColor ? `Color: ${item.selectedColor}` : null,
-            item.selectedSize ? `Size: ${item.selectedSize}` : null,
-          ].filter(Boolean);
-          const variantSuffix = variantParts.length > 0 ? ` [${variantParts.join(' | ')}]` : '';
-          return `${idx + 1}. ${item.product.title}${variantSuffix} x ${item.quantity} = ${formatBDT(item.product.price * item.quantity)}`;
-        })
-        .join('\n');
 
       const gatewayName =
         advanceGateway === 'bkash' ? 'bKash' : advanceGateway === 'nagad' ? 'Nagad' : 'Rocket';
@@ -1146,11 +1147,11 @@ Please confirm and dispatch the order. Thank you!`;
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Email Address:</span>
-                <span className="text-gray-900 truncate max-w-[200px]">{createdOrder.userEmail}</span>
+                <span className="text-gray-900 truncate max-w-[200px]">{createdOrder.userEmail || 'Guest (No Email)'}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Delivery Charge:</span>
-                <span className="font-mono text-gray-900 font-medium">{formatBDT(deliveryCharge)}</span>
+                <span className="font-mono text-gray-900 font-medium">{formatBDT(createdOrder.deliveryCharge ?? modalDeliveryCharge)}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Total Amount:</span>
