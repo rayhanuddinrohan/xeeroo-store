@@ -104,6 +104,7 @@ import {
   getProductShortUrl,
   findProductByIdentifier,
 } from '../utils/productUrl';
+import { trackAddToCart, trackPurchase } from '../utils/pixel.js';
 
 interface StoreContextType {
   // Telegram Bot Settings
@@ -2763,6 +2764,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       selectedSize ||
       (product.sizes && product.sizes.length > 0 ? product.sizes[0] : undefined);
 
+    const existingCartItem = cart.find(
+      item =>
+        item.product.id === product.id &&
+        (item.selectedColor || '') === (chosenColor || '') &&
+        (item.selectedSize || '') === (chosenSize || '')
+    );
+
+    const currentInCartQty = existingCartItem ? existingCartItem.quantity : 0;
+    const availableToAdd = Math.max(0, product.stockQuantity - currentInCartQty);
+    const addedQuantity = Math.min(Math.max(1, quantity), availableToAdd);
+
+    if (addedQuantity > 0) {
+      trackAddToCart(product, addedQuantity);
+    }
+
     setCart(prev => {
       const existingIndex = prev.findIndex(
         item =>
@@ -3015,7 +3031,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Save order directly to Firestore database!
     const savedToDb = await saveFirestoreOrder(newOrder);
-    if (!savedToDb) {
+    if (savedToDb) {
+      trackPurchase({
+        value: orderTotalAmount,
+        contentIds: newOrder.items.map(item => item.productId),
+        orderId: newOrder.id,
+      });
+    } else {
       console.warn(`Order #${orderId} kept in local pending queue after Firestore write issue.`);
     }
 

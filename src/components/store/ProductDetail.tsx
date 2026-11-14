@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { calculateDiscount } from '../../utils/pricing';
@@ -13,6 +13,7 @@ import { UserAvatar } from '../common/UserAvatar';
 import { ProductReview, Product } from '../../types';
 import { findProductByIdentifier, getProductShortPath, getProductShortUrl, getProductShortCode } from '../../utils/productUrl';
 import { fetchFirestoreProductByIdentifier } from '../../lib/firebase';
+import { trackViewContent } from '../../utils/pixel.js';
 import {
   ArrowLeft,
   ShoppingBag,
@@ -264,6 +265,8 @@ export const ProductDetail: React.FC = () => {
     }
   };
 
+  const lastTrackedProductIdRef = useRef<string | null>(null);
+
   // Always scroll to top when opening or switching product detail, and auto-select default color and size
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
@@ -271,6 +274,11 @@ export const ProductDetail: React.FC = () => {
     setActiveImageIndex(0);
 
     if (product) {
+      if (lastTrackedProductIdRef.current !== product.id) {
+        lastTrackedProductIdRef.current = product.id;
+        trackViewContent(product);
+      }
+
       if (product.colors && Array.isArray(product.colors) && product.colors.length > 0) {
         const firstCol = product.colors[0];
         setSelectedColor(typeof firstCol === 'string' ? firstCol : firstCol.name);

@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { formatBDT } from '../../utils/currency';
 import { Order, ShippingAddress } from '../../types';
 import { isValidBDPhone, getShippingZoneInfo } from '../../utils/shipping';
 import { BANGLADESH_DISTRICTS } from '../../data/bangladeshDistricts';
+import { trackInitiateCheckout } from '../../utils/pixel.js';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -115,6 +116,17 @@ export const CheckoutPage: React.FC = () => {
   const isEligibleForAdvanceDiscount = isAdvanceSelected && Boolean(currentUser);
   const advanceDiscount = isEligibleForAdvanceDiscount ? 50 : 0;
   const payableTotal = Math.max(0, regularTotal - advanceDiscount);
+
+  const hasTrackedCheckoutRef = useRef(false);
+  useEffect(() => {
+    if (!hasTrackedCheckoutRef.current && cart.length > 0 && !orderSuccess) {
+      hasTrackedCheckoutRef.current = true;
+      trackInitiateCheckout(
+        payableTotal,
+        cart.map(item => item.product.id)
+      );
+    }
+  }, [cart, payableTotal, orderSuccess]);
 
   const officialBkashNumber = '01780417575';
   const officialNagadNumber = '01780417575';

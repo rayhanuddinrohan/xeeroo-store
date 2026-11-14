@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../../context/StoreContext';
 import { ShippingAddress, Order } from '../../types';
 import { formatBDT } from '../../utils/currency';
 import { WhatsAppIcon } from '../common/WhatsAppIcon';
 import { BANGLADESH_DISTRICTS } from '../../data/bangladeshDistricts';
+import { trackInitiateCheckout } from '../../utils/pixel.js';
 import {
   getShippingZoneInfo,
   calculateShippingCharge,
@@ -89,6 +90,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   const modalDeliveryCharge = shippingInfo.charge;
   const modalCartTotal = cartSubtotal + modalDeliveryCharge;
+
+  const hasTrackedModalCheckoutRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      hasTrackedModalCheckoutRef.current = false;
+      return;
+    }
+    if (!hasTrackedModalCheckoutRef.current && cart.length > 0 && step !== 'success') {
+      hasTrackedModalCheckoutRef.current = true;
+      trackInitiateCheckout(
+        modalCartTotal,
+        cart.map(item => item.product.id)
+      );
+    }
+  }, [isOpen, cart, modalCartTotal, step]);
 
   // Sync when currentUser changes or modal opens
   useEffect(() => {

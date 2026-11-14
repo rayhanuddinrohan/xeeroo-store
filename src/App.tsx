@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
+import { initMetaPixel, trackPageView } from './utils/pixel.js';
 import { Navbar } from './components/Navbar';
 import { ToastContainer } from './components/ToastContainer';
 import { HeroBanner } from './components/store/HeroBanner';
@@ -40,6 +41,8 @@ import { BrandLogo } from './components/common/BrandLogo';
 const AppContent: React.FC = () => {
   const {
     viewMode,
+    selectedProductId,
+    dashboardTab,
     setViewMode,
     currentUser,
     canAccessDashboard,
@@ -58,6 +61,32 @@ const AppContent: React.FC = () => {
   } = useStore();
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
+  const lastTrackedRouteRef = useRef<string | null>(null);
+
+  // Meta Pixel initialization & automatic PageView tracking on route changes
+  useEffect(() => {
+    const routeKey = `${viewMode}:${selectedProductId || ''}:${viewMode === 'dashboard' ? dashboardTab : ''}`;
+    if (lastTrackedRouteRef.current === routeKey) {
+      return;
+    }
+
+    const isFirstRouteInSpa = lastTrackedRouteRef.current === null;
+    lastTrackedRouteRef.current = routeKey;
+
+    initMetaPixel();
+
+    // Avoid double-firing PageView on initial page load if index.html snippet already fired it
+    if (
+      isFirstRouteInSpa &&
+      typeof window !== 'undefined' &&
+      (window as any).__xeerooInitialPageViewTracked
+    ) {
+      (window as any).__xeerooInitialPageViewTracked = false;
+      return;
+    }
+
+    trackPageView();
+  }, [viewMode, selectedProductId, dashboardTab]);
 
   const handleOpenCart = () => {
     setIsCartOpen(true);
