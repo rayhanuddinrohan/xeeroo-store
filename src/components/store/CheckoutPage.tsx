@@ -36,8 +36,10 @@ export const CheckoutPage: React.FC = () => {
     cart,
     cartSubtotal,
     currentUser,
+    guestCheckoutEnabled,
     createOrder,
     openLoginModal,
+    openRegisterModal,
     addToast,
     navigateToStore,
     navigateToOrders,
@@ -203,6 +205,11 @@ export const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!guestCheckoutEnabled && !currentUser) {
+      addToast('Guest checkout is currently turned off. Please sign in or register to place an order.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!validateForm()) return;
 
     if (cart.length === 0) {
@@ -279,6 +286,11 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleOrderViaWhatsApp = async () => {
+    if (!guestCheckoutEnabled && !currentUser) {
+      addToast('Guest checkout is currently turned off. Please sign in or register to place an order.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!validateForm() || isPlacingOrder) return;
 
     if (cart.length === 0) {
@@ -557,7 +569,9 @@ Please confirm and dispatch my order. Thank you!`;
                 </span>
               </div>
               <p className="text-xs text-emerald-100 mt-0.5 font-medium">
-                অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট (রেজিস্ট্রেশন বাধ্যতামূলক) • Cash on Delivery is 100% open for instant guest checkout!
+                {guestCheckoutEnabled
+                  ? 'অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট (রেজিস্ট্রেশন বাধ্যতামূলক) • Cash on Delivery is 100% open for instant guest checkout!'
+                  : 'অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট • Sign in or create a free account to complete your order.'}
               </p>
             </div>
           </div>
@@ -612,15 +626,31 @@ Please confirm and dispatch my order. Thank you!`;
           )}
           <div className="h-4 w-px bg-gray-300" />
           <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
-            {checkoutStep === 'payment' ? 'Advance Payment Gateway' : 'Guest & Express Checkout'}
+            {checkoutStep === 'payment'
+              ? 'Advance Payment Gateway'
+              : !guestCheckoutEnabled && !currentUser
+              ? 'Sign In Required for Checkout'
+              : 'Guest & Express Checkout'}
           </h1>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Guest Checkout badge */}
-          <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 px-3 py-1 rounded-lg text-xs font-bold text-blue-700">
+          {/* Guest Checkout status badge */}
+          <div
+            className={`flex items-center gap-1.5 border px-3 py-1 rounded-lg text-xs font-bold ${
+              !guestCheckoutEnabled && !currentUser
+                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+            }`}
+          >
             <Truck className="w-3.5 h-3.5" />
-            <span>{currentUser ? 'Member Checkout' : 'Guest Checkout (No Registration Required)'}</span>
+            <span>
+              {currentUser
+                ? 'Member Checkout'
+                : guestCheckoutEnabled
+                ? 'Guest Checkout (No Registration Required)'
+                : 'Account Required (Guest Checkout Disabled)'}
+            </span>
           </div>
 
           <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-lg">
@@ -631,9 +661,49 @@ Please confirm and dispatch my order. Thank you!`;
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* LEFT COLUMN: Steps */}
+        {/* LEFT COLUMN: Steps (or Registration Required Gate when Guest Checkout is OFF) */}
         <div className="lg:col-span-7 space-y-6">
-          {checkoutStep === 'review' ? (
+          {!guestCheckoutEnabled && !currentUser ? (
+            <div className="bg-white rounded-2xl border-2 border-amber-200 shadow-sm p-6 sm:p-8 text-center space-y-5">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+                <ShieldCheck className="w-8 h-8" />
+              </div>
+              <div className="space-y-2 max-w-md mx-auto">
+                <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                  Account Required to Order
+                </span>
+                <h2 className="text-xl font-black text-gray-900">
+                  Please Sign In or Create an Account
+                </h2>
+                <p className="text-xs text-gray-600 leading-relaxed">
+                  Guest checkout is currently turned off by the store administrator. Sign in or register a free account to place your order and unlock the <strong>৳50 advance payment discount</strong>.
+                </p>
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                  গেস্ট চেকআউট বর্তমানে বন্ধ রয়েছে। অর্ডার সম্পন্ন করতে অনুগ্রহ করে লগইন অথবা নতুন অ্যাকাউন্ট রেজিস্টার করুন।
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  id="btn-checkout-gate-login"
+                  onClick={openLoginModal}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In Now</span>
+                </button>
+                <button
+                  type="button"
+                  id="btn-checkout-gate-register"
+                  onClick={openRegisterModal}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Create Free Account</span>
+                </button>
+              </div>
+            </div>
+          ) : checkoutStep === 'review' ? (
             /* STEP 1: GUEST CHECKOUT FORM + PAYMENT SELECTION */
             <>
               {/* SECTION 1: CUSTOMER SHIPPING DETAILS (Direct Form, No Mandatory Registration) */}

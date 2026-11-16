@@ -46,8 +46,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 }) => {
   const {
     currentUser,
+    guestCheckoutEnabled,
     isLoggedIn,
     openLoginModal,
+    openRegisterModal,
     cart,
     cartSubtotal,
     deliveryCharge,
@@ -196,6 +198,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   const handlePlaceOnlineOrder = async () => {
+    if (!guestCheckoutEnabled && !currentUser) {
+      addToast('Guest checkout is currently disabled. Please sign in or register to place an order.', 'warning');
+      openLoginModal();
+      return;
+    }
     if (!isValidBDPhone(phone)) {
       addToast('Please enter a valid 11-digit Bangladeshi mobile number starting with 013-019 (e.g. 017XXXXXXXX).', 'error');
       setStep('shipping');
@@ -415,6 +422,55 @@ Please confirm and dispatch the order. Thank you!`;
           )}
         </div>
 
+        {/* Gate screen when Guest Checkout is OFF and visitor is not logged in */}
+        {!guestCheckoutEnabled && !currentUser ? (
+          <div className="p-6 sm:p-8 text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+              <ShieldCheck className="w-7 h-7" />
+            </div>
+            <div className="space-y-1.5">
+              <h4 className="text-base font-black text-gray-900">
+                Sign In or Registration Required
+              </h4>
+              <p className="text-xs text-gray-600 leading-relaxed max-w-md mx-auto">
+                Guest checkout is currently turned off by admin. Please sign in or create a free account to place your order.
+              </p>
+              <p className="text-xs text-amber-800 font-medium">
+                গেস্ট চেকআউট বর্তমানে বন্ধ রয়েছে। অর্ডার করতে অনুগ্রহ করে লগইন অথবা রেজিস্টার করুন।
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openLoginModal();
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openRegisterModal();
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                Create Account
+              </button>
+              <button
+                type="button"
+                onClick={handleReturnToCart}
+                className="w-full sm:w-auto px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Return to Cart
+              </button>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Step 1: Shipping Form */}
         {step === 'shipping' && (
           <form onSubmit={handleShippingSubmit} className="p-6 space-y-4">
@@ -1208,6 +1264,8 @@ Please confirm and dispatch the order. Thank you!`;
               </button>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>

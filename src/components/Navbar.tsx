@@ -24,7 +24,6 @@ import {
   Share2,
   ExternalLink,
   Crown,
-  LayoutDashboard,
   RotateCcw,
   Sparkles,
   LogOut,
@@ -301,25 +300,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                   Store
                 </a>
 
-                {currentUser?.role === 'admin' && (
-                  <a
-                    id="nav-link-dashboard"
-                    href="/#/dashboard"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleDashboardClick();
-                    }}
-                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1.5 ${
-                      viewMode === 'dashboard'
-                        ? 'text-purple-700 bg-purple-50 font-semibold'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <LayoutDashboard className="w-4 h-4 text-purple-600" />
-                    <span>Admin Dashboard</span>
-                  </a>
-                )}
-
                 <a
                   id="nav-link-contact"
                   href="/#/contact"
@@ -460,14 +440,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenCart }) => {
                 <button
                   id="nav-dashboard-btn"
                   onClick={handleDashboardClick}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                     viewMode === 'dashboard'
                       ? 'bg-purple-900 text-white border-purple-800'
                       : 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                   }`}
                   title="Open XEEROO Admin Dashboard"
                 >
-                  <Shield className="w-4 h-4 text-purple-600" />
+                  <Shield className={`w-4 h-4 ${viewMode === 'dashboard' ? 'text-white' : 'text-purple-600'}`} />
                   <span>Admin Dashboard</span>
                 </button>
               )}

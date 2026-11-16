@@ -31,6 +31,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     cartTotal,
     setViewMode,
     currentUser,
+    guestCheckoutEnabled,
     openLoginModal,
     addToast,
   } = useStore();
@@ -253,6 +254,15 @@ My Delivery Address:`
                 </div>
               </div>
 
+              {!guestCheckoutEnabled && !currentUser && (
+                <div className="flex items-center gap-1.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>
+                    <strong>Login Required:</strong> Guest checkout is currently paused. Sign in or register at checkout to place your order.
+                  </span>
+                </div>
+              )}
+
               {/* Primary Online Checkout Button */}
               <button
                 id="btn-proceed-online-checkout"
@@ -260,21 +270,41 @@ My Delivery Address:`
                 onClick={handleProceedClick}
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
               >
-                <span>Proceed to Checkout • {formatBDT(cartTotal)}</span>
+                <span>
+                  {!guestCheckoutEnabled && !currentUser
+                    ? `Sign In & Checkout • ${formatBDT(cartTotal)}`
+                    : `Proceed to Checkout • ${formatBDT(cartTotal)}`}
+                </span>
                 <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
 
               {/* WhatsApp Cart Order Button */}
-              <a
-                id="btn-whatsapp-cart-checkout"
-                href={cartWhatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30"
-              >
-                <WhatsAppIcon className="w-4 h-4 shrink-0" />
-                <span>Order via WhatsApp</span>
-              </a>
+              {(!guestCheckoutEnabled && !currentUser) ? (
+                <button
+                  id="btn-whatsapp-cart-checkout-locked"
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    addToast('Please sign in or register to complete your order.', 'info');
+                    openLoginModal();
+                  }}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition-all cursor-pointer border border-amber-200"
+                >
+                  <WhatsAppIcon className="w-4 h-4 shrink-0" />
+                  <span>Sign In to Order via WhatsApp</span>
+                </button>
+              ) : (
+                <a
+                  id="btn-whatsapp-cart-checkout"
+                  href={cartWhatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs transition-all cursor-pointer border border-[#25D366]/30"
+                >
+                  <WhatsAppIcon className="w-4 h-4 shrink-0" />
+                  <span>Order via WhatsApp</span>
+                </a>
+              )}
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 pt-1">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />

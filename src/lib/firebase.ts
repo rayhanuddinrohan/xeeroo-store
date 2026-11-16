@@ -1687,3 +1687,76 @@ export const subscribeToFirestoreFacebookConfig = (
   );
 };
 
+// ==========================================
+// 11. Store Settings (Guest Checkout Toggle)
+// ==========================================
+export interface CheckoutSettings {
+  guestCheckoutEnabled: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export const saveFirestoreCheckoutSettings = async (
+  guestCheckoutEnabled: boolean,
+  updatedBy?: string
+): Promise<boolean> => {
+  try {
+    const docRef = doc(db, 'settings', 'checkout');
+    await setDoc(
+      docRef,
+      {
+        guestCheckoutEnabled: Boolean(guestCheckoutEnabled),
+        updatedAt: new Date().toISOString(),
+        ...(updatedBy ? { updatedBy } : {}),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn('Failed to save checkout settings to Firestore:', err);
+    return false;
+  }
+};
+
+export const fetchFirestoreCheckoutSettings = async (): Promise<CheckoutSettings | null> => {
+  try {
+    const docRef = doc(db, 'settings', 'checkout');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      const d = snap.data();
+      return {
+        guestCheckoutEnabled: d.guestCheckoutEnabled !== undefined ? Boolean(d.guestCheckoutEnabled) : true,
+        updatedAt: d.updatedAt,
+        updatedBy: d.updatedBy,
+      };
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch checkout settings from Firestore:', err);
+    return null;
+  }
+};
+
+export const subscribeToFirestoreCheckoutSettings = (
+  onUpdate: (settings: CheckoutSettings) => void,
+  onError?: (err: unknown) => void
+) => {
+  const docRef = doc(db, 'settings', 'checkout');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        onUpdate({
+          guestCheckoutEnabled: d.guestCheckoutEnabled !== undefined ? Boolean(d.guestCheckoutEnabled) : true,
+          updatedAt: d.updatedAt,
+          updatedBy: d.updatedBy,
+        });
+      }
+    },
+    (err) => {
+      console.warn('Firestore onSnapshot checkout settings error:', err);
+      onError?.(err);
+    }
+  );
+};

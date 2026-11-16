@@ -67,6 +67,9 @@ import {
   saveFirestoreFacebookConfig,
   fetchFirestoreFacebookConfig,
   subscribeToFirestoreFacebookConfig,
+  saveFirestoreCheckoutSettings,
+  fetchFirestoreCheckoutSettings,
+  subscribeToFirestoreCheckoutSettings,
   migrateFirestoreProductsToAlphanumericIds,
   fetchFirestoreProductByIdentifier,
   db,
@@ -120,6 +123,10 @@ interface StoreContextType {
     explicitProductUrl?: string
   ) => Promise<{ success: boolean; message: string; postUrl?: string; postId?: string }>;
   migrateProductsToAlphanumericIds: () => Promise<{ success: boolean; message: string; totalChecked: number; migratedCount: number }>;
+
+  // Store-wide Guest Checkout Toggle (Admin Controlled)
+  guestCheckoutEnabled: boolean;
+  toggleGuestCheckout: (enabled?: boolean) => Promise<boolean>;
 
   // Current user & Auth state
   currentUser: User | null;
@@ -348,6 +355,7 @@ const STORAGE_KEY_CART = 'xeeroo_store_cart_v3';
 const STORAGE_KEY_BANNERS = 'xeeroo_store_banners_v3';
 const STORAGE_KEY_CURRENT_USER_ID = 'xeeroo_store_current_user_id_v3';
 const STORAGE_KEY_NOTIFICATIONS = 'xeeroo_store_notifications_v3';
+const STORAGE_KEY_GUEST_CHECKOUT = 'xeeroo_guest_checkout_enabled_v1';
 
 export const isPhoneMatch = (p1?: string, p2?: string): boolean => {
   if (!p1 || !p2) return false;
@@ -575,6 +583,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Store-wide Facebook Page Auto-Post configuration (Synchronized with Firestore)
   const [facebookConfig, setFacebookConfig] = useState<FacebookConfig>(() => getStoredFacebookConfig());
 
+  // Store-wide Guest Checkout Access Switch (Admin Controlled, Synchronized with Firestore)
+  const [guestCheckoutEnabled, setGuestCheckoutEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_GUEST_CHECKOUT);
+      if (saved === 'false') return false;
+      if (saved === 'true') return true;
+      return true;
+    } catch {
+      return true;
+    }
+  });
+
   // Refs to track order statuses, seen notifications, pending local orders, and current user
   const ordersStatusRef = useRef<Map<string, OrderStatus>>(new Map());
   const seenNotifsRef = useRef<Set<string>>(new Set());
@@ -594,6 +614,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let unsubscribeNotifications: (() => void) | null = null;
     let unsubscribeTelegram: (() => void) | null = null;
     let unsubscribeFacebook: (() => void) | null = null;
+    let unsubscribeCheckoutSettings: (() => void) | null = null;
 
     const initDatabase = async () => {
       try {
@@ -607,13 +628,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             projectId: ping.projectId,
           }));
 
-          const [dbProds, dbCats, dbUsers, dbOrders, dbTelegram, dbFacebook] = await Promise.all([
+          const [dbProds, dbCats, dbUsers, dbOrders, dbTelegram, dbFacebook, dbCheckoutSettings] = await Promise.all([
             fetchFirestoreProducts(),
             fetchFirestoreCategories(),
             fetchFirestoreUsers(),
             fetchFirestoreOrders(),
             fetchFirestoreTelegramConfig(),
             fetchFirestoreFacebookConfig(),
+            fetchFirestoreCheckoutSettings(),
           ]);
 
           if (!isMounted) return;
@@ -674,6 +696,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (dbFacebook && isMounted) {
             setFacebookConfig(dbFacebook);
             saveStoredFacebookConfig(dbFacebook);
+          }
+          if (dbCheckoutSettings && isMounted) {
+            setGuestCheckoutEnabled(dbCheckoutSettings.guestCheckoutEnabled);
+            try {
+              localStorage.setItem(
+                STORAGE_KEY_GUEST_CHECKOUT,
+                String(dbCheckoutSettings.guestCheckoutEnabled)
+              );
+            } catch {
+              // ignore
+            }
           }
 
           setDbStatus(prev => ({
@@ -878,6 +911,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setFacebookConfig(remoteCfg);
             saveStoredFacebookConfig(remoteCfg);
           });
+
+          // Attach real-time Firestore listener for Guest Checkout Access Switch
+          unsubscribeCheckoutSettings = subscribeToFirestoreCheckoutSettings((remoteCfg) => {
+            if (!isMounted) return;
+            setGuestCheckoutEnabled(remoteCfg.guestCheckoutEnabled);
+            try {
+              localStorage.setItem(
+                STORAGE_KEY_GUEST_CHECKOUT,
+                String(remoteCfg.guestCheckoutEnabled)
+              );
+            } catch {
+              // ignore
+            }
+          });
         } else {
           setDbStatus(prev => ({
             ...prev,
@@ -903,6 +950,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (unsubscribeNotifications) unsubscribeNotifications();
       if (unsubscribeTelegram) unsubscribeTelegram();
       if (unsubscribeFacebook) unsubscribeFacebook();
+      if (unsubscribeCheckoutSettings) unsubscribeCheckoutSettings();
     };
   }, []);
 
@@ -2920,6 +2968,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const nowIso = new Date().toISOString();
     const isGuestOrder = !currentUser;
+
+    if (isGuestOrder && !guestCheckoutEnabled) {
+      addToast(
+        'Guest checkout is currently turned OFF by admin. Please sign in or create an account to complete your order.',
+        'warning'
+      );
+      openLoginModal();
+      return null;
+    }
+
     const cleanEmail = (optionalEmail || currentUser?.email || '').trim().toLowerCase();
     const customerId = currentUser ? currentUser.id : 'guest';
     const customerFullName = (shippingAddress.fullName || currentUser?.fullName || 'Guest Customer').trim();
@@ -3089,6 +3147,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setFacebookConfig(newConfig);
     saveStoredFacebookConfig(newConfig);
     const ok = await saveFirestoreFacebookConfig(newConfig);
+    return ok;
+  };
+
+  const toggleGuestCheckout = async (explicitEnabled?: boolean): Promise<boolean> => {
+    if (currentUser?.role !== 'admin') {
+      addToast('Admin Access Required: Only Master Admins can toggle Guest Checkout.', 'error');
+      return false;
+    }
+
+    const nextValue = explicitEnabled !== undefined ? Boolean(explicitEnabled) : !guestCheckoutEnabled;
+    setGuestCheckoutEnabled(nextValue);
+    try {
+      localStorage.setItem(STORAGE_KEY_GUEST_CHECKOUT, String(nextValue));
+    } catch {
+      // ignore
+    }
+
+    const ok = await saveFirestoreCheckoutSettings(
+      nextValue,
+      currentUser.email || currentUser.fullName || 'admin'
+    );
+
+    addToast(
+      nextValue
+        ? 'Guest Checkout is now ON — customers can place COD orders without signing in.'
+        : 'Guest Checkout is now OFF — customers must sign in or register before checkout.',
+      nextValue ? 'success' : 'info'
+    );
+
     return ok;
   };
 
@@ -3505,6 +3592,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateFacebookConfig,
     postProductToFacebook,
     migrateProductsToAlphanumericIds,
+
+    // Store-wide Guest Checkout Toggle
+    guestCheckoutEnabled,
+    toggleGuestCheckout,
 
     // Unified Admin Drawer
     isAdminDrawerOpen,

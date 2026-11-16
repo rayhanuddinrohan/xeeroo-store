@@ -31,7 +31,16 @@ import { TelegramSettingsModal } from './TelegramSettingsModal';
 import { getStoredTelegramConfig } from '../../utils/telegram';
 
 export const OrderManagementTab: React.FC = () => {
-  const { orders, updateOrderStatus, canUpdateOrderStatus, refreshOrdersFromFirestore, addToast } = useStore();
+  const {
+    orders,
+    updateOrderStatus,
+    canUpdateOrderStatus,
+    refreshOrdersFromFirestore,
+    addToast,
+    currentUser,
+    guestCheckoutEnabled,
+    toggleGuestCheckout,
+  } = useStore();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('pending');
@@ -312,13 +321,67 @@ export const OrderManagementTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
           <Clock className="w-4 h-4 text-amber-600 shrink-0" />
           <span>
             <strong>Manual Fulfillment Flow:</strong> Every new order (Customer, Guest, Repeat, Moderator, or Admin) enters <strong>Pending Orders</strong> first until staff manually updates the status.
           </span>
         </div>
+
+        {/* Admin-Only Guest Checkout Master Switch */}
+        {currentUser?.role === 'admin' && (
+          <div
+            className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl border text-xs shadow-2xs shrink-0 transition-colors ${
+              guestCheckoutEnabled
+                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                : 'bg-rose-50/90 border-rose-200 text-rose-950'
+            }`}
+          >
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-xs">Guest Checkout Access</span>
+                <span
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase ${
+                    guestCheckoutEnabled
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-rose-600 text-white'
+                  }`}
+                >
+                  {guestCheckoutEnabled ? 'ON' : 'OFF'}
+                </span>
+              </div>
+              <p className="text-[11px] opacity-80">
+                {guestCheckoutEnabled
+                  ? 'Guests can order without login'
+                  : 'Sign in / register required for checkout'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              id="orders-tab-toggle-guest-checkout"
+              role="switch"
+              aria-checked={guestCheckoutEnabled}
+              aria-label="Toggle Guest Checkout Access"
+              onClick={() => toggleGuestCheckout()}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${
+                guestCheckoutEnabled ? 'bg-emerald-600' : 'bg-rose-600'
+              }`}
+              title={
+                guestCheckoutEnabled
+                  ? 'Click to turn OFF Guest Checkout'
+                  : 'Click to turn ON Guest Checkout'
+              }
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                  guestCheckoutEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Quick Status Tabs Bar */}

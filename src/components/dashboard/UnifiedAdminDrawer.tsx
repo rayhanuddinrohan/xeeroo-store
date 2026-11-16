@@ -59,6 +59,8 @@ export const UnifiedAdminDrawer: React.FC = () => {
     openSettingsModal,
     logout,
     facebookConfig,
+    guestCheckoutEnabled,
+    toggleGuestCheckout,
   } = useStore();
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -337,6 +339,44 @@ export const UnifiedAdminDrawer: React.FC = () => {
                     External Scraper
                   </span>
                 </button>
+              )}
+
+              {/* Guest Checkout Access Switch — Admin only */}
+              {isAdmin && (
+                <div className="mt-1 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-2 px-1">
+                  <div className="min-w-0">
+                    <span className="text-[11px] font-bold text-white block leading-tight">
+                      Guest Checkout
+                    </span>
+                    <span className="text-[9px] text-slate-300 block truncate">
+                      {guestCheckoutEnabled
+                        ? 'ON • Order without login'
+                        : 'OFF • Login required'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    id="drawer-toggle-guest-checkout"
+                    role="switch"
+                    aria-checked={guestCheckoutEnabled}
+                    aria-label="Toggle Guest Checkout Access"
+                    onClick={() => toggleGuestCheckout()}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400/50 ${
+                      guestCheckoutEnabled ? 'bg-emerald-500' : 'bg-rose-500/90'
+                    }`}
+                    title={
+                      guestCheckoutEnabled
+                        ? 'Guest Checkout is ON. Click to turn OFF'
+                        : 'Guest Checkout is OFF. Click to turn ON'
+                    }
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        guestCheckoutEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
               )}
             </div>
           )}
