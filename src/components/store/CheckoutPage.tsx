@@ -34,6 +34,7 @@ import {
 export const CheckoutPage: React.FC = () => {
   const {
     cart,
+    products,
     cartSubtotal,
     currentUser,
     guestCheckoutEnabled,
@@ -44,6 +45,16 @@ export const CheckoutPage: React.FC = () => {
     navigateToStore,
     navigateToOrders,
   } = useStore();
+
+  const hasFullPaymentRequiredItem = useMemo(
+    () =>
+      cart.some(item => {
+        const liveProd = products.find(p => p.id === item.product.id);
+        return Boolean(liveProd?.requireFullPayment ?? item.product.requireFullPayment);
+      }),
+    [cart, products]
+  );
+  const isGuestBlocked = (!guestCheckoutEnabled || hasFullPaymentRequiredItem) && !currentUser;
 
   // Step state: 'review' (Guest form + payment option) or 'payment' (bKash/Nagad gateway info for Advance)
   const [checkoutStep, setCheckoutStep] = useState<'review' | 'payment'>('review');
@@ -57,7 +68,16 @@ export const CheckoutPage: React.FC = () => {
   const [street, setStreet] = useState(currentUser?.address?.street || '');
 
   // Payment method: 'cod' (default for frictionless guest checkout) or 'advance' (with 50 TK discount)
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'advance'>('cod');
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'advance'>(
+    hasFullPaymentRequiredItem ? 'advance' : 'cod'
+  );
+
+  // Force Advance payment whenever cart contains a full-payment-required product
+  useEffect(() => {
+    if (hasFullPaymentRequiredItem && paymentMethod !== 'advance') {
+      setPaymentMethod('advance');
+    }
+  }, [hasFullPaymentRequiredItem, paymentMethod]);
   const [advanceGateway, setAdvanceGateway] = useState<'bkash' | 'nagad' | 'rocket'>('bkash');
   const [senderNumber, setSenderNumber] = useState(currentUser?.phone || '');
   const [trxId, setTrxId] = useState('');
@@ -205,8 +225,13 @@ export const CheckoutPage: React.FC = () => {
 
   const handlePlaceOrder = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!guestCheckoutEnabled && !currentUser) {
-      addToast('Guest checkout is currently turned off. Please sign in or register to place an order.', 'warning');
+    if (isGuestBlocked) {
+      addToast(
+        hasFullPaymentRequiredItem
+          ? 'Guest checkout is turned off for Full-Payment-Only items. Please sign in or register to place an order.'
+          : 'Guest checkout is currently turned off. Please sign in or register to place an order.',
+        'warning'
+      );
       openLoginModal();
       return;
     }
@@ -214,6 +239,12 @@ export const CheckoutPage: React.FC = () => {
 
     if (cart.length === 0) {
       addToast('Your cart is empty.', 'warning');
+      return;
+    }
+
+    if (hasFullPaymentRequiredItem && paymentMethod !== 'advance') {
+      setPaymentMethod('advance');
+      addToast('Cash on Delivery is unavailable. Full advance payment is required for one or more products in your cart.', 'warning');
       return;
     }
 
@@ -286,8 +317,13 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const handleOrderViaWhatsApp = async () => {
-    if (!guestCheckoutEnabled && !currentUser) {
-      addToast('Guest checkout is currently turned off. Please sign in or register to place an order.', 'warning');
+    if (isGuestBlocked) {
+      addToast(
+        hasFullPaymentRequiredItem
+          ? 'Guest checkout is turned off for Full-Payment-Only items. Please sign in or register to place an order.'
+          : 'Guest checkout is currently turned off. Please sign in or register to place an order.',
+        'warning'
+      );
       openLoginModal();
       return;
     }
@@ -317,6 +353,16 @@ export const CheckoutPage: React.FC = () => {
       Boolean(currentUser) &&
       Boolean(senderNumber.trim()) &&
       Boolean(trxId.trim());
+
+    if (hasFullPaymentRequiredItem && !hasAdvanceCredentials) {
+      setPaymentMethod('advance');
+      setCheckoutStep('payment');
+      addToast(
+        'Cash on Delivery is unavailable. Please complete full advance payment (enter Sender Number & TrxID) before placing order.',
+        'warning'
+      );
+      return;
+    }
 
     const effectivePaymentMethod = hasAdvanceCredentials ? 'advance' : 'cod';
     const effectiveDiscount = hasAdvanceCredentials ? 50 : 0;
@@ -569,7 +615,9 @@ Please confirm and dispatch my order. Thank you!`;
                 </span>
               </div>
               <p className="text-xs text-emerald-100 mt-0.5 font-medium">
-                {guestCheckoutEnabled
+                {hasFullPaymentRequiredItem
+                  ? 'অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট • Full advance payment is required for item(s) in your cart (COD & Guest Checkout disabled).'
+                  : guestCheckoutEnabled
                   ? 'অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট (রেজিস্ট্রেশন বাধ্যতামূলক) • Cash on Delivery is 100% open for instant guest checkout!'
                   : 'অগ্রিম ফুল পেমেন্টে পাবেন ৫০ টাকা ডিসকাউন্ট • Sign in or create a free account to complete your order.'}
               </p>
@@ -628,8 +676,10 @@ Please confirm and dispatch my order. Thank you!`;
           <h1 className="text-lg sm:text-xl font-black text-gray-900 tracking-tight">
             {checkoutStep === 'payment'
               ? 'Advance Payment Gateway'
-              : !guestCheckoutEnabled && !currentUser
+              : isGuestBlocked
               ? 'Sign In Required for Checkout'
+              : hasFullPaymentRequiredItem
+              ? 'Prepaid Advance Checkout'
               : 'Guest & Express Checkout'}
           </h1>
         </div>
@@ -638,14 +688,16 @@ Please confirm and dispatch my order. Thank you!`;
           {/* Guest Checkout status badge */}
           <div
             className={`flex items-center gap-1.5 border px-3 py-1 rounded-lg text-xs font-bold ${
-              !guestCheckoutEnabled && !currentUser
+              isGuestBlocked || hasFullPaymentRequiredItem
                 ? 'bg-amber-50 border-amber-200 text-amber-800'
                 : 'bg-blue-50 border-blue-200 text-blue-700'
             }`}
           >
             <Truck className="w-3.5 h-3.5" />
             <span>
-              {currentUser
+              {hasFullPaymentRequiredItem
+                ? 'Full Payment Only (COD Unavailable)'
+                : currentUser
                 ? 'Member Checkout'
                 : guestCheckoutEnabled
                 ? 'Guest Checkout (No Registration Required)'
@@ -663,23 +715,35 @@ Please confirm and dispatch my order. Thank you!`;
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* LEFT COLUMN: Steps (or Registration Required Gate when Guest Checkout is OFF) */}
         <div className="lg:col-span-7 space-y-6">
-          {!guestCheckoutEnabled && !currentUser ? (
+          {isGuestBlocked ? (
             <div className="bg-white rounded-2xl border-2 border-amber-200 shadow-sm p-6 sm:p-8 text-center space-y-5">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
                 <ShieldCheck className="w-8 h-8" />
               </div>
               <div className="space-y-2 max-w-md mx-auto">
-                <span className="inline-block px-3 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
-                  Account Required to Order
+                <span className="inline-block px-3 py-1 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black uppercase tracking-wider">
+                  {hasFullPaymentRequiredItem
+                    ? 'Full Advance Payment Only • No COD • Login Required'
+                    : 'Account Required to Order'}
                 </span>
                 <h2 className="text-xl font-black text-gray-900">
                   Please Sign In or Create an Account
                 </h2>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Guest checkout is currently turned off by the store administrator. Sign in or register a free account to place your order and unlock the <strong>৳50 advance payment discount</strong>.
+                  {hasFullPaymentRequiredItem ? (
+                    <>
+                      One or more products in your cart require <strong>Full Advance Payment</strong>. Guest checkout and Cash on Delivery (COD) are disabled for these items. Sign in or create a free account to pay in full and unlock the <strong>৳50 advance payment discount</strong>.
+                    </>
+                  ) : (
+                    <>
+                      Guest checkout is currently turned off by the store administrator. Sign in or register a free account to place your order and unlock the <strong>৳50 advance payment discount</strong>.
+                    </>
+                  )}
                 </p>
                 <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                  গেস্ট চেকআউট বর্তমানে বন্ধ রয়েছে। অর্ডার সম্পন্ন করতে অনুগ্রহ করে লগইন অথবা নতুন অ্যাকাউন্ট রেজিস্টার করুন।
+                  {hasFullPaymentRequiredItem
+                    ? 'আপনার কার্টে থাকা পণ্যটির জন্য গেস্ট চেকআউট ও ক্যাশ অন ডেলিভারি (COD) বন্ধ রয়েছে। অর্ডার করতে অনুগ্রহ করে লগইন/রেজিস্টার করে ফুল পেমেন্ট সম্পন্ন করুন।'
+                    : 'গেস্ট চেকআউট বর্তমানে বন্ধ রয়েছে। অর্ডার সম্পন্ন করতে অনুগ্রহ করে লগইন অথবা নতুন অ্যাকাউন্ট রেজিস্টার করুন।'}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -880,37 +944,54 @@ Please confirm and dispatch my order. Thank you!`;
 
                 {/* 2 Payment Options */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Option 1: Cash on Delivery (COD) - 100% Guest Friendly */}
+                  {/* Option 1: Cash on Delivery (COD) */}
                   <button
                     type="button"
                     id="btn-payment-cod"
-                    onClick={() => setPaymentMethod('cod')}
-                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative ${
-                      paymentMethod === 'cod'
-                        ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20 shadow-sm'
-                        : 'border-gray-200 hover:bg-gray-50'
+                    disabled={hasFullPaymentRequiredItem}
+                    onClick={() => {
+                      if (hasFullPaymentRequiredItem) {
+                        addToast('Cash on Delivery is unavailable for Full-Payment-Only products.', 'warning');
+                        return;
+                      }
+                      setPaymentMethod('cod');
+                    }}
+                    className={`p-4 rounded-xl border text-left transition-all relative ${
+                      hasFullPaymentRequiredItem
+                        ? 'border-gray-200 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed'
+                        : paymentMethod === 'cod'
+                        ? 'border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/20 shadow-sm cursor-pointer'
+                        : 'border-gray-200 hover:bg-gray-50 cursor-pointer'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1.5">
-                        <Truck className="w-5 h-5 text-blue-600" />
-                        <span className="text-xs font-black text-gray-900">
+                        <Truck className={`w-5 h-5 ${hasFullPaymentRequiredItem ? 'text-gray-400' : 'text-blue-600'}`} />
+                        <span className={`text-xs font-black ${hasFullPaymentRequiredItem ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
                           Cash on Delivery (COD)
                         </span>
                       </div>
-                      {paymentMethod === 'cod' && (
+                      {!hasFullPaymentRequiredItem && paymentMethod === 'cod' && (
                         <CheckCircle2 className="w-4 h-4 text-blue-600" />
                       )}
                     </div>
 
                     <div className="mb-2">
-                      <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-bold">
-                        Guest Checkout Friendly (No Sign Up)
-                      </span>
+                      {hasFullPaymentRequiredItem ? (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-black uppercase">
+                          COD Unavailable (Prepaid Only)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-bold">
+                          Guest Checkout Friendly (No Sign Up)
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-[11px] text-gray-600 leading-snug mb-1">
-                      Pay with cash when the delivery agent hands over your package at your doorstep.
+                      {hasFullPaymentRequiredItem
+                        ? 'Cash on Delivery is disabled because your cart contains a Full Advance Payment Only product.'
+                        : 'Pay with cash when the delivery agent hands over your package at your doorstep.'}
                     </p>
 
                     <span className="text-[10px] text-gray-500 font-medium block">
@@ -950,7 +1031,7 @@ Please confirm and dispatch my order. Thank you!`;
 
                     <div className="mb-2">
                       <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 text-[10px] font-bold">
-                        Registration Required for ৳50 Discount
+                        {hasFullPaymentRequiredItem ? 'Required for Selected Product(s)' : 'Registration Required for ৳50 Discount'}
                       </span>
                     </div>
 
@@ -965,6 +1046,18 @@ Please confirm and dispatch my order. Thank you!`;
                     </div>
                   </button>
                 </div>
+
+                {hasFullPaymentRequiredItem && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-900 flex items-start gap-2.5">
+                    <ShieldCheck className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">Full Advance Payment Only • Cash on Delivery Unavailable</span>
+                      <p className="text-[11px] text-rose-800 leading-relaxed mt-0.5">
+                        One or more items in your cart require full payment upfront. Please proceed to the Advance Payment Gateway to pay via bKash, Nagad, or Rocket.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* ADVANCE PAYMENT REGISTRATION CONDITION NOTICE (When Guest selects Advance) */}
                 {paymentMethod === 'advance' && !currentUser && (
@@ -981,7 +1074,7 @@ Please confirm and dispatch my order. Thank you!`;
                           </span>
                         </div>
                         <p className="text-xs text-amber-800 leading-relaxed">
-                          ৫০ টাকা অগ্রিম পেমেন্ট ডিসকাউন্ট পেতে <strong>রেজিস্ট্রেশন বাধ্যতামূলক</strong>। আপনি এক ক্লিকে সাইন ইন বা ফ্রি অ্যাকাউন্ট তৈরি করে ৫০ টাকা ছাড় নিতে পারেন, অথবা রেজিস্ট্রেশন ছাড়াই ক্যাশ অন ডেলিভারিতে সরাসরি অর্ডার সম্পন্ন করতে পারেন।
+                          ৫০ টাকা অগ্রিম পেমেন্ট ডিসকাউন্ট পেতে <strong>রেজিস্ট্রেশন বাধ্যতামূলক</strong>। আপনি এক ক্লিকে সাইন ইন বা ফ্রি অ্যাকাউন্ট তৈরি করে ৫০ টাকা ছাড় নিতে পারেন{!hasFullPaymentRequiredItem ? ', অথবা রেজিস্ট্রেশন ছাড়াই ক্যাশ অন ডেলিভারিতে সরাসরি অর্ডার সম্পন্ন করতে পারেন।' : '।'}
                         </p>
 
                         <div className="flex flex-wrap items-center gap-2.5 pt-1">
@@ -994,14 +1087,16 @@ Please confirm and dispatch my order. Thank you!`;
                             <span>Sign In / Register to Get 50 TK Discount</span>
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => setPaymentMethod('cod')}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-                          >
-                            <Truck className="w-3.5 h-3.5 text-blue-600" />
-                            <span>Switch to Cash on Delivery (Guest)</span>
-                          </button>
+                          {!hasFullPaymentRequiredItem && (
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod('cod')}
+                              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              <Truck className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Switch to Cash on Delivery (Guest)</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

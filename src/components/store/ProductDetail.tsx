@@ -752,6 +752,21 @@ My Delivery Address:`
                 )}
               </div>
 
+              {/* Full Advance Payment Required Notice */}
+              {product.requireFullPayment && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <span className="font-bold block">
+                      Full Advance Payment Required • Cash on Delivery Unavailable
+                    </span>
+                    <p className="text-[11px] text-rose-800 leading-relaxed">
+                      এই পণ্যটি অর্ডার করতে সম্পূর্ণ অগ্রিম পেমেন্ট (bKash / Nagad / Rocket) করতে হবে। গেস্ট চেকআউট এবং Cash on Delivery (COD) এই পণ্যের জন্য প্রযোজ্য নয়।
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Secondary Actions: Add to Cart & WhatsApp */}
               {!isOutOfStock && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
@@ -765,20 +780,43 @@ My Delivery Address:`
                     <span>Add to Cart</span>
                   </button>
 
-                  <a
-                    id="btn-whatsapp-order-product"
-                    href={whatsappOrderUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => {
-                      addToCart(product, selectedQuantity, selectedColor || undefined, selectedSize || undefined);
-                    }}
-                    className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs border border-[#25D366]/30 transition-all cursor-pointer"
-                    title="Order via WhatsApp (also saves to your cart)"
-                  >
-                    <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
-                    <span>Order via WhatsApp</span>
-                  </a>
+                  {product.requireFullPayment ? (
+                    <button
+                      id="btn-whatsapp-order-product"
+                      type="button"
+                      onClick={() => {
+                        if (!currentUser) {
+                          addToast(
+                            'Guest checkout is OFF for this product. Please sign in and complete full advance payment to order.',
+                            'warning'
+                          );
+                          openLoginModal();
+                        } else {
+                          handleBuyNow();
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs border border-amber-200 transition-all cursor-pointer"
+                      title="Full advance payment required"
+                    >
+                      <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                      <span>{currentUser ? 'Pay Full Advance to Order' : 'Sign In & Pay Advance'}</span>
+                    </button>
+                  ) : (
+                    <a
+                      id="btn-whatsapp-order-product"
+                      href={whatsappOrderUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => {
+                        addToCart(product, selectedQuantity, selectedColor || undefined, selectedSize || undefined);
+                      }}
+                      className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] font-bold text-xs border border-[#25D366]/30 transition-all cursor-pointer"
+                      title="Order via WhatsApp (also saves to your cart)"
+                    >
+                      <WhatsAppIcon className="w-4 h-4 text-[#25D366] shrink-0" />
+                      <span>Order via WhatsApp</span>
+                    </a>
+                  )}
                 </div>
               )}
 

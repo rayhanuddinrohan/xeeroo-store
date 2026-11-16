@@ -491,6 +491,7 @@ export const saveFirestoreProduct = async (product: Product): Promise<boolean> =
       reviews: Array.isArray(product.reviews) ? product.reviews : [],
       brand: product.brand || 'XEEROO',
       features: product.features || [],
+      requireFullPayment: Boolean(product.requireFullPayment),
     };
     if (Array.isArray(product.colors)) cleanPayload.colors = product.colors;
     if (Array.isArray(product.sizes)) cleanPayload.sizes = product.sizes;
@@ -632,6 +633,7 @@ export const subscribeToFirestoreProducts = (
             variants: Array.isArray(data.variants) ? data.variants : undefined,
             colors: Array.isArray(data.colors) ? data.colors : undefined,
             sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+            requireFullPayment: Boolean(data.requireFullPayment),
             facebookPostId: data.facebookPostId || undefined,
             facebookPostUrl: data.facebookPostUrl || undefined,
             facebookPostedAt: data.facebookPostedAt || undefined,
@@ -732,6 +734,7 @@ export const fetchFirestoreProducts = async (): Promise<Product[]> => {
           variants: Array.isArray(data.variants) ? data.variants : undefined,
           colors: Array.isArray(data.colors) ? data.colors : undefined,
           sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+          requireFullPayment: Boolean(data.requireFullPayment),
           facebookPostId: data.facebookPostId || undefined,
           facebookPostUrl: data.facebookPostUrl || undefined,
           facebookPostedAt: data.facebookPostedAt || undefined,
@@ -804,6 +807,7 @@ export const fetchFirestoreProductByIdentifier = async (identifier: string): Pro
       variants: Array.isArray(data.variants) ? data.variants : undefined,
       colors: Array.isArray(data.colors) ? data.colors : undefined,
       sizes: Array.isArray(data.sizes) ? data.sizes : undefined,
+      requireFullPayment: Boolean(data.requireFullPayment),
     };
   };
 
@@ -953,6 +957,7 @@ export const fetchRelatedCategoryProducts = async (
           reviewsCount: reviewsList.length || Number(data.reviewsCount) || 0,
           brand: data.brand || 'XEEROO',
           priority: (data.priority !== undefined && data.priority !== null && Number(data.priority) > 0) ? Number(data.priority) : undefined,
+          requireFullPayment: Boolean(data.requireFullPayment),
         });
       }
     });

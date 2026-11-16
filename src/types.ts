@@ -141,6 +141,7 @@ export interface Product {
   reviews?: ProductReview[];
   brand: string;
   features?: string[];
+  requireFullPayment?: boolean;
   facebookPostId?: string;
   facebookPostedAt?: string;
   facebookPostUrl?: string;

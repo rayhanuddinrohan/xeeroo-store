@@ -142,6 +142,15 @@ My Delivery Address:`
           </div>
         )}
 
+        {/* Full Advance Payment Only Badge */}
+        {product.requireFullPayment && (
+          <div className="absolute bottom-2.5 left-2.5 z-10">
+            <span className="px-2 py-0.5 rounded-md text-[9px] sm:text-[10px] font-black bg-slate-900/90 text-amber-300 border border-amber-400/40 shadow-md uppercase tracking-wide backdrop-blur-xs">
+              Full Pay Only • No COD
+            </span>
+          </div>
+        )}
+
         {/* Staff Quick Edit Overlay Button */}
         {isStaff && (
           <button
@@ -268,20 +277,44 @@ My Delivery Address:`
                   <ShoppingBag className="w-3.5 h-3.5 text-gray-600" />
                 </button>
 
-                <a
-                  id={`whatsapp-order-btn-${product.id}`}
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={e => {
-                    e.stopPropagation();
-                    addToCart(product, 1);
-                  }}
-                  className="p-1.5 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 transition-all cursor-pointer"
-                  title="Order via WhatsApp (also saves to your cart)"
-                >
-                  <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
-                </a>
+                {product.requireFullPayment ? (
+                  <button
+                    id={`whatsapp-order-btn-${product.id}`}
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (!currentUser) {
+                        addToast(
+                          'Guest checkout is OFF for this product. Please sign in and complete full advance payment to order.',
+                          'warning'
+                        );
+                        openLoginModal();
+                      } else {
+                        addToCart(product, 1);
+                        openCheckoutModal();
+                      }
+                    }}
+                    className="p-1.5 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 transition-all cursor-pointer"
+                    title="Full advance payment required — click to proceed to advance payment"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                  </button>
+                ) : (
+                  <a
+                    id={`whatsapp-order-btn-${product.id}`}
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={e => {
+                      e.stopPropagation();
+                      addToCart(product, 1);
+                    }}
+                    className="p-1.5 rounded-lg bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#128C7E] border border-[#25D366]/30 transition-all cursor-pointer"
+                    title="Order via WhatsApp (also saves to your cart)"
+                  >
+                    <WhatsAppIcon className="w-3.5 h-3.5 text-[#25D366]" />
+                  </a>
+                )}
               </>
             )}
           </div>

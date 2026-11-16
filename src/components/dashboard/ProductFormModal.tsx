@@ -29,6 +29,7 @@ import {
   Clipboard,
   Percent,
   Palette,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ProductFormModalProps {
@@ -108,6 +109,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [sku, setSku] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isPublished, setIsPublished] = useState(true);
+  const [requireFullPayment, setRequireFullPayment] = useState(false);
   const [postToFacebook, setPostToFacebook] = useState(true);
   const [brand, setBrand] = useState('');
   const [priority, setPriority] = useState<number | ''>('');
@@ -244,6 +246,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setSku(productToEdit.sku || '');
       setCategoryId(productToEdit.categoryId && productToEdit.categoryId !== 'all' ? productToEdit.categoryId : defaultCatId);
       setIsPublished(productToEdit.isPublished);
+      setRequireFullPayment(Boolean(productToEdit.requireFullPayment));
       setBrand(productToEdit.brand || '');
       setPriority(
         productToEdit.priority !== undefined && productToEdit.priority !== null && Number(productToEdit.priority) > 0
@@ -286,6 +289,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setSku(`PRD-${Math.floor(1000 + Math.random() * 9000)}`);
       setCategoryId(defaultCatId);
       setIsPublished(true);
+      setRequireFullPayment(false);
       setBrand('');
       setFeaturesText('');
       setThumbnailUrl('');
@@ -512,6 +516,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         colors: colors.length > 0 ? colors : [],
         sizes: sizes.length > 0 ? sizes : [],
         isPublished,
+        requireFullPayment,
         brand: brand.trim(),
         features,
         priority: priorityNum,
@@ -539,6 +544,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         colors: colors.length > 0 ? colors : [],
         sizes: sizes.length > 0 ? sizes : [],
         isPublished,
+        requireFullPayment,
         brand: brand.trim(),
         priority: priorityNum,
         rating: 0,
@@ -1542,6 +1548,58 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {/* Full Payment Only Switch (Disables Guest Checkout & Cash on Delivery) */}
+            <div
+              className={`sm:col-span-2 flex items-center justify-between p-3.5 rounded-xl border transition-colors ${
+                requireFullPayment
+                  ? 'bg-rose-50/80 border-rose-300'
+                  : 'bg-amber-50/40 border-amber-200/80'
+              }`}
+            >
+              <div className="flex items-start gap-3 pr-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                    requireFullPayment
+                      ? 'bg-rose-600 text-white'
+                      : 'bg-amber-100 text-amber-700 border border-amber-200'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-gray-900">
+                      Full Advance Payment Required (No COD & Guest Checkout OFF)
+                    </span>
+                    <span
+                      className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        requireFullPayment
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {requireFullPayment ? 'ON • Prepaid Only' : 'OFF • Standard'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                    {requireFullPayment
+                      ? 'Active: এই পণ্যটি ফুল অ্যাডভান্স পেমেন্ট ছাড়া অর্ডার করা যাবে না, গেস্ট চেকআউট বন্ধ থাকবে এবং Cash on Delivery (COD) পাওয়া যাবে না।'
+                      : 'When ON: Customers cannot order without full advance payment, Guest Checkout will be OFF for this product, and Cash on Delivery (COD) will be unavailable.'}
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  id="toggle-product-require-full-payment"
+                  type="checkbox"
+                  checked={requireFullPayment}
+                  onChange={e => setRequireFullPayment(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
               </label>
             </div>
 

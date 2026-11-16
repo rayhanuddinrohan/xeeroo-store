@@ -22,6 +22,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   const {
     cart,
+    products,
     updateCartQuantity,
     removeFromCart,
     clearCart,
@@ -35,6 +36,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     openLoginModal,
     addToast,
   } = useStore();
+
+  const hasFullPaymentRequiredItem = cart.some(item => {
+    const liveProd = products.find(p => p.id === item.product.id);
+    return Boolean(liveProd?.requireFullPayment ?? item.product.requireFullPayment);
+  });
+  const isGuestBlocked = (!guestCheckoutEnabled || hasFullPaymentRequiredItem) && !currentUser;
 
   const handleProceedClick = () => {
     onProceedToCheckout();
@@ -175,6 +182,11 @@ My Delivery Address:`
                           <span className="text-[11px] font-mono text-gray-400 block mt-0.5">
                             {formatBDT(product.price)} each
                           </span>
+                          {(products.find(p => p.id === product.id)?.requireFullPayment ?? product.requireFullPayment) && (
+                            <span className="inline-block mt-1 text-[9px] font-black uppercase tracking-wide text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                              Prepaid Only • No COD
+                            </span>
+                          )}
                         </div>
                         <button
                           onClick={() => removeFromCart(product.id, selectedColor, selectedSize)}
@@ -254,11 +266,23 @@ My Delivery Address:`
                 </div>
               </div>
 
-              {!guestCheckoutEnabled && !currentUser && (
-                <div className="flex items-center gap-1.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              {hasFullPaymentRequiredItem && (
+                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 text-[11px] font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
                   <span>
-                    <strong>Login Required:</strong> Guest checkout is currently paused. Sign in or register at checkout to place your order.
+                    <strong>Full Advance Payment Only:</strong> Cash on Delivery (COD) & Guest Checkout are unavailable for marked item(s) in your cart.
+                  </span>
+                </div>
+              )}
+
+              {isGuestBlocked && (
+                <div className="flex items-start gap-1.5 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Login Required:</strong>{' '}
+                    {hasFullPaymentRequiredItem
+                      ? 'Guest checkout is OFF for prepaid-only product(s). Sign in or register to pay in full advance.'
+                      : 'Guest checkout is currently paused. Sign in or register at checkout to place your order.'}
                   </span>
                 </div>
               )}
@@ -271,7 +295,7 @@ My Delivery Address:`
                 className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-blue-600/25 transition-all cursor-pointer hover:scale-[1.01] active:scale-98"
               >
                 <span>
-                  {!guestCheckoutEnabled && !currentUser
+                  {isGuestBlocked
                     ? `Sign In & Checkout • ${formatBDT(cartTotal)}`
                     : `Proceed to Checkout • ${formatBDT(cartTotal)}`}
                 </span>
@@ -279,19 +303,34 @@ My Delivery Address:`
               </button>
 
               {/* WhatsApp Cart Order Button */}
-              {(!guestCheckoutEnabled && !currentUser) ? (
+              {isGuestBlocked ? (
                 <button
                   id="btn-whatsapp-cart-checkout-locked"
                   type="button"
                   onClick={() => {
                     onClose();
-                    addToast('Please sign in or register to complete your order.', 'info');
+                    addToast(
+                      hasFullPaymentRequiredItem
+                        ? 'Please sign in and complete full advance payment to order prepaid-only products.'
+                        : 'Please sign in or register to complete your order.',
+                      'info'
+                    );
                     openLoginModal();
                   }}
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition-all cursor-pointer border border-amber-200"
                 >
                   <WhatsAppIcon className="w-4 h-4 shrink-0" />
                   <span>Sign In to Order via WhatsApp</span>
+                </button>
+              ) : hasFullPaymentRequiredItem ? (
+                <button
+                  id="btn-whatsapp-cart-checkout-prepaid"
+                  type="button"
+                  onClick={handleProceedClick}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-all cursor-pointer border border-emerald-200"
+                >
+                  <WhatsAppIcon className="w-4 h-4 shrink-0" />
+                  <span>Proceed to Advance Payment Desk</span>
                 </button>
               ) : (
                 <a

@@ -2969,9 +2969,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const nowIso = new Date().toISOString();
     const isGuestOrder = !currentUser;
 
-    if (isGuestOrder && !guestCheckoutEnabled) {
+    const requiresFullAdvance = cart.some(item => {
+      const liveProd = products.find(p => p.id === item.product.id);
+      return Boolean(liveProd?.requireFullPayment ?? item.product.requireFullPayment);
+    });
+
+    if (isGuestOrder && (!guestCheckoutEnabled || requiresFullAdvance)) {
       addToast(
-        'Guest checkout is currently turned OFF by admin. Please sign in or create an account to complete your order.',
+        requiresFullAdvance
+          ? 'One or more products in your cart require Full Advance Payment. Guest checkout is OFF for these items — please sign in or register to order.'
+          : 'Guest checkout is currently turned OFF by admin. Please sign in or create an account to complete your order.',
         'warning'
       );
       openLoginModal();
@@ -3012,6 +3019,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       paymentMethod === 'nagad' ||
       paymentMethod === 'rocket' ||
       (paymentDetails?.advanceDiscount !== undefined && paymentDetails.advanceDiscount > 0);
+
+    if (requiresFullAdvance) {
+      const hasPaidAdvanceDetails =
+        isAdvancePayment &&
+        paymentMethod !== 'cod' &&
+        Boolean(paymentDetails?.senderNumber?.trim()) &&
+        Boolean(paymentDetails?.trxId?.trim());
+      if (!hasPaidAdvanceDetails) {
+        addToast(
+          'Cash on Delivery is unavailable. Full advance payment (with Sender Number & TrxID) is mandatory for one or more products in your cart.',
+          'error'
+        );
+        return null;
+      }
+    }
 
     const advanceDiscount = isAdvancePayment ? 50 : (customDiscount || 0);
     const orderTotalAmount = Math.max(0, cartSubtotal + orderDeliveryCharge - advanceDiscount);
